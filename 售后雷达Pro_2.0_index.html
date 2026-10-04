@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#07111f">
+<title>售后雷达 Pro 2.0</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#07111f;color:#f4f7fb;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif}
+body{min-height:100vh}
+.app{max-width:760px;margin:auto;min-height:100vh;padding-bottom:86px}
+header{padding:20px 16px 12px;position:sticky;top:0;background:rgba(7,17,31,.95);backdrop-filter:blur(16px);z-index:5}
+h1{font-size:24px;margin:0 0 5px}.sub{font-size:12px;color:#8195ab}
+.page{display:none;padding:8px 14px}.page.active{display:block}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.card{background:#111e31;border:1px solid #1c3048;border-radius:18px;padding:15px;margin:10px 0;box-shadow:0 8px 30px rgba(0,0,0,.12)}
+.metric{min-height:118px}.label{font-size:13px;color:#91a5bb}.num{font-size:34px;font-weight:800;margin:11px 0 4px}.hint{font-size:12px;color:#71869d}
+.red{color:#ff6b6b}.yellow{color:#ffc857}.blue{color:#7ca9ff}.green{color:#63d9a3}
+.status{display:flex;align-items:center;gap:8px;font-weight:700}.dot{width:9px;height:9px;border-radius:50%;background:#63d9a3;box-shadow:0 0 10px #63d9a3}
+.small{font-size:12px;color:#7e93aa;margin-top:6px}.section-title{font-size:16px;font-weight:800;margin:18px 2px 8px}
+button{border:0;border-radius:13px;padding:13px 16px;background:#326cff;color:#fff;font-weight:700;font-size:14px;width:100%;margin-top:8px}
+button.secondary{background:#172940;color:#b9c9da}
+button.danger{background:#45232b;color:#ff9a9a}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.alert{padding:13px 0;border-bottom:1px solid #20334a}.alert:last-child{border:0}
+.badge{font-size:11px;padding:4px 7px;border-radius:7px;background:#35232a;color:#ff8c8c;white-space:nowrap}
+.badge.mid{background:#3b3422;color:#ffd36a}.badge.low{background:#1e3041;color:#9bb7d1}
+.item{background:#111e31;border:1px solid #1c3048;border-radius:15px;padding:14px;margin:9px 0}
+.search{width:100%;border:1px solid #243950;background:#0d1a2c;color:#fff;padding:13px;border-radius:13px;outline:none;font-size:14px}
+.search:focus{border-color:#326cff}
+.bottom{position:fixed;bottom:0;left:0;right:0;background:rgba(9,21,36,.97);border-top:1px solid #1c3048;display:flex;justify-content:center;z-index:10;padding-bottom:env(safe-area-inset-bottom)}
+.nav{max-width:760px;width:100%;display:grid;grid-template-columns:repeat(4,1fr)}
+.nav button{background:transparent;color:#71869d;border-radius:0;margin:0;padding:11px 3px 12px;font-size:12px}
+.nav button.on{color:#fff}.nav span{display:block;font-size:19px;margin-bottom:3px}
+.toggle{display:flex;justify-content:space-between;align-items:center;padding:15px 0;border-bottom:1px solid #20334a}
+.toggle:last-child{border:0}
+.switch{width:48px;height:28px;border-radius:20px;background:#26394e;padding:3px;transition:.2s}.switch i{display:block;background:#fff;width:22px;height:22px;border-radius:50%;transition:.2s}
+.switch.on{background:#326cff}.switch.on i{margin-left:20px}
+.empty{text-align:center;color:#71869d;padding:25px 5px}
+.toast{position:fixed;left:50%;bottom:95px;transform:translateX(-50%) translateY(20px);background:#172940;border:1px solid #29435f;padding:11px 15px;border-radius:12px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:20;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.info{background:#0d1a2c;border:1px solid #20364f;border-radius:12px;padding:11px;font-size:12px;color:#91a5bb;line-height:1.6}
+@media(min-width:700px){header,.page{padding-left:22px;padding-right:22px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <h1>售后雷达 Pro</h1>
+  <div class="sub">手机 Web 版 · 2.0 持久化测试模式</div>
+</header>
+
+<section id="home" class="page active">
+  <div class="card">
+    <div class="status"><i class="dot"></i> 雷达正常运行</div>
+    <div class="small">数据源：本地模拟 · 最后检查：<span id="last">刚刚</span></div>
+    <button onclick="newEvent()">立即检查</button>
+  </div>
+  <div class="grid">
+    <div class="card metric"><div class="label">买家拒绝协商</div><div class="num red" id="ref">12</div><div class="hint">待关注</div></div>
+    <div class="card metric"><div class="label">仲裁</div><div class="num yellow" id="arb">4</div><div class="hint">高优先级</div></div>
+    <div class="card metric"><div class="label">高风险</div><div class="num red" id="risk">7</div><div class="hint">需要处理</div></div>
+    <div class="card metric"><div class="label">今日新增</div><div class="num blue" id="today">6</div><div class="hint">本地累计</div></div>
+  </div>
+  <div class="section-title">最近预警</div>
+  <div class="card" id="homeAlerts"></div>
+</section>
+
+<section id="orders" class="page">
+  <div class="section-title">售后列表</div>
+  <input class="search" id="search" placeholder="搜索订单号 / 售后类型" oninput="renderOrders()">
+  <div id="orderList"></div>
+</section>
+
+<section id="alerts" class="page">
+  <div class="section-title">预警中心</div>
+  <div class="card" id="alertList"></div>
+</section>
+
+<section id="settings" class="page">
+  <div class="section-title">系统设置</div>
+  <div class="card">
+    <div class="toggle"><span>自动刷新</span><div class="switch" id="swAuto" onclick="toggleSetting('auto')"><i></i></div></div>
+    <div class="toggle"><span>新增事件提醒</span><div class="switch" id="swNotify" onclick="toggleSetting('notify')"><i></i></div></div>
+    <div class="toggle"><span>高风险优先</span><div class="switch" id="swRisk" onclick="toggleSetting('risk')"><i></i></div></div>
+  </div>
+  <div class="section-title">数据管理</div>
+  <div class="card">
+    <div class="info">数据保存在当前手机浏览器的本地存储中。关闭网页、刷新页面或再次打开网址，数据仍会保留。</div>
+    <button class="secondary" onclick="exportData()">导出数据备份</button>
+    <button class="secondary" onclick="importData()">导入数据备份</button>
+    <button class="danger" onclick="resetData()">恢复初始数据</button>
+    <button class="danger" onclick="clearAll()">清空全部数据</button>
+  </div>
+  <div class="card">
+    <div class="label">当前数据源</div>
+    <div style="font-weight:800;margin-top:8px">模拟测试数据</div>
+    <div class="small">未来获得抖店官方 API 权限后，可替换为官方数据源。</div>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+<div class="bottom"><div class="nav">
+  <button class="on" onclick="go('home',this)"><span>⌂</span>首页</button>
+  <button onclick="go('orders',this)"><span>▤</span>售后</button>
+  <button onclick="go('alerts',this)"><span>!</span>预警</button>
+  <button onclick="go('settings',this)"><span>⚙</span>设置</button>
+</div></div>
+</div>
+
+<input id="fileInput" type="file" accept=".json,application/json" style="display:none">
+
+<script>
+const KEY='after_sales_radar_pro_v2';
+const DAY_KEY='after_sales_radar_day';
+const defaults={
+  stats:{ref:12,arb:4,risk:7,today:6},
+  orders:Array.from({length:28},(_,i)=>{
+    const types=['买家拒绝协商','仲裁中','售后申请','待处理','已完成'];
+    const t=types[i%types.length];
+    return {id:'20261005'+String(100000+i),type:t,amount:(29.9+(i*17.3)%380).toFixed(2),time:'今天 '+String(9+i%12).padStart(2,'0')+':'+String(i*7%60).padStart(2,'0'),level:(t==='仲裁中'||t==='买家拒绝协商')?'高':i%3===0?'中':'低'};
+  }),
+  alerts:[
+    {title:'买家拒绝协商',order:'20261005003821',time:'刚刚',level:'高'},
+    {title:'新增仲裁',order:'20261005003107',time:'8分钟前',level:'高'},
+    {title:'售后申请',order:'20261004992812',time:'21分钟前',level:'中'}
+  ],
+  settings:{auto:true,notify:true,risk:true}
+};
+
+let data=loadData();
+
+function clone(x){return JSON.parse(JSON.stringify(x))}
+function loadData(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw){
+      const d=JSON.parse(raw);
+      if(!d.stats||!d.orders||!d.alerts) return clone(defaults);
+      return Object.assign(clone(defaults),d);
+    }
+  }catch(e){}
+  return clone(defaults);
+}
+function saveData(){
+  try{localStorage.setItem(KEY,JSON.stringify(data));localStorage.setItem(DAY_KEY,new Date().toDateString())}catch(e){}
+}
+function toast(msg){
+  const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');
+  clearTimeout(window.__toast);window.__toast=setTimeout(()=>el.classList.remove('show'),1800);
+}
+function go(id,btn){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('on'));
+  btn.classList.add('on');
+  if(id==='orders')renderOrders();
+  if(id==='alerts')renderAlerts();
+  if(id==='settings')renderSettings();
+}
+function badge(level){
+  const cls=level==='中'?'mid':level==='低'?'low':'';
+  return '<span class="badge '+cls+'">'+level+'</span>';
+}
+function renderAlerts(){
+  const list=data.alerts||[];
+  document.getElementById('alertList').innerHTML=list.length?list.map(a=>'<div class="alert"><div class="row"><b>'+escapeHtml(a.title)+'</b>'+badge(a.level)+'</div><div class="small">'+escapeHtml(a.order)+' · '+escapeHtml(a.time)+'</div></div>').join(''):'<div class="empty">暂无预警</div>';
+  document.getElementById('homeAlerts').innerHTML=list.slice(0,3).map(a=>'<div class="alert"><div class="row"><b>'+escapeHtml(a.title)+'</b>'+badge(a.level)+'</div><div class="small">'+escapeHtml(a.order)+' · '+escapeHtml(a.time)+'</div></div>').join('')||'<div class="empty">暂无预警</div>';
+}
+function renderOrders(){
+  const q=(document.getElementById('search')?.value||'').toLowerCase();
+  const list=data.orders.filter(o=>(o.id+' '+o.type).toLowerCase().includes(q));
+  document.getElementById('orderList').innerHTML=list.length?list.map(o=>'<div class="item"><div class="row"><b>'+escapeHtml(o.type)+'</b>'+badge(o.level)+'</div><div class="small">'+escapeHtml(o.id)+' · ¥'+escapeHtml(o.amount)+'</div><div class="small">'+escapeHtml(o.time)+'</div></div>').join(''):'<div class="empty">没有找到相关售后</div>';
+}
+function renderSettings(){
+  setSwitch('swAuto',data.settings.auto);setSwitch('swNotify',data.settings.notify);setSwitch('swRisk',data.settings.risk);
+}
+function setSwitch(id,on){document.getElementById(id).classList.toggle('on',!!on)}
+function toggleSetting(key){
+  data.settings[key]=!data.settings[key];saveData();renderSettings();toast(data.settings[key]?'已开启':'已关闭');
+}
+function sync(){
+  document.getElementById('ref').textContent=data.stats.ref;
+  document.getElementById('arb').textContent=data.stats.arb;
+  document.getElementById('risk').textContent=data.stats.risk;
+  document.getElementById('today').textContent=data.stats.today;
+  document.getElementById('last').textContent=new Date().toLocaleTimeString();
+  renderAlerts();renderOrders();renderSettings();saveData();
+}
+function newEvent(){
+  data.stats.ref++;data.stats.risk++;data.stats.today++;
+  const id='20261005'+Math.floor(10000+Math.random()*89999);
+  data.alerts.unshift({title:'模拟新增拒绝协商',order:id,time:'刚刚',level:'高'});
+  data.orders.unshift({id:id,type:'买家拒绝协商',amount:(49+Math.random()*300).toFixed(2),time:'刚刚',level:'高'});
+  data.alerts=data.alerts.slice(0,50);data.orders=data.orders.slice(0,200);
+  sync();toast('已发现新的售后事件');
+  if(data.settings.notify) setTimeout(()=>alert('已发现新的售后事件\\n订单号：'+id),120);
+}
+function resetData(){
+  if(!confirm('确定恢复初始测试数据吗？'))return;
+  data=clone(defaults);saveData();sync();toast('已恢复初始数据');
+}
+function clearAll(){
+  if(!confirm('确定清空全部本地数据吗？此操作不可撤销。'))return;
+  localStorage.removeItem(KEY);data=clone(defaults);sync();toast('已清空并恢复空白测试状态');
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='售后雷达Pro-备份-'+Date.now()+'.json';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('备份文件已生成');
+}
+function importData(){document.getElementById('fileInput').click()}
+document.getElementById('fileInput').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const d=JSON.parse(reader.result);
+      if(!d.stats||!d.orders||!d.alerts)throw new Error();
+      data=d;saveData();sync();toast('数据导入成功');
+    }catch(err){alert('备份文件格式不正确')}
+    e.target.value='';
+  };
+  reader.readAsText(file);
+});
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function resetTodayIfNeeded(){
+  const today=new Date().toDateString(),old=localStorage.getItem(DAY_KEY);
+  if(old&&old!==today){data.stats.today=0;saveData()}
+}
+resetTodayIfNeeded();sync();
+setInterval(()=>{document.getElementById('last').textContent=new Date().toLocaleTimeString()},30000);
+</script>
+</body>
+</html>
