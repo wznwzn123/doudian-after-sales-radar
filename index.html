@@ -3,58 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>售后雷达 Pro · 盯单+自动举证</title>
+<title>售后雷达 Pro · 快递盯单版</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#172033;font-family:system-ui,-apple-system,"PingFang SC",sans-serif}
 header{background:#111827;color:#fff;padding:18px 16px}.title{font-size:21px;font-weight:800}.sub{font-size:12px;opacity:.7;margin-top:5px}
-main{max-width:1050px;margin:auto;padding:14px}.panel{background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
-.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.card{background:#fff;border-radius:14px;padding:13px;box-shadow:0 2px 10px #0001;cursor:pointer}.num{font-size:23px;font-weight:800}.lab{font-size:12px;color:#6b7280}
-.bar{display:grid;grid-template-columns:1fr 130px 130px 130px;gap:8px;margin:12px 0}
+main{max-width:980px;margin:auto;padding:14px}.panel{background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.card{background:#fff;border-radius:14px;padding:13px;box-shadow:0 2px 10px #0001;cursor:pointer}.num{font-size:23px;font-weight:800}.lab{font-size:12px;color:#6b7280}
+.bar{display:grid;grid-template-columns:1fr 130px 130px;gap:8px;margin:12px 0}
 input,select,textarea,button{font:inherit;border-radius:10px;padding:10px;border:1px solid #ddd}input,select,textarea{background:#fff;width:100%}button{cursor:pointer;background:#fff}
-.primary{background:#2563eb;color:#fff;border:0}.danger{background:#fee2e2;color:#b91c1c;border:0}.warning{background:#ffedd5;color:#c2410c;border:0}.small{padding:7px 9px;font-size:12px}
+.primary{background:#2563eb;color:#fff;border:0}.danger{background:#fee2e2;color:#b91c1c;border:0}.small{padding:7px 9px;font-size:12px}
 .section-title{font-weight:800;margin-bottom:10px}.formrow{display:grid;grid-template-columns:1fr 130px;gap:8px}.hint{font-size:12px;color:#6b7280;line-height:1.6;margin-top:7px}
 .item{background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 2px 10px #0001}.row{display:flex;justify-content:space-between;gap:10px;align-items:center}.meta{font-size:12px;color:#6b7280;line-height:1.7;margin-top:6px}
-.tag{display:inline-block;padding:4px 8px;border-radius:99px;font-size:11px}.red{background:#fee2e2;color:#b91c1c}.orange{background:#ffedd5;color:#c2410c}.green{background:#dcfce7;color:#15803d}.blue{background:#dbeafe;color:#1d4ed8}.purple{background:#ede9fe;color:#6d28d9}.gray{background:#f3f4f6;color:#4b5563}
-.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.match{border-left:4px solid #2563eb}.urgent{border-left:4px solid #dc2626}.evidence{border-left:4px solid #7c3aed}
-.empty{text-align:center;padding:28px;color:#9ca3af}.table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{padding:9px 6px;border-bottom:1px solid #eee;text-align:left}
-.modal{display:none;position:fixed;inset:0;background:#0008;padding:20px;align-items:end;z-index:20}.modal.show{display:flex}.sheet{background:#fff;padding:18px;border-radius:18px;width:100%;max-width:760px;margin:auto;max-height:90vh;overflow:auto}
-.line{padding:9px 0;border-bottom:1px solid #eee}.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 14px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:40}.toast.show{opacity:1}
-.rule{background:#faf7ff;padding:12px;border-radius:12px;border:1px solid #eee4ff}.switch{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0}.switch input{width:auto}
-@media(max-width:720px){.cards{grid-template-columns:1fr 1fr}.bar{grid-template-columns:1fr 1fr}.bar input{grid-column:1/-1}.formrow{grid-template-columns:1fr}.table{font-size:11px}}
+.tag{display:inline-block;padding:4px 8px;border-radius:99px;font-size:11px}.red{background:#fee2e2;color:#b91c1c}.orange{background:#ffedd5;color:#c2410c}.green{background:#dcfce7;color:#15803d}.blue{background:#dbeafe;color:#1d4ed8}.gray{background:#f3f4f6;color:#4b5563}
+.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.match{border-left:4px solid #2563eb}.pulse{animation:pulse 1.2s 2}@keyframes pulse{50%{transform:scale(1.01);box-shadow:0 0 0 4px #2563eb22}}
+.table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{padding:9px 6px;border-bottom:1px solid #eee;text-align:left}.on{color:#15803d}.off{color:#b91c1c}
+.modal{display:none;position:fixed;inset:0;background:#0008;padding:20px;align-items:end;z-index:20}.modal.show{display:flex}.sheet{background:#fff;padding:18px;border-radius:18px;width:100%;max-width:720px;margin:auto;max-height:90vh;overflow:auto}
+.line{padding:9px 0;border-bottom:1px solid #eee}.empty{text-align:center;padding:28px;color:#9ca3af}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 14px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:40}.toast.show{opacity:1}
+@media(max-width:650px){.cards{grid-template-columns:1fr 1fr}.bar{grid-template-columns:1fr 1fr}.bar input{grid-column:1/-1}.formrow{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header><div class="title">售后雷达 Pro</div><div class="sub">快递盯单 + 仲裁自动举证 · 演示模式 · 不执行真实售后操作</div></header>
+<header><div class="title">售后雷达 Pro</div><div class="sub">售后监控中心 · 快递盯单增强版 · 当前为演示数据</div></header>
 <main>
 <div class="cards">
-<div class="card" onclick="setMode('all')"><div class="num" id="cAll">0</div><div class="lab">全部售后</div></div>
-<div class="card" onclick="setMode('refuse')"><div class="num" id="cRefuse">0</div><div class="lab">拒绝协商</div></div>
-<div class="card" onclick="setMode('arb')"><div class="num" id="cArb">0</div><div class="lab">仲裁</div></div>
-<div class="card" onclick="setMode('risk')"><div class="num" id="cRisk">0</div><div class="lab">高风险</div></div>
-<div class="card" onclick="setMode('evidence')"><div class="num" id="cEvidence">0</div><div class="lab">待举证</div></div>
+<div class="card" onclick="setFilter('')"><div class="num" id="all">0</div><div class="lab">全部售后</div></div>
+<div class="card" onclick="setFilterEvent('拒绝协商')"><div class="num" id="refuse">0</div><div class="lab">拒绝协商</div></div>
+<div class="card" onclick="setFilterEvent('仲裁')"><div class="num" id="arb">0</div><div class="lab">仲裁</div></div>
+<div class="card" onclick="setRiskFilter()"><div class="num" id="risk">0</div><div class="lab">高风险</div></div>
 </div>
 
 <div class="panel">
-<div class="section-title">📦 快递单号持续盯单</div>
-<div class="formrow"><input id="trackInput" placeholder="输入快递单号，例如 SF1234567890"><button class="primary" onclick="addTrack()">开始盯单</button></div>
-<div class="hint">系统会持续扫描事件；匹配同一快递单号后自动关联并提醒。真实物流查询需要接入对应官方/第三方数据接口。</div>
-<div id="watchList" style="margin-top:12px"></div>
-</div>
-
-<div class="panel">
-<div class="section-title">🎥 自动举证规则</div>
-<div class="rule">
-<div class="switch"><span>发现“平台要求商家上传仲裁凭证”时自动创建举证任务</span><input id="autoTask" type="checkbox" checked onchange="saveSettings()"></div>
-<div class="switch"><span>自动匹配视频模板</span><input id="autoVideo" type="checkbox" checked onchange="saveSettings()"></div>
-<div class="switch"><span>自动生成理由</span><input id="autoReason" type="checkbox" checked onchange="saveSettings()"></div>
-<div class="switch"><span>自动提交（默认关闭）</span><input id="autoSubmit" type="checkbox" onchange="saveSettings()"></div>
-</div>
-<div class="hint">演示版只会生成“待提交”任务，不会向抖店发送真实材料。启用自动提交也不会在当前演示版发送外部请求。</div>
-</div>
-
-<div class="panel">
-<div class="section-title">⚖️ 仲裁举证任务</div>
-<div id="evidenceList"></div>
+  <div class="section-title">📦 快递单号盯单</div>
+  <div class="formrow">
+    <input id="trackInput" placeholder="手动输入快递单号，例如：SF1234567890">
+    <button class="primary" onclick="addTrack()">开始盯单</button>
+  </div>
+  <div class="hint">录入后会持续检查本地新事件；匹配到相同快递单号时自动关联、提醒，并把对应售后置顶。正式接入抖店后，这里可接官方订单/售后数据。</div>
+  <div id="watchList" style="margin-top:12px"></div>
 </div>
 
 <div class="panel">
@@ -63,74 +49,115 @@ input,select,textarea,button{font:inherit;border-radius:10px;padding:10px;border
 <input id="q" placeholder="搜索订单号、买家、商品、快递单号…" oninput="render()">
 <select id="type" onchange="render()"><option value="">全部类型</option><option>退款</option><option>退货退款</option><option>换货</option></select>
 <select id="status" onchange="render()"><option value="">全部状态</option><option>待处理</option><option>处理中</option><option>已处理</option></select>
-<select id="event" onchange="render()"><option value="">全部事件</option><option>新增售后</option><option>拒绝协商</option><option>仲裁</option><option>要求举证</option></select>
 </div>
-<div class="actions"><button class="primary" onclick="addDemo()">＋模拟新售后</button><button class="warning" onclick="addArbitration()">＋模拟要求举证</button><button onclick="exportData()">导出数据</button><button onclick="clearData()">清空</button></div>
-<div id="list" style="margin-top:12px"></div>
+<div class="actions" style="margin-bottom:12px">
+<button class="primary" onclick="addDemo()">＋模拟新售后</button>
+<button onclick="exportData()">导出数据</button>
+<button onclick="clearData()">清空数据</button>
+</div>
+<div id="list"></div>
 </div>
 
 <div class="panel">
-<div class="section-title">🧾 举证模板</div>
-<table class="table"><thead><tr><th>场景</th><th>视频</th><th>默认理由</th></tr></thead><tbody id="templates"></tbody></table>
+<div class="section-title">⚙️ 盯单规则</div>
+<div class="hint">演示版每 10 秒自动扫描一次本地数据；没有真实物流/抖店 API 时，不会伪造外部物流查询结果。</div>
+<div id="watchStatus" class="hint"></div>
 </div>
 </main>
 
-<div class="modal" id="modal"><div class="sheet"><div class="row"><h3 style="margin:0">售后详情 / 举证</h3><button onclick="closeModal()">关闭</button></div><div id="detail"></div><textarea id="note" rows="4" placeholder="内部备注或修改举证理由…" style="margin-top:10px"></textarea><div class="actions"><button class="primary" onclick="saveNote()">保存</button><button onclick="createTaskFromCurrent()">生成举证任务</button><button class="warning" onclick="markSubmitted()">模拟提交完成</button><button onclick="markDone()">标记已处理</button></div></div></div>
+<div class="modal" id="modal"><div class="sheet">
+<div class="row"><h3 style="margin:0">售后详情</h3><button onclick="closeModal()">关闭</button></div>
+<div id="detail"></div>
+<textarea id="note" rows="4" placeholder="内部处理备注…" style="margin-top:10px"></textarea>
+<div class="actions"><button class="primary" onclick="saveNote()">保存备注</button><button onclick="markDone()">标记已处理</button></div>
+</div></div>
 <div class="toast" id="toast"></div>
+
 <script>
-const DKEY="radar_combined_data_v1", TKEY="radar_combined_tracks_v1", EKEY="radar_evidence_tasks_v1", SKEY="radar_combined_settings_v1";
-let data=JSON.parse(localStorage.getItem(DKEY)||"null")||[
-{id:"AS001",order:"731928450012345",buyer:"张先生",product:"轻薄防晒外套",type:"退款",event:"拒绝协商",risk:"高风险",amount:129,status:"待处理",time:"2026-10-05 14:32",reason:"买家拒绝协商",tracking:"SF1234567890",scenario:"发货核对",needEvidence:false,note:""},
-{id:"AS002",order:"731928450012346",buyer:"李女士",product:"无线耳机 Pro",type:"退货退款",event:"要求举证",risk:"高风险",amount:299,status:"处理中",time:"2026-10-05 13:18",reason:"平台要求商家上传仲裁凭证",tracking:"YT9876543210",scenario:"发货核对",needEvidence:true,note:""},
-{id:"AS003",order:"731928450012347",buyer:"王先生",product:"运动水杯",type:"退款",event:"新增售后",risk:"普通",amount:49,status:"待处理",time:"2026-10-05 12:05",reason:"商品与描述不符",tracking:"JD1122334455",scenario:"发货核对",needEvidence:false,note:""},
-{id:"AS004",order:"731928450012348",buyer:"陈女士",product:"蓝牙键盘",type:"换货",event:"仲裁",risk:"关注",amount:159,status:"待处理",time:"2026-10-05 10:44",reason:"平台介入仲裁",tracking:"SF5555666677",scenario:"功能异常",needEvidence:false,note:""}
+const DATA_KEY="radar_after_sales_v2";
+const TRACK_KEY="radar_watch_tracks_v1";
+let data=JSON.parse(localStorage.getItem(DATA_KEY)||"null")||[
+{id:"AS001",order:"731928450012345",buyer:"张先生",product:"轻薄防晒外套",type:"退款",event:"拒绝协商",risk:"高风险",amount:129,status:"待处理",time:"2026-10-05 14:32",reason:"买家拒绝协商",tracking:"SF1234567890",note:""},
+{id:"AS002",order:"731928450012346",buyer:"李女士",product:"无线耳机 Pro",type:"退货退款",event:"仲裁",risk:"高风险",amount:299,status:"处理中",time:"2026-10-05 13:18",reason:"平台介入仲裁",tracking:"YT9876543210",note:""},
+{id:"AS003",order:"731928450012347",buyer:"王先生",product:"运动水杯",type:"退款",event:"新增售后",risk:"普通",amount:49,status:"待处理",time:"2026-10-05 12:05",reason:"商品与描述不符",tracking:"JD1122334455",note:""},
+{id:"AS004",order:"731928450012348",buyer:"陈女士",product:"蓝牙键盘",type:"换货",event:"新增售后",risk:"关注",amount:159,status:"已处理",time:"2026-10-05 10:44",reason:"键盘按键异常",tracking:"SF5555666677",note:"已联系买家确认换货"}
 ];
-let tracks=JSON.parse(localStorage.getItem(TKEY)||"[]");
-let tasks=JSON.parse(localStorage.getItem(EKEY)||"null")||[{
-id:"EV001",caseId:"AS002",order:"731928450012346",video:"发货核对.mp4",reason:"订单商品在发货前完成数量、外观及包装核对，相关发货过程视频可作为辅助凭证，请平台结合订单信息综合判断。",deadline:"2026-10-05 20:00",status:"待提交",createdAt:"2026-10-05 13:20"
-}];
-let settings=JSON.parse(localStorage.getItem(SKEY)||"null")||{autoTask:true,autoVideo:true,autoReason:true,autoSubmit:false};
-let cur=null,lastSeen={};
-const templates=[
-["发货核对","发货核对.mp4","订单商品在发货前完成数量、外观及包装核对，相关发货过程视频可作为辅助凭证，请平台结合订单信息综合判断。"],
-["破损争议","破损类.mp4","商品发出前外观检查正常并按标准包装，相关视频可作为辅助凭证，请平台结合完整证据进行判断。"],
-["少件争议","打包称重.mp4","订单在打包出库时完成商品核对及称重，相关视频可作为辅助凭证，请结合物流与订单信息综合判断。"],
-["功能异常","功能检查.mp4","商品发货前完成基础功能检查，相关视频可作为辅助凭证，请平台结合售后描述及订单证据综合判断。"]
-];
-function saveAll(){localStorage.setItem(DKEY,JSON.stringify(data));localStorage.setItem(TKEY,JSON.stringify(tracks));localStorage.setItem(EKEY,JSON.stringify(tasks));localStorage.setItem(SKEY,JSON.stringify(settings))}
-function toast(x){let e=document.getElementById("toast");e.textContent=x;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),2500)}
+let tracks=JSON.parse(localStorage.getItem(TRACK_KEY)||"[]");
+let current=null, lastMatched={};
+
+function save(){localStorage.setItem(DATA_KEY,JSON.stringify(data));localStorage.setItem(TRACK_KEY,JSON.stringify(tracks))}
+function toast(msg){const el=document.getElementById("toast");el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2800)}
 function norm(v){return String(v||"").replace(/\s+/g,"").toUpperCase()}
-function tplFor(s){return templates.find(x=>x[0]===s)||templates[0]}
-function addTrack(){let n=norm(trackInput.value);if(!n)return toast("请输入快递单号");if(!tracks.some(x=>x.no===n))tracks.unshift({no:n,active:true,addedAt:new Date().toLocaleString("zh-CN",{hour12:false})});trackInput.value="";saveAll();scan();renderWatch();toast("开始盯单："+n)}
-function toggleTrack(n){let x=tracks.find(a=>a.no===n);if(x)x.active=!x.active;saveAll();renderWatch()}
-function removeTrack(n){tracks=tracks.filter(x=>x.no!==n);saveAll();renderWatch();render()}
-function renderWatch(){let e=document.getElementById("watchList");if(!tracks.length){e.innerHTML="<div class=empty>还没有盯单</div>";return}e.innerHTML=tracks.map(w=>{let m=data.filter(x=>norm(x.tracking)===w.no);return `<div class="item ${m.length?"match":""}"><div class=row><b>${w.no}</b><span class="tag ${w.active?"green":"gray"}">${w.active?"监控中":"已暂停"}</span></div><div class=meta>匹配 ${m.length} 条 · 开始 ${w.addedAt}</div>${m.slice(0,3).map(x=>`<div class=meta>↳ ${x.event} · ${x.product} · ${x.status}</div>`).join("")}<div class=actions><button class=small onclick="toggleTrack('${w.no}')">${w.active?"暂停":"继续"}</button><button class=small onclick="filterTrack('${w.no}')">查看匹配</button><button class="small danger" onclick="removeTrack('${w.no}')">移除</button></div></div>`}).join("")}
-function filterTrack(n){q.value=n;render()}
-function setMode(mode){q.value="";type.value="";status.value="";event.value="";if(mode==="refuse")event.value="拒绝协商";if(mode==="arb")event.value="仲裁";if(mode==="evidence")event.value="要求举证";render()}
-function render(){
- cAll.textContent=data.length;cRefuse.textContent=data.filter(x=>x.event==="拒绝协商").length;cArb.textContent=data.filter(x=>x.event==="仲裁"||x.event==="要求举证").length;cRisk.textContent=data.filter(x=>x.risk==="高风险").length;cEvidence.textContent=tasks.filter(x=>x.status==="待提交").length;
- let z=norm(q.value),A=data.filter(x=>(!z||norm(JSON.stringify(x)).includes(z))&&(!type.value||x.type===type.value)&&(!status.value||x.status===status.value)&&(!event.value||x.event===event.value));
- list.innerHTML=A.length?A.map(x=>{let watched=tracks.some(w=>w.active&&w.no===norm(x.tracking)),task=tasks.find(t=>t.caseId===x.id);return `<div class="item ${watched?"match":""} ${x.needEvidence?"urgent":""}"><div class=row><div><b>${esc(x.product)}</b> ${watched?'<span class="tag blue">盯单匹配</span>':""} ${x.needEvidence?'<span class="tag purple">需要举证</span>':""}</div><span class="tag ${x.risk==="高风险"?"red":x.risk==="关注"?"orange":"green"}">${x.risk}</span></div><div class=meta>订单 ${x.order}<br>快递 ${x.tracking||"未录入"}<br>${x.time} · ${x.event} · ${x.type} · ${x.status}${task?" · 举证："+task.status:""}</div><div class=actions><button onclick="show('${x.id}')">详情</button>${x.needEvidence&&!task?'<button class=primary onclick="createTask(\\''+x.id+'\\')">生成举证</button>':''}<button onclick="statusSet('${x.id}','处理中')">处理中</button><button class=primary onclick="statusSet('${x.id}','已处理')">已处理</button></div></div>`}).join(""):"<div class=item>没有符合条件的售后</div>"
+function addTrack(){
+ let v=norm(document.getElementById("trackInput").value);
+ if(!v){toast("请输入快递单号");return}
+ if(!tracks.some(x=>x.no===v)) tracks.unshift({no:v,addedAt:new Date().toLocaleString("zh-CN",{hour12:false}),matches:0,active:true});
+ document.getElementById("trackInput").value=""; save(); scan(); renderWatch(); render(); toast("已开始盯单："+v)
 }
-function show(id){cur=data.find(x=>x.id===id);detail.innerHTML=[["订单号",cur.order],["买家",cur.buyer],["商品",cur.product],["快递单号",cur.tracking],["事件",cur.event],["风险",cur.risk],["金额","¥"+cur.amount],["状态",cur.status],["原因",cur.reason],["场景",cur.scenario]].map(x=>`<div class=line><b>${x[0]}：</b>${esc(x[1])}</div>`).join("");note.value=cur.note||"";modal.className="modal show"}
-function closeModal(){modal.className="modal";cur=null}
-function saveNote(){if(cur){cur.note=note.value;saveAll();render();closeModal()}}
-function markDone(){if(cur){cur.status="已处理";saveAll();render();closeModal()}}
-function statusSet(id,s){let x=data.find(a=>a.id===id);if(x){x.status=s;saveAll();render();toast("状态已更新")}}
-function createTask(id){let x=data.find(a=>a.id===id);if(!x)return;let t=tplFor(x.scenario);let task={id:"EV"+Date.now(),caseId:x.id,order:x.order,video:settings.autoVideo?t[1]:"待选择视频",reason:settings.autoReason?t[2]:"待填写理由",deadline:"待从官方接口读取",status:settings.autoSubmit?"模拟自动提交中":"待提交",createdAt:new Date().toLocaleString("zh-CN",{hour12:false})};tasks.unshift(task);x.needEvidence=true;saveAll();renderEvidence();render();toast("已创建举证任务") }
-function createTaskFromCurrent(){if(cur)createTask(cur.id);closeModal()}
-function markSubmitted(id){let t=id?tasks.find(x=>x.id===id):null;if(!t&&cur)t=tasks.find(x=>x.caseId===cur.id);if(t){t.status="已模拟提交";saveAll();renderEvidence();render();toast("已记录为模拟提交完成")}}
-function renderEvidence(){let e=document.getElementById("evidenceList");if(!tasks.length){e.innerHTML="<div class=empty>没有举证任务</div>";return}e.innerHTML=tasks.map(t=>`<div class="item evidence"><div class=row><b>订单 ${t.order}</b><span class="tag purple">${t.status}</span></div><div class=meta>视频：${esc(t.video)}<br>理由：${esc(t.reason)}<br>截止时间：${esc(t.deadline)}<br>创建：${t.createdAt}</div><div class=actions><button onclick="show('${t.caseId}')">查看售后</button><button class=primary onclick="markSubmitted('${t.id}')">模拟提交完成</button></div></div>`).join("")}
-function scan(){tracks.forEach(w=>{if(!w.active)return;let m=data.filter(x=>norm(x.tracking)===w.no);let key=m.map(x=>x.id+":"+x.event).join("|");if(key&&lastSeen[w.no]!==key){lastSeen[w.no]=key;toast("🎯 盯单命中："+w.no);m.forEach(x=>{if(x.needEvidence&&settings.autoTask&&!tasks.some(t=>t.caseId===x.id))createTask(x.id)})}});renderWatch();render()}
-function addDemo(){let n=Date.now(),watch=tracks.find(x=>x.active);data.unshift({id:"AS"+n,order:String(n),buyer:"演示买家",product:"演示商品·新售后",type:["退款","退货退款","换货"][Math.floor(Math.random()*3)],event:["新增售后","拒绝协商","仲裁"][Math.floor(Math.random()*3)],risk:Math.random()<.4?"高风险":"普通",amount:Math.floor(Math.random()*400)+29,status:"待处理",time:new Date().toLocaleString("zh-CN",{hour12:false}),reason:"模拟生成",tracking:watch?watch.no:"SF"+String(n).slice(-10),scenario:"发货核对",needEvidence:false,note:""});saveAll();scan()}
-function addArbitration(){let n=Date.now(),watch=tracks.find(x=>x.active);let id="AS"+n;data.unshift({id,order:String(n),buyer:"演示买家",product:"演示商品·仲裁举证",type:"退货退款",event:"要求举证",risk:"高风险",amount:199,status:"处理中",time:new Date().toLocaleString("zh-CN",{hour12:false}),reason:"平台要求商家上传仲裁凭证",tracking:watch?watch.no:"YT"+String(n).slice(-10),scenario:templates[Math.floor(Math.random()*templates.length)][0],needEvidence:true,note:""});if(settings.autoTask)createTask(id);saveAll();scan();toast("已模拟“要求举证”事件")}
-function saveSettings(){settings={autoTask:autoTask.checked,autoVideo:autoVideo.checked,autoReason:autoReason.checked,autoSubmit:autoSubmit.checked};saveAll();toast("设置已保存")}
-function exportData(){let pack={data,tracks,tasks,settings,exportedAt:new Date().toISOString()};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(pack,null,2)],{type:"application/json"}));a.download="售后雷达_盯单_举证数据.json";a.click()}
-function clearData(){if(confirm("确定清空售后、盯单和举证演示数据？")){data=[];tracks=[];tasks=[];saveAll();renderWatch();renderEvidence();render();toast("已清空")}}
+function removeTrack(no){tracks=tracks.filter(x=>x.no!==no);save();renderWatch();render()}
+function toggleTrack(no){let x=tracks.find(a=>a.no===no);if(x)x.active=!x.active;save();renderWatch()}
+function scan(){
+ let changed=false;
+ tracks.forEach(w=>{
+   if(!w.active)return;
+   const matched=data.filter(x=>norm(x.tracking)===w.no);
+   const ids=matched.map(x=>x.id).join("|");
+   if(ids && lastMatched[w.no]!==ids){w.matches=matched.length;lastMatched[w.no]=ids;changed=true;toast("🎯 匹配到售后："+w.no);matched.forEach(x=>x._matchedAt=new Date().toLocaleString("zh-CN",{hour12:false}));}
+   else if(!ids) w.matches=0;
+ });
+ if(changed) save();
+ renderWatch();render();
+}
+function renderWatch(){
+ const el=document.getElementById("watchList");
+ if(!tracks.length){el.innerHTML='<div class="empty">还没有盯单。输入快递单号即可开始。</div>';document.getElementById("watchStatus").textContent="当前盯单数：0";return}
+ el.innerHTML=tracks.map(w=>{
+   const m=data.filter(x=>norm(x.tracking)===w.no);
+   return `<div class="item ${m.length?'match':''}">
+    <div class="row"><div><b>${w.no}</b> <span class="tag ${w.active?'green':'gray'}">${w.active?'监控中':'已暂停'}</span></div><div class="s">匹配 ${m.length} 条</div></div>
+    <div class="meta">开始时间：${w.addedAt}${m.length?' · 已发现关联售后':''}</div>
+    ${m.length?m.slice(0,3).map(x=>`<div class="meta">↳ ${x.event} · ${x.product} · ${x.status} · 订单 ${x.order}</div>`).join(""):""}
+    <div class="actions"><button class="small" onclick="toggleTrack('${w.no}')">${w.active?'暂停':'继续'}</button><button class="small" onclick="filterTrack('${w.no}')">查看匹配</button><button class="small danger" onclick="removeTrack('${w.no}')">移除</button></div>
+   </div>`
+ }).join("");
+ document.getElementById("watchStatus").textContent="当前盯单数："+tracks.filter(x=>x.active).length+"（每10秒自动扫描一次）";
+}
+function filterTrack(no){document.getElementById("q").value=no;document.getElementById("type").value="";document.getElementById("status").value="";render()}
+function setFilter(v){document.getElementById("q").value=v;render()}
+function setFilterEvent(v){data.sort((a,b)=>(b.event===v)-(a.event===v));render();document.querySelector(".panel:nth-of-type(2)").scrollIntoView({behavior:"smooth"})}
+function setRiskFilter(){data.sort((a,b)=>(b.risk==="高风险")-(a.risk==="高风险"));render()}
+function render(){
+ const q=norm(document.getElementById("q").value),t=document.getElementById("type").value,s=document.getElementById("status").value;
+ document.getElementById("all").textContent=data.length;
+ document.getElementById("refuse").textContent=data.filter(x=>x.event==="拒绝协商").length;
+ document.getElementById("arb").textContent=data.filter(x=>x.event==="仲裁").length;
+ document.getElementById("risk").textContent=data.filter(x=>x.risk==="高风险").length;
+ let arr=data.filter(x=>(!q||norm(JSON.stringify(x)).includes(q))&&(!t||x.type===t)&&(!s||x.status===s));
+ document.getElementById("list").innerHTML=arr.length?arr.map(x=>{
+   const watched=tracks.some(w=>w.active&&w.no===norm(x.tracking));
+   return `<div class="item ${watched?'match':''}">
+    <div class="row"><div><b>${esc(x.product)}</b> ${watched?'<span class="tag blue">盯单匹配</span>':''}</div><span class="tag ${x.risk==="高风险"?"red":x.risk==="关注"?"orange":"green"}">${x.risk}</span></div>
+    <div class="meta">订单 ${x.order}<br>快递 ${x.tracking||"未录入"}<br>买家 ${esc(x.buyer)}　¥${x.amount}<br>${x.time} · ${x.event} · ${x.type} · ${x.status}</div>
+    <div class="actions"><button onclick="show('${x.id}')">详情/备注</button><button onclick="status('${x.id}','处理中')">处理中</button><button class="primary" onclick="status('${x.id}','已处理')">已处理</button></div>
+   </div>`
+ }).join(""):'<div class=item>没有符合条件的售后</div>'
+}
+function show(id){current=data.find(x=>x.id===id);document.getElementById("detail").innerHTML=`<h4>基本信息</h4>`+
+ [["订单号",current.order],["买家",current.buyer],["商品",current.product],["快递单号",current.tracking],["类型",current.type],["事件",current.event],["风险",current.risk],["金额","¥"+current.amount],["状态",current.status],["时间",current.time],["原因",current.reason]].map(a=>`<div class=line><b>${a[0]}：</b>${esc(a[1])}</div>`).join("");
+document.getElementById("note").value=current.note||"";document.getElementById("modal").className="modal show"}
+function closeModal(){document.getElementById("modal").className="modal";current=null}
+function saveNote(){current.note=document.getElementById("note").value;save();render();closeModal()}
+function markDone(){current.status="已处理";save();render();closeModal()}
+function status(id,s){const x=data.find(a=>a.id===id);if(x){x.status=s;save();render();toast("状态已更新")}}
+function addDemo(){
+ const n=Date.now(), watched=tracks.filter(x=>x.active)[0];
+ const tracking=watched?watched.no:("SF"+String(n).slice(-10));
+ data.unshift({id:"AS"+n,order:String(n),buyer:"演示买家",product:"演示商品·新售后",type:["退款","退货退款","换货"][Math.floor(Math.random()*3)],event:["新增售后","拒绝协商","仲裁"][Math.floor(Math.random()*3)],risk:Math.random()<.4?"高风险":"普通",amount:Math.floor(Math.random()*400)+29,status:"待处理",time:new Date().toLocaleString("zh-CN",{hour12:false}),reason:"模拟生成",tracking,note:""});
+ save();scan();toast("已模拟新增售后"+(watched?"，并故意匹配当前盯单":""))
+}
+function exportData(){const pack={exportedAt:new Date().toISOString(),tracks,data};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(pack,null,2)],{type:"application/json"}));a.download="售后雷达_盯单与售后数据.json";a.click()}
+function clearData(){if(confirm("确定清空全部演示售后和盯单数据？")){data=[];tracks=[];save();renderWatch();render();toast("已清空")}}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-autoTask.checked=settings.autoTask;autoVideo.checked=settings.autoVideo;autoReason.checked=settings.autoReason;autoSubmit.checked=settings.autoSubmit;
-templates.innerHTML=templates.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td></tr>`).join("");
-renderWatch();renderEvidence();render();scan();setInterval(scan,10000);
+renderWatch();render();scan();setInterval(scan,10000);
 </script>
-</body>
-</html>
+</body></html>
