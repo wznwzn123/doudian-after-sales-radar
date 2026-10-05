@@ -3,131 +3,134 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f172a">
-<title>售后雷达 Pro 5.0</title>
+<title>售后雷达 Pro · 盯单+自动举证</title>
 <style>
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f7fb;color:#172033}button,input,select,textarea{font:inherit}button{border:0;cursor:pointer}.app{max-width:760px;margin:auto;padding:14px 14px 98px}.top{position:sticky;top:0;z-index:20;margin:-14px -14px 12px;padding:13px 14px;background:rgba(244,247,251,.94);backdrop-filter:blur(12px);display:flex;justify-content:space-between;align-items:center}.brand{font-weight:950;font-size:20px}.sub{font-size:11px;color:#667085;margin-top:2px}.status{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #e7ebf1;border-radius:999px;padding:7px 9px;font-size:10px;font-weight:900}.dot{width:7px;height:7px;border-radius:50%;background:#10b981}.hero{background:linear-gradient(135deg,#111827,#334155);color:white;border-radius:22px;padding:18px;box-shadow:0 12px 30px #0f172a22}.hero h2{margin:0 0 5px;font-size:24px}.hero p{margin:0;color:#cbd5e1;font-size:13px}.actions{display:flex;gap:8px;margin-top:15px}.btn{padding:11px 13px;border-radius:12px;font-weight:900}.primary{background:white;color:#111827}.ghost{background:#ffffff18;color:white;border:1px solid #ffffff25}.btn:active,.tab:active,.nav button:active{transform:scale(.98)}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:12px 0}.card{background:#fff;border-radius:17px;padding:14px;box-shadow:0 5px 18px #0f172a0d}.metric{font-size:27px;font-weight:950}.muted{color:#667085;font-size:12px}.danger{color:#dc2626}.warn{color:#d97706}.good{color:#059669}.tabs{display:flex;gap:7px;overflow:auto;padding:3px 0 10px}.tab{white-space:nowrap;padding:9px 12px;border-radius:999px;background:#e9edf3;font-weight:900;color:#475467}.tab.active{background:#111827;color:white}.toolbar{display:grid;grid-template-columns:1fr 120px auto;gap:8px;margin-bottom:10px}.toolbar input,.toolbar select{min-width:0;padding:11px;border:1px solid #e0e5ec;border-radius:12px;background:white;outline:none}.toolbar input:focus,.toolbar select:focus,textarea:focus{border-color:#94a3b8;box-shadow:0 0 0 3px #94a3b822}.event{padding:14px 0;border-bottom:1px solid #edf0f4}.event:last-child{border-bottom:0}.row{display:flex;justify-content:space-between;gap:10px}.tag{display:inline-block;padding:4px 7px;border-radius:7px;font-size:10px;font-weight:950;margin-right:5px;background:#eef2ff;color:#4f46e5}.tag.red{background:#fee2e2;color:#b91c1c}.tag.orange{background:#ffedd5;color:#c2410c}.tag.green{background:#dcfce7;color:#15803d}.tag.blue{background:#dbeafe;color:#1d4ed8}.click{cursor:pointer}.empty{text-align:center;padding:35px 10px;color:#98a2b3}.bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e7eaf0;display:flex;justify-content:center;z-index:30;box-shadow:0 -8px 25px #0f172a09}.nav{max-width:760px;width:100%;display:grid;grid-template-columns:repeat(4,1fr)}.nav button{padding:10px 3px;background:white;color:#667085;font-size:11px}.nav button.on{color:#111827;font-weight:950}.nav b{display:block;font-size:17px;margin-bottom:2px}.page{display:none}.page.on{display:block}.modal{position:fixed;inset:0;background:#0007;z-index:50;display:none;align-items:flex-end}.modal.on{display:flex}.sheet{background:#fff;width:100%;max-height:90vh;overflow:auto;border-radius:24px 24px 0 0;padding:18px 18px calc(28px + env(safe-area-inset-bottom))}.close{float:right;background:#eef2f6;border-radius:10px;padding:8px 11px;font-weight:900}.line{display:flex;justify-content:space-between;gap:15px;padding:10px 0;border-bottom:1px solid #eef0f3}.line b{text-align:right}.switch{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #eef0f3}.switch input{width:22px;height:22px}.dangerBtn,.outlineBtn{width:100%;padding:13px;border-radius:12px;font-weight:950;margin-top:12px}.dangerBtn{background:#fee2e2;color:#b91c1c}.outlineBtn{background:#eef2f6;color:#344054}.smallBtn{padding:8px 10px;border-radius:10px;background:#eef2f6;color:#344054;font-weight:900;font-size:11px}.dangerSmall{background:#fee2e2;color:#b91c1c}.bar{height:8px;background:#eef1f5;border-radius:9px;overflow:hidden}.bar>i{display:block;height:100%;border-radius:9px}.sectionTitle{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.sectionTitle h3,.sectionTitle h2{margin:0}.statRow{display:grid;grid-template-columns:1fr 1fr;gap:9px}.statMini{background:#f8fafc;padding:11px;border-radius:12px}.toast{position:fixed;left:50%;bottom:78px;transform:translate(-50%,12px);background:#111827;color:white;padding:11px 14px;border-radius:12px;font-size:12px;font-weight:800;z-index:100;opacity:0;pointer-events:none;transition:.2s;box-shadow:0 10px 30px #0003}.toast.on{opacity:1;transform:translate(-50%,0)}.subtle{background:#f8fafc;border:1px solid #edf0f4;border-radius:14px;padding:10px;margin-top:10px}.progress{height:6px;background:#eef2f6;border-radius:999px;overflow:hidden;margin-top:7px}.progress i{display:block;height:100%;background:#111827}.footerNote{font-size:10px;color:#98a2b3;margin-top:10px;line-height:1.5}.emptySpace{height:5px}@media(max-width:520px){.toolbar{grid-template-columns:1fr 105px}.toolbar .smallBtn{grid-column:1/-1}.hero h2{font-size:22px}.grid{gap:8px}.card{padding:13px}}
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#172033;font-family:system-ui,-apple-system,"PingFang SC",sans-serif}
+header{background:#111827;color:#fff;padding:18px 16px}.title{font-size:21px;font-weight:800}.sub{font-size:12px;opacity:.7;margin-top:5px}
+main{max-width:1050px;margin:auto;padding:14px}.panel{background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.card{background:#fff;border-radius:14px;padding:13px;box-shadow:0 2px 10px #0001;cursor:pointer}.num{font-size:23px;font-weight:800}.lab{font-size:12px;color:#6b7280}
+.bar{display:grid;grid-template-columns:1fr 130px 130px 130px;gap:8px;margin:12px 0}
+input,select,textarea,button{font:inherit;border-radius:10px;padding:10px;border:1px solid #ddd}input,select,textarea{background:#fff;width:100%}button{cursor:pointer;background:#fff}
+.primary{background:#2563eb;color:#fff;border:0}.danger{background:#fee2e2;color:#b91c1c;border:0}.warning{background:#ffedd5;color:#c2410c;border:0}.small{padding:7px 9px;font-size:12px}
+.section-title{font-weight:800;margin-bottom:10px}.formrow{display:grid;grid-template-columns:1fr 130px;gap:8px}.hint{font-size:12px;color:#6b7280;line-height:1.6;margin-top:7px}
+.item{background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 2px 10px #0001}.row{display:flex;justify-content:space-between;gap:10px;align-items:center}.meta{font-size:12px;color:#6b7280;line-height:1.7;margin-top:6px}
+.tag{display:inline-block;padding:4px 8px;border-radius:99px;font-size:11px}.red{background:#fee2e2;color:#b91c1c}.orange{background:#ffedd5;color:#c2410c}.green{background:#dcfce7;color:#15803d}.blue{background:#dbeafe;color:#1d4ed8}.purple{background:#ede9fe;color:#6d28d9}.gray{background:#f3f4f6;color:#4b5563}
+.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.match{border-left:4px solid #2563eb}.urgent{border-left:4px solid #dc2626}.evidence{border-left:4px solid #7c3aed}
+.empty{text-align:center;padding:28px;color:#9ca3af}.table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{padding:9px 6px;border-bottom:1px solid #eee;text-align:left}
+.modal{display:none;position:fixed;inset:0;background:#0008;padding:20px;align-items:end;z-index:20}.modal.show{display:flex}.sheet{background:#fff;padding:18px;border-radius:18px;width:100%;max-width:760px;margin:auto;max-height:90vh;overflow:auto}
+.line{padding:9px 0;border-bottom:1px solid #eee}.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 14px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:40}.toast.show{opacity:1}
+.rule{background:#faf7ff;padding:12px;border-radius:12px;border:1px solid #eee4ff}.switch{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0}.switch input{width:auto}
+@media(max-width:720px){.cards{grid-template-columns:1fr 1fr}.bar{grid-template-columns:1fr 1fr}.bar input{grid-column:1/-1}.formrow{grid-template-columns:1fr}.table{font-size:11px}}
 </style>
 </head>
 <body>
-<div class="app">
-  <div class="top">
-    <div><div class="brand">售后雷达 <span style="font-size:12px">PRO 5.0</span></div><div class="sub">移动端售后监控 · 本地演示模式</div></div>
-    <button class="status" id="statusBtn" title="查看当前数据状态"><span class="dot"></span><span id="statusText">本地运行</span></button>
-  </div>
-
-  <section id="dashboard" class="page on">
-    <div class="hero">
-      <h2 id="heroTitle">今天的售后雷达</h2>
-      <p id="heroSub">数据保存在当前浏览器；不会自动操作抖店售后。</p>
-      <div class="actions">
-        <button class="btn primary" id="generateBtn">＋ 模拟新事件</button>
-        <button class="btn ghost" id="refreshBtn">↻ 立即刷新</button>
-      </div>
-    </div>
-
-    <div class="grid">
-      <button class="card click" id="todayCard" style="text-align:left"><div class="muted">今日售后</div><div class="metric" id="mToday">0</div><div class="muted">点击查看今天的事件</div></button>
-      <button class="card click" id="riskCard" style="text-align:left"><div class="muted">高风险</div><div class="metric danger" id="mRisk">0</div><div class="muted">点击筛选高风险</div></button>
-      <button class="card click" id="refuseCard" style="text-align:left"><div class="muted">拒绝协商</div><div class="metric warn" id="mRefuse">0</div><div class="muted">点击筛选拒绝协商</div></button>
-      <button class="card click" id="arbCard" style="text-align:left"><div class="muted">仲裁</div><div class="metric" id="mArb">0</div><div class="muted">点击筛选仲裁</div></button>
-    </div>
-
-    <div class="card">
-      <div class="sectionTitle"><b>风险分布</b><button class="smallBtn" id="riskFilterBtn">查看高风险</button></div>
-      <div id="riskBars" style="margin-top:12px"></div>
-    </div>
-
-    <div class="card" style="margin-top:12px">
-      <div class="sectionTitle"><b>最新预警</b><button class="smallBtn" id="allEventsBtn">查看全部</button></div>
-      <div id="latest"></div>
-    </div>
-  </section>
-
-  <section id="events" class="page">
-    <div class="card">
-      <div class="sectionTitle"><h2>售后事件</h2><span class="muted" id="eventCount">0 条</span></div>
-      <div class="tabs" id="quickTabs">
-        <button class="tab active" data-filter="all">全部</button><button class="tab" data-filter="high">高风险</button><button class="tab" data-filter="refuse">拒绝协商</button><button class="tab" data-filter="arb">仲裁</button><button class="tab" data-filter="new">新增售后</button><button class="tab" data-filter="unread">未读</button>
-      </div>
-      <div class="toolbar"><input id="search" placeholder="搜索订单 / 事件 / 原因"><select id="filter"><option value="all">全部</option><option value="high">高风险</option><option value="medium">中风险</option><option value="low">低风险</option><option value="refuse">拒绝协商</option><option value="arb">仲裁</option><option value="new">新增售后</option><option value="unread">未读</option><option value="pending">待处理</option></select><button class="smallBtn" id="sortBtn">最新优先</button></div>
-      <div id="eventList"></div>
-      <button class="outlineBtn" id="loadMoreBtn">加载更多</button>
-    </div>
-  </section>
-
-  <section id="stats" class="page">
-    <div class="card"><div class="sectionTitle"><h2>数据统计</h2><button class="smallBtn" id="exportStatsBtn">导出统计</button></div>
-      <div class="grid"><div class="card"><span class="muted">事件总数</span><div class="metric" id="sTotal">0</div></div><div class="card"><span class="muted">风险率</span><div class="metric danger" id="sRate">0%</div></div><div class="card"><span class="muted">仲裁率</span><div class="metric" id="sArb">0%</div></div><div class="card"><span class="muted">拒绝协商率</span><div class="metric warn" id="sRef">0%</div></div></div>
-      <div class="subtle"><b>风险趋势</b><div id="trendBars" style="margin-top:12px"></div></div>
-      <div class="subtle"><b>事件类型</b><div id="typeStats" style="margin-top:8px"></div></div>
-    </div>
-  </section>
-
-  <section id="settings" class="page">
-    <div class="card"><h2 style="margin-top:0">设置</h2>
-      <div class="switch"><span>风险预警</span><input id="riskNotify" type="checkbox"></div>
-      <div class="switch"><span>仲裁提醒</span><input id="arbNotify" type="checkbox"></div>
-      <div class="switch"><span>自动刷新（30秒）</span><input id="autoRefresh" type="checkbox"></div>
-      <div class="switch"><span>生成事件后自动标记未读</span><input id="markUnread" type="checkbox"></div>
-      <button class="outlineBtn" id="seedBtn">生成一套演示数据</button>
-      <button class="outlineBtn" id="exportBtn">导出本地备份（JSON）</button>
-      <button class="outlineBtn" id="importBtn">导入本地备份（JSON）</button>
-      <input id="fileInput" type="file" accept="application/json" hidden>
-      <button class="dangerBtn" id="resetBtn">清空本地测试数据</button>
-      <div class="footerNote">当前所有功能只修改本浏览器里的本地数据，不会执行退款、驳回、审核等抖店操作。未来接入官方 API 时，可替换数据源而保留前端页面。</div>
-    </div>
-    <div class="card"><b>运行状态</b><div id="runtimeInfo" class="muted" style="margin-top:8px;line-height:1.8"></div></div>
-  </section>
+<header><div class="title">售后雷达 Pro</div><div class="sub">快递盯单 + 仲裁自动举证 · 演示模式 · 不执行真实售后操作</div></header>
+<main>
+<div class="cards">
+<div class="card" onclick="setMode('all')"><div class="num" id="cAll">0</div><div class="lab">全部售后</div></div>
+<div class="card" onclick="setMode('refuse')"><div class="num" id="cRefuse">0</div><div class="lab">拒绝协商</div></div>
+<div class="card" onclick="setMode('arb')"><div class="num" id="cArb">0</div><div class="lab">仲裁</div></div>
+<div class="card" onclick="setMode('risk')"><div class="num" id="cRisk">0</div><div class="lab">高风险</div></div>
+<div class="card" onclick="setMode('evidence')"><div class="num" id="cEvidence">0</div><div class="lab">待举证</div></div>
 </div>
 
-<div class="bottom"><div class="nav"><button class="on" data-p="dashboard"><b>⌂</b>总览</button><button data-p="events"><b>◫</b>事件</button><button data-p="stats"><b>◔</b>统计</button><button data-p="settings"><b>⚙</b>设置</button></div></div>
+<div class="panel">
+<div class="section-title">📦 快递单号持续盯单</div>
+<div class="formrow"><input id="trackInput" placeholder="输入快递单号，例如 SF1234567890"><button class="primary" onclick="addTrack()">开始盯单</button></div>
+<div class="hint">系统会持续扫描事件；匹配同一快递单号后自动关联并提醒。真实物流查询需要接入对应官方/第三方数据接口。</div>
+<div id="watchList" style="margin-top:12px"></div>
+</div>
 
-<div id="modal" class="modal"><div class="sheet"><button class="close" id="closeModal">关闭</button><h2 id="modalTitle"></h2><div id="modalBody"></div></div></div>
-<div id="toast" class="toast"></div>
+<div class="panel">
+<div class="section-title">🎥 自动举证规则</div>
+<div class="rule">
+<div class="switch"><span>发现“平台要求商家上传仲裁凭证”时自动创建举证任务</span><input id="autoTask" type="checkbox" checked onchange="saveSettings()"></div>
+<div class="switch"><span>自动匹配视频模板</span><input id="autoVideo" type="checkbox" checked onchange="saveSettings()"></div>
+<div class="switch"><span>自动生成理由</span><input id="autoReason" type="checkbox" checked onchange="saveSettings()"></div>
+<div class="switch"><span>自动提交（默认关闭）</span><input id="autoSubmit" type="checkbox" onchange="saveSettings()"></div>
+</div>
+<div class="hint">演示版只会生成“待提交”任务，不会向抖店发送真实材料。启用自动提交也不会在当前演示版发送外部请求。</div>
+</div>
+
+<div class="panel">
+<div class="section-title">⚖️ 仲裁举证任务</div>
+<div id="evidenceList"></div>
+</div>
+
+<div class="panel">
+<div class="section-title">🔎 售后事件</div>
+<div class="bar">
+<input id="q" placeholder="搜索订单号、买家、商品、快递单号…" oninput="render()">
+<select id="type" onchange="render()"><option value="">全部类型</option><option>退款</option><option>退货退款</option><option>换货</option></select>
+<select id="status" onchange="render()"><option value="">全部状态</option><option>待处理</option><option>处理中</option><option>已处理</option></select>
+<select id="event" onchange="render()"><option value="">全部事件</option><option>新增售后</option><option>拒绝协商</option><option>仲裁</option><option>要求举证</option></select>
+</div>
+<div class="actions"><button class="primary" onclick="addDemo()">＋模拟新售后</button><button class="warning" onclick="addArbitration()">＋模拟要求举证</button><button onclick="exportData()">导出数据</button><button onclick="clearData()">清空</button></div>
+<div id="list" style="margin-top:12px"></div>
+</div>
+
+<div class="panel">
+<div class="section-title">🧾 举证模板</div>
+<table class="table"><thead><tr><th>场景</th><th>视频</th><th>默认理由</th></tr></thead><tbody id="templates"></tbody></table>
+</div>
+</main>
+
+<div class="modal" id="modal"><div class="sheet"><div class="row"><h3 style="margin:0">售后详情 / 举证</h3><button onclick="closeModal()">关闭</button></div><div id="detail"></div><textarea id="note" rows="4" placeholder="内部备注或修改举证理由…" style="margin-top:10px"></textarea><div class="actions"><button class="primary" onclick="saveNote()">保存</button><button onclick="createTaskFromCurrent()">生成举证任务</button><button class="warning" onclick="markSubmitted()">模拟提交完成</button><button onclick="markDone()">标记已处理</button></div></div></div>
+<div class="toast" id="toast"></div>
 <script>
-(function(){
-'use strict';
-const KEY='radar5_data_v2', SET='radar5_settings_v2';
-let data=loadData(), settings=loadSettings(), timer=null, sortNewest=true, visibleCount=20;
-
-const $=id=>document.getElementById(id);
-const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function seed(){const now=Date.now();const types=[['新增售后','new','low','新发起售后'],['拒绝协商','refuse','medium','退款金额协商失败'],['仲裁','arb','high','平台介入'],['高风险售后','risk','high','商品质量争议'],['新增售后','new','medium','物流异常'],['拒绝协商','refuse','high','买家拒绝协商'],['高风险售后','risk','high','超时风险']];return Array.from({length:24},(_,i)=>{const t=types[i%types.length];return {id:'AS'+String(202610000+i),order:'DY'+(8392000+i),type:t[0],kind:t[1],risk:t[2],amount:[39,68,128,199,299][i%5],status:i%4===0?'待处理':'处理中',reason:t[3],time:new Date(now-i*43*60000).toISOString(),read:i%3!==0,handled:i%5===0,note:''};});}
-function loadData(){try{const x=JSON.parse(localStorage.getItem(KEY)||'null');return Array.isArray(x)?x:seed()}catch(e){return seed()}}
-function loadSettings(){try{return Object.assign({riskNotify:true,arbNotify:true,autoRefresh:false,markUnread:true},JSON.parse(localStorage.getItem(SET)||'{}'))}catch(e){return {riskNotify:true,arbNotify:true,autoRefresh:false,markUnread:true}}}
-function save(){localStorage.setItem(KEY,JSON.stringify(data));localStorage.setItem(SET,JSON.stringify(settings)); updateRuntime();}
-function fmt(x){return new Date(x).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}
-function isToday(x){return new Date(x).toDateString()===new Date().toDateString()}
-function stats(){const today=data.filter(x=>isToday(x));return {today:today.length,risk:data.filter(x=>x.risk==='high').length,medium:data.filter(x=>x.risk==='medium').length,low:data.filter(x=>x.risk==='low').length,ref:data.filter(x=>x.kind==='refuse').length,arb:data.filter(x=>x.kind==='arb').length,unread:data.filter(x=>!x.read).length,pending:data.filter(x=>x.status==='待处理').length,total:data.length}}
-function riskText(r){return r==='high'?'高风险':r==='medium'?'中风险':'低风险'}
-function badge(x){let c=x.risk==='high'?'red':x.risk==='medium'?'orange':'green';return '<span class="tag '+c+'">'+riskText(x.risk)+'</span>'+(x.read?'':'<span class="tag blue">未读</span>')}
-function card(x){return '<div class="event click" data-id="'+esc(x.id)+'"><div class="row"><div><b>'+esc(x.type)+'</b> '+badge(x)+'</div><span class="muted">'+fmt(x.time)+'</span></div><div class="muted" style="margin-top:6px">订单 '+esc(x.order)+' · ¥'+x.amount+' · '+esc(x.reason)+'</div><div class="muted" style="margin-top:5px">'+(x.handled?'已处理':'待处理')+(x.note?' · 有备注':'')+'</div></div>'}
-function filtered(){let q=($('search').value||'').trim().toLowerCase(),f=$('filter').value;let arr=data.filter(x=>{let str=(x.order+' '+x.id+' '+x.reason+' '+x.type).toLowerCase();if(q&&!str.includes(q))return false;switch(f){case'high':return x.risk==='high';case'medium':return x.risk==='medium';case'low':return x.risk==='low';case'refuse':return x.kind==='refuse';case'arb':return x.kind==='arb';case'new':return x.kind==='new';case'unread':return !x.read;case'pending':return x.status==='待处理';default:return true}});arr.sort((a,b)=>sortNewest?b.time.localeCompare(a.time):a.time.localeCompare(b.time));return arr}
-function render(){const s=stats();$('mToday').textContent=s.today;$('mRisk').textContent=s.risk;$('mRefuse').textContent=s.ref;$('mArb').textContent=s.arb;$('sTotal').textContent=s.total;$('sRate').textContent=(s.total?Math.round(s.risk/s.total*100):0)+'%';$('sArb').textContent=(s.total?Math.round(s.arb/s.total*100):0)+'%';$('sRef').textContent=(s.total?Math.round(s.ref/s.total*100):0)+'%';renderRisk();renderLatest();renderEvents();renderStats();updateRuntime();}
-function renderRisk(){const s=stats(), total=s.total||1;const arr=[['high','高风险',s.risk],['medium','中风险',s.medium],['low','低风险',s.low]];$('riskBars').innerHTML=arr.map(([k,l,v])=>'<button class="click" data-risk="'+k+'" style="display:block;width:100%;text-align:left;background:transparent;padding:0;margin:9px 0"><div class="row"><span>'+l+'</span><b>'+v+'</b></div><div class="bar"><i style="width:'+Math.round(v/total*100)+'%;background:'+(k==='high'?'#ef4444':k==='medium'?'#f59e0b':'#10b981')+'"></i></div></button>').join('')}
-function renderLatest(){const arr=data.slice().sort((a,b)=>b.time.localeCompare(a.time)).slice(0,5);$('latest').innerHTML=arr.map(card).join('')||'<div class="empty">暂无事件</div>';}
-function renderEvents(){const arr=filtered();$('eventCount').textContent=arr.length+' 条';const shown=arr.slice(0,visibleCount);$('eventList').innerHTML=shown.map(card).join('')||'<div class="empty">没有匹配的事件</div>';$('loadMoreBtn').style.display=arr.length>shown.length?'block':'none'}
-function renderStats(){const s=stats();const daily={};data.forEach(x=>{const d=new Date(x.time);const k=(d.getMonth()+1)+'/'+d.getDate();daily[k]=(daily[k]||0)+1});const days=Object.entries(daily).sort((a,b)=>new Date('2026/'+a[0])-new Date('2026/'+b[0])).slice(-7);const max=Math.max(1,...days.map(x=>x[1]));$('trendBars').innerHTML=days.length?days.map(([d,v])=>'<div style="display:flex;align-items:center;gap:8px;margin:7px 0"><span style="width:34px;font-size:10px">'+d+'</span><div class="progress" style="flex:1"><i style="width:'+Math.round(v/max*100)+'%"></i></div><b style="font-size:11px;width:22px;text-align:right">'+v+'</b></div>').join(''):'<div class="muted">暂无数据</div>';let m={};data.forEach(x=>m[x.type]=(m[x.type]||0)+1);$('typeStats').innerHTML=Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k,v])=>'<div class="line"><span>'+esc(k)+'</span><b>'+v+'</b></div>').join('')||'<div class="empty">暂无数据</div>'}
-function showPage(id){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('on',x.id===id));document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('on',x.dataset.p===id));window.scrollTo({top:0,behavior:'smooth'});render();}
-function openDetail(id){const x=data.find(a=>a.id===id);if(!x)return;x.read=true;save();render();$('modalTitle').textContent=x.type;$('modalBody').innerHTML='<div class="line"><span>事件编号</span><b>'+esc(x.id)+'</b></div><div class="line"><span>订单号</span><b>'+esc(x.order)+'</b></div><div class="line"><span>风险等级</span><b class="'+(x.risk==='high'?'danger':x.risk==='medium'?'warn':'good')+'">'+riskText(x.risk)+'</b></div><div class="line"><span>金额</span><b>¥'+x.amount+'</b></div><div class="line"><span>状态</span><b>'+esc(x.status)+'</b></div><div class="line"><span>原因</span><b>'+esc(x.reason)+'</b></div><div class="line"><span>发生时间</span><b>'+fmt(x.time)+'</b></div><div style="margin-top:14px"><b>本地备注</b><textarea id="noteInput" rows="3" placeholder="写下跟进记录，不会同步到抖店" style="width:100%;margin-top:7px;padding:10px;border:1px solid #e0e5ec;border-radius:12px;resize:vertical">'+esc(x.note||'')+'</textarea></div><div class="actions"><button class="btn primary" id="markBtn">'+(x.handled?'标记为待处理':'标记已处理')+'</button><button class="btn ghost" style="background:#eef2f6;color:#111827" id="saveNoteBtn">保存备注</button></div><p class="muted">当前为本地模拟数据。以上“已读/已处理/备注”只作用于本应用，不会执行抖店退款、驳回或审核。</p>';$('markBtn').onclick=()=>{x.handled=!x.handled;save();openDetail(x.id);toast(x.handled?'已标记为已处理':'已恢复为待处理')};$('saveNoteBtn').onclick=()=>{x.note=$('noteInput').value.trim();save();toast('备注已保存');openDetail(x.id)};$('modal').classList.add('on')}
-function closeModal(){$('modal').classList.remove('on')}
-function generate(){const n=Date.now(),list=[['新增售后','new','low','新发起售后'],['拒绝协商','refuse','medium','退款金额协商失败'],['仲裁','arb','high','平台介入'],['高风险售后','risk','high','超时风险'],['拒绝协商','refuse','high','买家拒绝协商']];const k=list[Math.floor(Math.random()*list.length)];const x={id:'AS'+String(n).slice(-8),order:'DY'+String(Math.floor(Math.random()*9000000+1000000)),type:k[0],kind:k[1],risk:k[2],amount:[29,59,99,168,299][Math.floor(Math.random()*5)],status:'待处理',reason:k[3],time:new Date().toISOString(),read:!settings.markUnread,handled:false,note:''};data.unshift(x);save();render();if((x.risk==='high'&&settings.riskNotify)||(x.kind==='arb'&&settings.arbNotify)){navigator.vibrate?.([80,50,80]);toast('⚠️ '+x.type+'：'+x.reason)}else toast('已新增模拟事件');}
-function refresh(){const btn=$('refreshBtn');btn.disabled=true;btn.textContent='刷新中…';setTimeout(()=>{data.sort((a,b)=>b.time.localeCompare(a.time));render();btn.disabled=false;btn.textContent='↻ 立即刷新';$('statusText').textContent='刚刚刷新';toast('数据已刷新');setTimeout(()=>$('statusText').textContent='本地运行',1200)},450)}
-function setFilter(f){$('filter').value=f;$('search').value='';visibleCount=20;document.querySelectorAll('#quickTabs .tab').forEach(b=>b.classList.toggle('active',b.dataset.filter===f));showPage('events')}
-function exportJSON(){const blob=new Blob([JSON.stringify({version:5,data,settings,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='售后雷达Pro5_备份_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);toast('备份已导出')}
-function exportStats(){const s=stats();const text=['售后雷达 Pro 5.0 统计','导出时间：'+new Date().toLocaleString('zh-CN'),'事件总数：'+s.total,'今日售后：'+s.today,'高风险：'+s.risk,'拒绝协商：'+s.ref,'仲裁：'+s.arb,'未读：'+s.unread,'待处理：'+s.pending].join('\n');const blob=new Blob([text],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='售后雷达Pro5_统计.txt';a.click();URL.revokeObjectURL(a.href);toast('统计已导出')}
-function importJSON(file){const r=new FileReader();r.onload=()=>{try{const obj=JSON.parse(r.result);if(!Array.isArray(obj.data))throw Error();if(!confirm('导入后会覆盖当前本地数据，继续吗？'))return;data=obj.data;settings=Object.assign(settings,obj.settings||{});save();syncControls();render();toast('备份导入成功')}catch(e){toast('导入失败：文件格式不正确')}};r.readAsText(file)}
-function resetData(){if(!confirm('确定清空所有本地测试数据？此操作不可恢复。'))return;data=[];save();render();toast('本地测试数据已清空')}
-function seedDemo(){if(data.length&&!confirm('生成演示数据会追加到当前数据，继续吗？'))return;const extra=seed();data=[...extra,...data];save();render();toast('已生成一套演示数据')}
-function syncControls(){$('riskNotify').checked=!!settings.riskNotify;$('arbNotify').checked=!!settings.arbNotify;$('autoRefresh').checked=!!settings.autoRefresh;$('markUnread').checked=!!settings.markUnread;restartTimer();updateRuntime()}
-function restartTimer(){if(timer)clearInterval(timer);timer=null;if(settings.autoRefresh)timer=setInterval(()=>{generate();},30000)}
-function updateRuntime(){$('runtimeInfo').innerHTML='当前事件：<b>'+data.length+'</b> 条<br>未读事件：<b>'+stats().unread+'</b> 条<br>待处理事件：<b>'+stats().pending+'</b> 条<br>自动刷新：<b>'+(settings.autoRefresh?'已开启（30秒）':'已关闭')+'</b><br>数据位置：<b>当前浏览器 localStorage</b>'}
-function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),1800)}
-
-$('generateBtn').onclick=generate;$('refreshBtn').onclick=refresh;$('allEventsBtn').onclick=()=>setFilter('all');$('riskFilterBtn').onclick=()=>setFilter('high');$('todayCard').onclick=()=>{showPage('events');$('search').value='';renderEvents();$('eventList').innerHTML=data.filter(x=>isToday(x)).sort((a,b)=>b.time.localeCompare(a.time)).map(card).join('')||'<div class="empty">今天还没有事件</div>'};$('riskCard').onclick=()=>setFilter('high');$('refuseCard').onclick=()=>setFilter('refuse');$('arbCard').onclick=()=>setFilter('arb');$('statusBtn').onclick=()=>{showPage('settings');toast('这是本地演示模式')};$('sortBtn').onclick=()=>{sortNewest=!sortNewest;$('sortBtn').textContent=sortNewest?'最新优先':'最旧优先';renderEvents()};$('loadMoreBtn').onclick=()=>{visibleCount+=20;renderEvents()};$('search').oninput=()=>{visibleCount=20;renderEvents()};$('filter').onchange=()=>{visibleCount=20;document.querySelectorAll('#quickTabs .tab').forEach(b=>b.classList.toggle('active',b.dataset.filter===$('filter').value));renderEvents()};document.querySelectorAll('#quickTabs .tab').forEach(b=>b.onclick=()=>setFilter(b.dataset.filter));document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>showPage(b.dataset.p));$('closeModal').onclick=closeModal;$('modal').onclick=e=>{if(e.target===$('modal'))closeModal()};document.body.addEventListener('click',e=>{const event=e.target.closest('.event');if(event)openDetail(event.dataset.id);const rb=e.target.closest('[data-risk]');if(rb)setFilter(rb.dataset.risk)});$('seedBtn').onclick=seedDemo;$('exportBtn').onclick=exportJSON;$('exportStatsBtn').onclick=exportStats;$('importBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=e=>{if(e.target.files[0])importJSON(e.target.files[0]);e.target.value=''};$('resetBtn').onclick=resetData;
-$('riskNotify').onchange=e=>{settings.riskNotify=e.target.checked;save();toast('风险预警设置已更新')};$('arbNotify').onchange=e=>{settings.arbNotify=e.target.checked;save();toast('仲裁提醒设置已更新')};$('autoRefresh').onchange=e=>{settings.autoRefresh=e.target.checked;save();restartTimer();toast(e.target.checked?'自动刷新已开启':'自动刷新已关闭')};$('markUnread').onchange=e=>{settings.markUnread=e.target.checked;save();toast('新事件未读设置已更新')};
-syncControls();render();
-})();
+const DKEY="radar_combined_data_v1", TKEY="radar_combined_tracks_v1", EKEY="radar_evidence_tasks_v1", SKEY="radar_combined_settings_v1";
+let data=JSON.parse(localStorage.getItem(DKEY)||"null")||[
+{id:"AS001",order:"731928450012345",buyer:"张先生",product:"轻薄防晒外套",type:"退款",event:"拒绝协商",risk:"高风险",amount:129,status:"待处理",time:"2026-10-05 14:32",reason:"买家拒绝协商",tracking:"SF1234567890",scenario:"发货核对",needEvidence:false,note:""},
+{id:"AS002",order:"731928450012346",buyer:"李女士",product:"无线耳机 Pro",type:"退货退款",event:"要求举证",risk:"高风险",amount:299,status:"处理中",time:"2026-10-05 13:18",reason:"平台要求商家上传仲裁凭证",tracking:"YT9876543210",scenario:"发货核对",needEvidence:true,note:""},
+{id:"AS003",order:"731928450012347",buyer:"王先生",product:"运动水杯",type:"退款",event:"新增售后",risk:"普通",amount:49,status:"待处理",time:"2026-10-05 12:05",reason:"商品与描述不符",tracking:"JD1122334455",scenario:"发货核对",needEvidence:false,note:""},
+{id:"AS004",order:"731928450012348",buyer:"陈女士",product:"蓝牙键盘",type:"换货",event:"仲裁",risk:"关注",amount:159,status:"待处理",time:"2026-10-05 10:44",reason:"平台介入仲裁",tracking:"SF5555666677",scenario:"功能异常",needEvidence:false,note:""}
+];
+let tracks=JSON.parse(localStorage.getItem(TKEY)||"[]");
+let tasks=JSON.parse(localStorage.getItem(EKEY)||"null")||[{
+id:"EV001",caseId:"AS002",order:"731928450012346",video:"发货核对.mp4",reason:"订单商品在发货前完成数量、外观及包装核对，相关发货过程视频可作为辅助凭证，请平台结合订单信息综合判断。",deadline:"2026-10-05 20:00",status:"待提交",createdAt:"2026-10-05 13:20"
+}];
+let settings=JSON.parse(localStorage.getItem(SKEY)||"null")||{autoTask:true,autoVideo:true,autoReason:true,autoSubmit:false};
+let cur=null,lastSeen={};
+const templates=[
+["发货核对","发货核对.mp4","订单商品在发货前完成数量、外观及包装核对，相关发货过程视频可作为辅助凭证，请平台结合订单信息综合判断。"],
+["破损争议","破损类.mp4","商品发出前外观检查正常并按标准包装，相关视频可作为辅助凭证，请平台结合完整证据进行判断。"],
+["少件争议","打包称重.mp4","订单在打包出库时完成商品核对及称重，相关视频可作为辅助凭证，请结合物流与订单信息综合判断。"],
+["功能异常","功能检查.mp4","商品发货前完成基础功能检查，相关视频可作为辅助凭证，请平台结合售后描述及订单证据综合判断。"]
+];
+function saveAll(){localStorage.setItem(DKEY,JSON.stringify(data));localStorage.setItem(TKEY,JSON.stringify(tracks));localStorage.setItem(EKEY,JSON.stringify(tasks));localStorage.setItem(SKEY,JSON.stringify(settings))}
+function toast(x){let e=document.getElementById("toast");e.textContent=x;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),2500)}
+function norm(v){return String(v||"").replace(/\s+/g,"").toUpperCase()}
+function tplFor(s){return templates.find(x=>x[0]===s)||templates[0]}
+function addTrack(){let n=norm(trackInput.value);if(!n)return toast("请输入快递单号");if(!tracks.some(x=>x.no===n))tracks.unshift({no:n,active:true,addedAt:new Date().toLocaleString("zh-CN",{hour12:false})});trackInput.value="";saveAll();scan();renderWatch();toast("开始盯单："+n)}
+function toggleTrack(n){let x=tracks.find(a=>a.no===n);if(x)x.active=!x.active;saveAll();renderWatch()}
+function removeTrack(n){tracks=tracks.filter(x=>x.no!==n);saveAll();renderWatch();render()}
+function renderWatch(){let e=document.getElementById("watchList");if(!tracks.length){e.innerHTML="<div class=empty>还没有盯单</div>";return}e.innerHTML=tracks.map(w=>{let m=data.filter(x=>norm(x.tracking)===w.no);return `<div class="item ${m.length?"match":""}"><div class=row><b>${w.no}</b><span class="tag ${w.active?"green":"gray"}">${w.active?"监控中":"已暂停"}</span></div><div class=meta>匹配 ${m.length} 条 · 开始 ${w.addedAt}</div>${m.slice(0,3).map(x=>`<div class=meta>↳ ${x.event} · ${x.product} · ${x.status}</div>`).join("")}<div class=actions><button class=small onclick="toggleTrack('${w.no}')">${w.active?"暂停":"继续"}</button><button class=small onclick="filterTrack('${w.no}')">查看匹配</button><button class="small danger" onclick="removeTrack('${w.no}')">移除</button></div></div>`}).join("")}
+function filterTrack(n){q.value=n;render()}
+function setMode(mode){q.value="";type.value="";status.value="";event.value="";if(mode==="refuse")event.value="拒绝协商";if(mode==="arb")event.value="仲裁";if(mode==="evidence")event.value="要求举证";render()}
+function render(){
+ cAll.textContent=data.length;cRefuse.textContent=data.filter(x=>x.event==="拒绝协商").length;cArb.textContent=data.filter(x=>x.event==="仲裁"||x.event==="要求举证").length;cRisk.textContent=data.filter(x=>x.risk==="高风险").length;cEvidence.textContent=tasks.filter(x=>x.status==="待提交").length;
+ let z=norm(q.value),A=data.filter(x=>(!z||norm(JSON.stringify(x)).includes(z))&&(!type.value||x.type===type.value)&&(!status.value||x.status===status.value)&&(!event.value||x.event===event.value));
+ list.innerHTML=A.length?A.map(x=>{let watched=tracks.some(w=>w.active&&w.no===norm(x.tracking)),task=tasks.find(t=>t.caseId===x.id);return `<div class="item ${watched?"match":""} ${x.needEvidence?"urgent":""}"><div class=row><div><b>${esc(x.product)}</b> ${watched?'<span class="tag blue">盯单匹配</span>':""} ${x.needEvidence?'<span class="tag purple">需要举证</span>':""}</div><span class="tag ${x.risk==="高风险"?"red":x.risk==="关注"?"orange":"green"}">${x.risk}</span></div><div class=meta>订单 ${x.order}<br>快递 ${x.tracking||"未录入"}<br>${x.time} · ${x.event} · ${x.type} · ${x.status}${task?" · 举证："+task.status:""}</div><div class=actions><button onclick="show('${x.id}')">详情</button>${x.needEvidence&&!task?'<button class=primary onclick="createTask(\\''+x.id+'\\')">生成举证</button>':''}<button onclick="statusSet('${x.id}','处理中')">处理中</button><button class=primary onclick="statusSet('${x.id}','已处理')">已处理</button></div></div>`}).join(""):"<div class=item>没有符合条件的售后</div>"
+}
+function show(id){cur=data.find(x=>x.id===id);detail.innerHTML=[["订单号",cur.order],["买家",cur.buyer],["商品",cur.product],["快递单号",cur.tracking],["事件",cur.event],["风险",cur.risk],["金额","¥"+cur.amount],["状态",cur.status],["原因",cur.reason],["场景",cur.scenario]].map(x=>`<div class=line><b>${x[0]}：</b>${esc(x[1])}</div>`).join("");note.value=cur.note||"";modal.className="modal show"}
+function closeModal(){modal.className="modal";cur=null}
+function saveNote(){if(cur){cur.note=note.value;saveAll();render();closeModal()}}
+function markDone(){if(cur){cur.status="已处理";saveAll();render();closeModal()}}
+function statusSet(id,s){let x=data.find(a=>a.id===id);if(x){x.status=s;saveAll();render();toast("状态已更新")}}
+function createTask(id){let x=data.find(a=>a.id===id);if(!x)return;let t=tplFor(x.scenario);let task={id:"EV"+Date.now(),caseId:x.id,order:x.order,video:settings.autoVideo?t[1]:"待选择视频",reason:settings.autoReason?t[2]:"待填写理由",deadline:"待从官方接口读取",status:settings.autoSubmit?"模拟自动提交中":"待提交",createdAt:new Date().toLocaleString("zh-CN",{hour12:false})};tasks.unshift(task);x.needEvidence=true;saveAll();renderEvidence();render();toast("已创建举证任务") }
+function createTaskFromCurrent(){if(cur)createTask(cur.id);closeModal()}
+function markSubmitted(id){let t=id?tasks.find(x=>x.id===id):null;if(!t&&cur)t=tasks.find(x=>x.caseId===cur.id);if(t){t.status="已模拟提交";saveAll();renderEvidence();render();toast("已记录为模拟提交完成")}}
+function renderEvidence(){let e=document.getElementById("evidenceList");if(!tasks.length){e.innerHTML="<div class=empty>没有举证任务</div>";return}e.innerHTML=tasks.map(t=>`<div class="item evidence"><div class=row><b>订单 ${t.order}</b><span class="tag purple">${t.status}</span></div><div class=meta>视频：${esc(t.video)}<br>理由：${esc(t.reason)}<br>截止时间：${esc(t.deadline)}<br>创建：${t.createdAt}</div><div class=actions><button onclick="show('${t.caseId}')">查看售后</button><button class=primary onclick="markSubmitted('${t.id}')">模拟提交完成</button></div></div>`).join("")}
+function scan(){tracks.forEach(w=>{if(!w.active)return;let m=data.filter(x=>norm(x.tracking)===w.no);let key=m.map(x=>x.id+":"+x.event).join("|");if(key&&lastSeen[w.no]!==key){lastSeen[w.no]=key;toast("🎯 盯单命中："+w.no);m.forEach(x=>{if(x.needEvidence&&settings.autoTask&&!tasks.some(t=>t.caseId===x.id))createTask(x.id)})}});renderWatch();render()}
+function addDemo(){let n=Date.now(),watch=tracks.find(x=>x.active);data.unshift({id:"AS"+n,order:String(n),buyer:"演示买家",product:"演示商品·新售后",type:["退款","退货退款","换货"][Math.floor(Math.random()*3)],event:["新增售后","拒绝协商","仲裁"][Math.floor(Math.random()*3)],risk:Math.random()<.4?"高风险":"普通",amount:Math.floor(Math.random()*400)+29,status:"待处理",time:new Date().toLocaleString("zh-CN",{hour12:false}),reason:"模拟生成",tracking:watch?watch.no:"SF"+String(n).slice(-10),scenario:"发货核对",needEvidence:false,note:""});saveAll();scan()}
+function addArbitration(){let n=Date.now(),watch=tracks.find(x=>x.active);let id="AS"+n;data.unshift({id,order:String(n),buyer:"演示买家",product:"演示商品·仲裁举证",type:"退货退款",event:"要求举证",risk:"高风险",amount:199,status:"处理中",time:new Date().toLocaleString("zh-CN",{hour12:false}),reason:"平台要求商家上传仲裁凭证",tracking:watch?watch.no:"YT"+String(n).slice(-10),scenario:templates[Math.floor(Math.random()*templates.length)][0],needEvidence:true,note:""});if(settings.autoTask)createTask(id);saveAll();scan();toast("已模拟“要求举证”事件")}
+function saveSettings(){settings={autoTask:autoTask.checked,autoVideo:autoVideo.checked,autoReason:autoReason.checked,autoSubmit:autoSubmit.checked};saveAll();toast("设置已保存")}
+function exportData(){let pack={data,tracks,tasks,settings,exportedAt:new Date().toISOString()};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(pack,null,2)],{type:"application/json"}));a.download="售后雷达_盯单_举证数据.json";a.click()}
+function clearData(){if(confirm("确定清空售后、盯单和举证演示数据？")){data=[];tracks=[];tasks=[];saveAll();renderWatch();renderEvidence();render();toast("已清空")}}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+autoTask.checked=settings.autoTask;autoVideo.checked=settings.autoVideo;autoReason.checked=settings.autoReason;autoSubmit.checked=settings.autoSubmit;
+templates.innerHTML=templates.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td></tr>`).join("");
+renderWatch();renderEvidence();render();scan();setInterval(scan,10000);
 </script>
-</body></html>
+</body>
+</html>
