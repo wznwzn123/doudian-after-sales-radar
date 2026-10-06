@@ -17,9 +17,20 @@
   <div class="brandline"><div class="logo">雷</div><div><div class="brand">售后雷达 Pro 5.0</div><div class="sub">云端售后 · 证据 · 3小时风险管控</div></div></div>
   <h2 style="margin-top:22px">进入云端工作台</h2><p>同一账号可在 Android、iPhone 和电脑浏览器继续处理，举证材料保存在云端。</p>
   <div class="field"><label>邮箱</label><input id="email" class="input" type="email" autocomplete="email" placeholder="your@email.com"></div>
-  <div class="field"><label>密码</label><input id="password" class="input" type="password" autocomplete="current-password" placeholder="至少 6 位"></div>
+  <div class="field"><label>密码</label><input id="password" class="input" type="password" autocomplete="current-password" placeholder="至少 8 位，含大小写字母、数字和特殊字符"></div>
+  <div class="field hidden" id="registerPasswordConfirmWrap"><label>确认密码</label><input id="passwordConfirm" class="input" type="password" autocomplete="new-password" placeholder="再次输入密码"></div>
+  <div id="passwordRules" class="notice" style="margin:8px 0 10px">密码安全要求：至少 8 位，并同时包含大写字母、小写字母、数字、特殊字符。</div>
   <div id="authMsg" class="hidden"></div>
-  <div class="actions"><button class="btn primary" onclick="login()">登录</button><button class="btn" onclick="register()">注册账号</button></div>
+  <div class="actions"><button class="btn primary" onclick="login()">登录</button><button class="btn" onclick="register()">注册账号</button><button class="btn blue" onclick="forgotPassword()">找回密码</button></div>
+</div>
+<div id="resetView" class="login hidden">
+  <div class="brandline"><div class="logo">雷</div><div><div class="brand">售后雷达 Pro 5.0</div><div class="sub">安全重置登录密码</div></div></div>
+  <h2 style="margin-top:22px">设置新密码</h2><p>请输入符合安全规则的新密码。保存后即可重新登录。</p>
+  <div class="field"><label>新密码</label><input id="resetPassword" class="input" type="password" autocomplete="new-password" placeholder="至少 8 位，含大小写字母、数字和特殊字符"></div>
+  <div class="field"><label>确认新密码</label><input id="resetPasswordConfirm" class="input" type="password" autocomplete="new-password" placeholder="再次输入新密码"></div>
+  <div class="notice" style="margin-bottom:10px">密码必须至少 8 位，并包含大写字母、小写字母、数字和特殊字符。</div>
+  <div id="resetMsg" class="hidden"></div>
+  <div class="actions"><button class="btn primary" onclick="updatePassword()">保存新密码</button><button class="btn" onclick="backToLogin()">返回登录</button></div>
 </div>
 <div id="app" class="app hidden">
 <header class="top"><div class="toprow"><div class="brandline"><div class="logo">雷</div><div><div class="brand">售后雷达 Pro 5.0</div><div class="sub">云端工作台 · 数据已同步</div></div></div><div class="authbar"><span id="syncState" class="sub">云端在线</span><span id="userEmail" class="email"></span><span class="avatar" id="avatar">U</span><button class="btn ghost" onclick="openSettings()">设置</button><button class="btn ghost" onclick="signOut()">退出</button></div></div></header>
@@ -43,8 +54,16 @@ function isCountdown(t){return t?.status==="待举证"&&t?.submission_status==="
 function progress(t){if(!isCountdown(t))return t.status==="已完成"?100:0;const start=new Date(t.updated_at||t.created_at).getTime();const end=new Date(t.deadline).getTime();const total=Math.max(1,end-start);return Math.max(0,Math.min(100,(Date.now()-start)/total*100))}
 function statusTag(t){let c=t.risk==="高风险"?"red":t.status==="已完成"?"green":t.status==="待举证"?"amber":"blue";return `<span class="tag ${c}">${esc(t.status)}</span><span class="tag ${t.risk==="高风险"?"red":""}">${esc(t.risk||"普通")}</span>`}
 async function init(){const r=await sb.auth.getSession();session=r.data.session;if(session)showApp();else $("loginView").classList.remove("hidden");sb.auth.onAuthStateChange((e,s)=>{session=s;if(s){showApp()}else{clearInterval(timer);current=null;tasks=[];renderTasks();$("appView").classList.add("hidden");$("loginView").classList.remove("hidden");$("userEmail").textContent="";$("syncState").textContent="请登录";}})}
-async function login(){const {error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){$('authMsg').className='authmsg err';$('authMsg').textContent=error.message}else toast('登录成功','ok')}
-async function register(){const em=$('email').value.trim(),pw=$('password').value;if(pw.length<6){$('authMsg').className='authmsg err';$('authMsg').textContent='密码至少 6 位';return}const {error}=await sb.auth.signUp({email:em,password:pw});if(error){$('authMsg').className='authmsg err';$('authMsg').textContent=error.message}else{$('authMsg').className='authmsg ok';$('authMsg').textContent='注册成功，请按项目设置完成邮箱验证（如已关闭则可直接登录）'}}
+function passwordCheck(pw){return {length:pw.length>=8,upper:/[A-Z]/.test(pw),lower:/[a-z]/.test(pw),number:/\d/.test(pw),special:/[^A-Za-z0-9]/.test(pw)}}
+function passwordIsStrong(pw){const r=passwordCheck(pw);return r.length&&r.upper&&r.lower&&r.number&&r.special}
+function showAuthMsg(msg,ok=false){$('authMsg').className='authmsg '+(ok?'ok':'err');$('authMsg').textContent=msg}
+async function login(){const em=$('email').value.trim(),pw=$('password').value;if(!em||!pw){showAuthMsg('请输入邮箱和密码');return}const {error}=await sb.auth.signInWithPassword({email:em,password:pw});if(error)showAuthMsg('登录失败：'+error.message);else toast('登录成功','ok')}
+async function register(){const em=$('email').value.trim(),pw=$('password').value,confirm=$('passwordConfirm').value;$('registerPasswordConfirmWrap').classList.remove('hidden');if(!em){showAuthMsg('请输入邮箱');return}if(!passwordIsStrong(pw)){showAuthMsg('密码不符合安全要求：至少 8 位，并包含大写字母、小写字母、数字和特殊字符。');return}if(pw!==confirm){showAuthMsg('两次输入的密码不一致。');return}const {error}=await sb.auth.signUp({email:em,password:pw});if(error)showAuthMsg(error.message);else showAuthMsg('注册成功，请按项目设置完成邮箱验证（如已关闭则可直接登录）。',true)}
+async function forgotPassword(){const em=$('email').value.trim();if(!em){showAuthMsg('请先输入注册邮箱，再点击“找回密码”。');return}const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:window.location.origin+window.location.pathname});if(error)showAuthMsg('发送失败：'+error.message);else showAuthMsg('重置密码邮件已发送，请检查邮箱（包括垃圾邮件）。',true)}
+async function updatePassword(){const pw=$('resetPassword').value,confirm=$('resetPasswordConfirm').value;if(!passwordIsStrong(pw)){showResetMsg('密码不符合安全要求：至少 8 位，并包含大写字母、小写字母、数字和特殊字符。');return}if(pw!==confirm){showResetMsg('两次输入的密码不一致。');return}const {error}=await sb.auth.updateUser({password:pw});if(error){showResetMsg('密码更新失败：'+error.message);return}showResetMsg('密码已更新，请返回登录。',true);setTimeout(()=>backToLogin(),1000)}
+function showResetMsg(msg,ok=false){$('resetMsg').className='authmsg '+(ok?'ok':'err');$('resetMsg').textContent=msg}
+function backToLogin(){$('resetView').classList.add('hidden');$('loginView').classList.remove('hidden');history.replaceState({},document.title,window.location.pathname);}
+function checkRecovery(){const hash=window.location.hash||'';if(hash.includes('type=recovery')){$('loginView').classList.add('hidden');$('app').classList.add('hidden');$('resetView').classList.remove('hidden')}}
 async function signOut(){await sb.auth.signOut()}
 async function showApp(){$('loginView').classList.add('hidden');$('app').classList.remove('hidden');$('userEmail').textContent=session.user.email||'';$('avatar').textContent=(session.user.email||'U')[0].toUpperCase();await refreshAll();subscribeRealtime();startTimer()}
 async function refreshAll(){if(!session)return;$('syncState').textContent='同步中…';const {data,error}=await sb.from('after_sales_tasks').select('*').order('created_at',{ascending:false});if(error){toast('读取云端失败：'+error.message,'err');return}tasks=data||[];await updateMeta();render();$('syncState').textContent='云端在线'}
