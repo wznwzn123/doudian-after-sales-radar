@@ -110,9 +110,9 @@ async function adminStoreCenter(){
   const all=data||[];
   const render=()=>{
     const q=($('adminStoreSearch')?.value||'').trim().toLowerCase();
-    const rows=all.filter(s=>![s.name,s.platform,s.owner_email,s.email,s.shop_id].join(' ').toLowerCase().includes(q)===false).map(s=>`<tr><td><b>${esc(s.name||'—')}</b></td><td>${esc(s.platform||'douyin')}</td><td>${esc(s.owner_email||s.email||'—')}</td><td>${esc(s.status||'active')}</td><td>${Number(s.task_count||0)}</td><td>${fmt(s.created_at)}</td></tr>`).join('');
+    const filtered=all.filter(s=>{const text=[s.store_name,s.platform,s.owner_email,s.shop_id,s.owner_user_id].filter(Boolean).join(' ').toLowerCase();return !q||text.includes(q)}); const rows=filtered.map(s=>`<tr><td><b>${esc(s.store_name||'未命名店铺')}</b><div class="muted">${esc(s.shop_id||'')}</div></td><td>${esc(s.platform||'douyin')}</td><td>${esc(s.owner_email||'—')}</td><td>${esc(s.status||'active')}</td><td>${Number(s.task_count||0)}</td><td>${fmt(s.created_at)}</td></tr>`).join('');
     $('adminStoreRows').innerHTML=rows||'<tr><td colspan="6">没有找到匹配的店铺</td></tr>';
-    $('adminStoreCount').textContent=`共 ${all.length} 家，当前显示 ${all.filter(s=>![s.name,s.platform,s.owner_email,s.email,s.shop_id].join(' ').toLowerCase().includes(q)===false).length} 家`;
+    $('adminStoreCount').textContent=`共 ${all.length} 家，当前显示 ${filtered.length} 家`;
   };
   $('modalBox').innerHTML=`<div class="actions" style="justify-content:space-between"><b>全平台店铺管理</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="section"><div class="field"><label>搜索店铺 / 平台 / 用户邮箱</label><input id="adminStoreSearch" class="input" placeholder="输入关键词快速查找" oninput="window.__renderAdminStores&&window.__renderAdminStores()"></div><div id="adminStoreCount" class="muted"></div></div><div class="section"><div class="tableWrap"><table><thead><tr><th>店铺</th><th>平台</th><th>所属用户</th><th>状态</th><th>售后数</th><th>创建时间</th></tr></thead><tbody id="adminStoreRows"></tbody></table></div></div>`;
   window.__renderAdminStores=render; $('modal').classList.remove('hidden'); render();
