@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"/>
@@ -7,10 +6,29 @@
 <meta content="#0b1020" name="theme-color"/>
 <title>售后雷达 Pro 5.0 · 云端工作台</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        brand: { 50:'#eef2ff',100:'#e0e7ff',500:'#4d72d7',600:'#3f5fc4',700:'#344ea8' },
+        surface: '#f4f7fb',
+      },
+      boxShadow: {
+        'soft': '0 6px 24px -6px rgba(36,56,90,.08)',
+        'card': '0 2px 12px -2px rgba(36,56,90,.06)',
+        'float': '0 16px 40px -12px rgba(34,50,80,.18)',
+      }
+    }
+  }
+}
+</script>
 <style>
 :root{
   --bg:#f4f7fb;--surface:rgba(255,255,255,.82);--surface-solid:#fff;--text:#202636;--muted:#737c8d;
-  --line:rgba(148,163,184,.18);--blue:#4c73d8;--blue-soft:#edf2ff;--green:#23a06b;--red:#dd5861;--amber:#b88322;
+  --line:rgba(148,163,184,.18);--blue:#4d72d7;--blue-soft:#edf2ff;--green:#23a06b;--red:#dd5861;--amber:#b88322;
   --shadow:0 14px 34px rgba(36,56,90,.08);--shadow-soft:0 6px 18px rgba(36,56,90,.06);--radius:22px;
 }
 html.dark{
@@ -21,123 +39,219 @@ html.dark{
 html,body{margin:0;min-height:100%;background:radial-gradient(circle at 12% 0%,rgba(190,207,247,.28),transparent 28%),linear-gradient(180deg,#f7f9fd 0%,var(--bg) 42%,#eef2f8 100%);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
 html.dark body{background:radial-gradient(circle at 12% 0%,rgba(75,96,165,.18),transparent 28%),linear-gradient(180deg,#161a28 0%,var(--bg) 52%,#0f1320 100%)}
 button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}.hidden{display:none!important}
+.hide-scrollbar::-webkit-scrollbar{display:none}.hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
 .top{position:sticky;top:0;z-index:30;background:rgba(247,249,253,.76);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);padding:14px 16px 10px;border-bottom:1px solid rgba(148,163,184,.12)}
 html.dark .top{background:rgba(17,21,34,.76)}
-.toprow{max-width:1180px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:12px}.brandline{display:flex;align-items:center;gap:10px;min-width:0}
-.logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(145deg,#eef2ff,#dbe4ff);display:grid;place-items:center;color:#4c73d8;font-weight:950;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
-.brand{font-size:18px;font-weight:950;letter-spacing:-.4px}.sub{font-size:11px;color:var(--muted);margin-top:2px}.authbar{display:flex;align-items:center;gap:8px}.email{font-size:12px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.iconBtn{width:42px;height:42px;border-radius:50%;background:var(--surface-solid);color:var(--text);border:1px solid var(--line);box-shadow:var(--shadow-soft);display:grid;place-items:center;font-size:18px}.iconBtn.small{width:38px;height:38px;font-size:16px}
-.wrap{max-width:1180px;margin:auto;padding:14px 14px 110px}.hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:12px;margin-bottom:12px}
-.heroCard{position:relative;overflow:hidden;background:linear-gradient(135deg,#eff3ff 0%,#e7edff 52%,#f3f6ff 100%);color:#222a3a;border:1px solid rgba(112,135,194,.12);border-radius:26px;padding:20px;box-shadow:var(--shadow)}
-.heroCard:after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;right:-64px;top:-72px;background:rgba(117,148,228,.11)}
-html.dark .heroCard{background:linear-gradient(135deg,#252f49,#22293c);color:#f4f7ff}.hero h1{position:relative;z-index:1;margin:0;font-size:25px;letter-spacing:-.7px}.hero p{position:relative;z-index:1;margin:7px 0;color:#6d7687;font-size:13px;max-width:560px}html.dark .hero p{color:#adb6c8}
-.heroActions,.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.heroActions{position:relative;z-index:1}.heroMini{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mini,.stat,.item,.section,.login{background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-soft)}
-.mini{border-radius:20px;padding:15px}.mini .k,.stat .l{font-size:12px;color:var(--muted)}.mini .v{font-size:22px;font-weight:950;margin-top:3px}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.stat{border-radius:18px;padding:14px}.stat .n{font-size:23px;font-weight:950;line-height:1.1}.toolbar{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:10px;display:grid;grid-template-columns:minmax(0,1fr) 150px 125px 125px;gap:8px;box-shadow:var(--shadow-soft)}
-.input,select,textarea{width:100%;border:1px solid rgba(148,163,184,.24);background:var(--surface-solid);color:var(--text);border-radius:13px;padding:10px 11px;outline:0}.input:focus,select:focus,textarea:focus{border-color:rgba(76,115,216,.55);box-shadow:0 0 0 4px rgba(76,115,216,.08)}
-.btn{padding:10px 13px;border-radius:13px;background:#eef1f6;color:#283247;font-weight:850}.btn.primary{background:#4d72d7;color:#fff}.btn.blue{background:var(--blue-soft);color:var(--blue)}.btn.good{background:#e8f7ef;color:#11754a}.btn.warn{background:#fff4df;color:#8a5b00}.btn.danger{background:#ffebed;color:#b32e39}.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
-html.dark .btn{background:#262c3d;color:#eef2fb}.nav{display:flex;gap:7px;overflow:auto;margin:12px 0}.nav .btn{white-space:nowrap}.nav .active{background:#4d72d7;color:#fff}
-.list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}.item{border-radius:20px;padding:14px}.itemhead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.title{font-size:15px;font-weight:900}.meta,.muted{font-size:12px;color:var(--muted)}.tags{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.tag{display:inline-flex;padding:5px 8px;border-radius:999px;background:#eef1f6;font-size:11px;font-weight:800}.tag.red{background:#ffe9e9;color:#a92323}.tag.green{background:#e6f8ef;color:#11754a}.tag.amber{background:#fff2d5;color:#8a5b00}.tag.blue{background:#e8efff;color:#1d4ed8}.deadline{display:flex;justify-content:space-between;gap:10px;margin-top:8px;font-size:12px}.countdown{font-weight:950}.dangertext{color:var(--red)}.empty{padding:32px 15px;text-align:center;background:var(--surface);border:1px dashed rgba(148,163,184,.35);border-radius:18px;color:var(--muted)}
-.drawer{position:fixed;inset:0;z-index:50;background:rgba(15,23,42,.42);display:flex;justify-content:flex-end}.sheet{height:100%;width:min(780px,100%);background:var(--surface-solid);overflow:auto}.sheetHead{position:sticky;top:0;z-index:3;background:rgba(255,255,255,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:13px 14px;display:flex;justify-content:space-between}.sheetBody{padding:14px}.section{border-radius:18px;padding:13px;margin-bottom:10px}.section h3{margin:0 0 10px;font-size:14px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}.field{margin-bottom:9px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}.drop{border:1px dashed rgba(107,125,160,.45);border-radius:15px;padding:17px;text-align:center;background:#f7f9fc}.notice{padding:10px 12px;border-radius:12px;background:#f4f6fa;font-size:12px;color:#5f6c80}.notice.warn{background:#fff6e4;color:#805800}
-.modal{position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.42);display:grid;place-items:center;padding:12px}.modalBox{background:var(--surface-solid);border-radius:22px;width:min(800px,100%);max-height:88vh;overflow:auto;padding:16px}.toast{position:fixed;left:50%;bottom:82px;transform:translateX(-50%);z-index:100;background:#202738;color:#fff;padding:10px 14px;border-radius:12px;font-size:13px;box-shadow:var(--shadow)}
-.login{max-width:440px;margin:7vh auto;padding:20px;border-radius:24px}.login h2{margin-top:22px}.authmsg{padding:9px;border-radius:10px;font-size:12px;margin:8px 0}.authmsg.err{background:#fff0f0;color:#a92323}.authmsg.ok{background:#eaf8f0;color:#11754a}.tableWrap{overflow:auto}.tableWrap table{width:100%;min-width:680px;border-collapse:collapse}.adminTable{width:100%;border-collapse:collapse;font-size:12px}.adminTable th,.adminTable td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.adminTable th{color:var(--muted)}.adminPill{display:inline-flex;padding:4px 7px;border-radius:999px;background:#e7f8ef;color:#11754a;font-weight:800}
-.storeBadge{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:var(--blue-soft);color:var(--blue);font-weight:900;font-size:11px}.storeDot{width:7px;height:7px;border-radius:50%;background:#4c73d8}.storeSelect{min-width:150px}.storeGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.storeCard{border:1px solid var(--line);border-radius:17px;padding:13px;background:var(--surface)}.storeCard .name{font-weight:900}.storeCard .num{font-size:22px;font-weight:950;margin-top:7px}
-.bottomNav{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);width:min(650px,calc(100% - 28px));z-index:40;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:7px;background:rgba(255,255,255,.84);border:1px solid rgba(148,163,184,.18);box-shadow:0 18px 45px rgba(34,50,80,.16);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:27px}.bottomNav button{background:transparent;color:#6d7480;border-radius:19px;padding:6px 4px;font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;gap:3px;flex-direction:column}.bottomNav button .ico{font-size:20px;line-height:1}.bottomNav button.active{background:#eef2ff;color:#4d72d7}
-.compactRow{display:flex;align-items:center;justify-content:space-between;gap:10px}.sectionHeader{display:flex;align-items:center;justify-content:space-between;gap:10px}.pillCount{font-size:11px;color:var(--muted);font-weight:800;background:rgba(148,163,184,.10);padding:5px 8px;border-radius:999px}
-@media(max-width:900px){.hero{grid-template-columns:1fr}.toolbar{grid-template-columns:minmax(0,1fr) 1fr 1fr}.toolbar .search{grid-column:1/-1}.storeGrid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:760px){#adminStoreBtn:not(.hidden),#adminBtn:not(.hidden){display:inline-flex!important;padding:8px 9px;font-size:11px}.top{padding:12px 12px 9px}.brand{font-size:17px}.sub{font-size:10px}.email{display:none}.toprow{gap:8px}.authbar{gap:6px}.authbar .btn{display:none}.iconBtn{width:39px;height:39px}.wrap{padding:10px 10px 102px}.heroCard{padding:18px;border-radius:23px}.hero h1{font-size:22px}.hero p{font-size:12px}.heroActions .btn{padding:9px 10px}.heroMini{gap:8px}.mini{padding:12px;border-radius:17px}.stats{grid-template-columns:repeat(2,1fr);gap:8px}.stat{padding:12px}.stat .n{font-size:21px}.nav{margin:10px 0}.list{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.item{padding:12px;border-radius:18px}.title{font-size:14px}.meta,.muted{font-size:11px}.tags{justify-content:flex-start;margin-top:7px}.toolbar{grid-template-columns:1fr 1fr;gap:7px}.toolbar .search{grid-column:1/-1}.storeSelect{min-width:0}.sheetBody{padding:10px}.section{padding:12px}.grid2{grid-template-columns:1fr 1fr;gap:8px}.bottomNav{bottom:10px;width:calc(100% - 20px);border-radius:24px}.bottomNav button{padding:5px 2px}.storeGrid{grid-template-columns:repeat(2,1fr);gap:8px}}
-@media(max-width:430px){.list{grid-template-columns:1fr}.grid2{grid-template-columns:1fr 1fr}.storeGrid{grid-template-columns:1fr 1fr}.heroActions{display:grid;grid-template-columns:1fr 1fr 1fr}.heroActions .btn{width:100%}.toolbar{grid-template-columns:1fr 1fr}}
+.logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(145deg,#eef2ff,#dbe4ff);display:grid;place-items:center;color:#4d72d7;font-weight:950;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+html.dark .logo{background:linear-gradient(145deg,#2b3350,#222a40);color:#85a2ff}
+.iconBtn{width:38px;height:38px;border-radius:50%;background:var(--surface-solid);color:var(--text);border:1px solid var(--line);box-shadow:var(--shadow-soft);display:grid;place-items:center;font-size:16px}
+.btn{padding:9px 12px;border-radius:12px;background:#eef1f6;color:#283247;font-weight:800;font-size:13px}
+html.dark .btn{background:#262c3d;color:#eef2fb}
+.btn.primary{background:#4d72d7;color:#fff}
+.btn.blue{background:var(--blue-soft);color:var(--blue)}
+.btn.good{background:#e8f7ef;color:#11754a}
+.btn.warn{background:#fff4df;color:#8a5b00}
+.btn.danger{background:#ffebed;color:#b32e39}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.input,select,textarea{width:100%;border:1px solid rgba(148,163,184,.24);background:var(--surface-solid);color:var(--text);border-radius:12px;padding:10px 11px;outline:0;font-size:14px}
+.input:focus,select:focus,textarea:focus{border-color:rgba(76,115,216,.55);box-shadow:0 0 0 4px rgba(76,115,216,.08)}
+.modal{position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.42);display:grid;place-items:center;padding:12px}
+.modalBox{background:var(--surface-solid);border-radius:22px;width:min(800px,100%);max-height:88vh;overflow:auto;padding:16px}
+.drawer{position:fixed;inset:0;z-index:50;background:rgba(15,23,42,.42);display:flex;justify-content:flex-end}
+.sheet{height:100%;width:min(780px,100%);background:var(--surface-solid);overflow:auto}
+.sheetHead{position:sticky;top:0;z-index:3;background:rgba(255,255,255,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:13px 14px;display:flex;justify-content:space-between}
+html.dark .sheetHead{background:rgba(27,32,48,.88)}
+.toast{position:fixed;left:50%;bottom:82px;transform:translateX(-50%);z-index:100;background:#202738;color:#fff;padding:10px 14px;border-radius:12px;font-size:13px;box-shadow:var(--shadow)}
+.section{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:13px;margin-bottom:10px;box-shadow:var(--shadow-soft)}
+.section h3{margin:0 0 10px;font-size:14px}
+.notice{padding:10px 12px;border-radius:12px;background:#f4f6fa;font-size:12px;color:#5f6c80}
+html.dark .notice{background:#242a3a;color:#a8b2c4}
+.notice.warn{background:#fff6e4;color:#805800}
+.empty{padding:32px 15px;text-align:center;background:var(--surface);border:1px dashed rgba(148,163,184,.35);border-radius:18px;color:var(--muted)}
+.tableWrap{overflow:auto}
+.adminTable{width:100%;border-collapse:collapse;font-size:12px}
+.adminTable th,.adminTable td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.adminTable th{color:var(--muted)}
+.adminPill{display:inline-flex;padding:4px 7px;border-radius:999px;background:#e7f8ef;color:#11754a;font-weight:800}
+.authmsg{padding:9px;border-radius:10px;font-size:12px;margin:8px 0}
+.authmsg.err{background:#fff0f0;color:#a92323}
+.authmsg.ok{background:#eaf8f0;color:#11754a}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+@media(max-width:760px){.top{padding:12px 12px 9px}.wrap{padding:10px 10px 110px}}
 </style>
 </head>
 <body>
-<div class="login" id="loginView">
-<div class="brandline"><div class="logo">雷</div><div><div class="brand">售后雷达 Pro 5.0</div><div class="sub">云端售后 · 证据 · 3小时风险管控</div></div></div>
-<h2>进入云端工作台</h2><p class="muted">数据保存到 Supabase 云端，可跨设备继续处理。</p>
-<div class="field"><label>邮箱</label><input class="input" id="email" type="email"/></div>
-<div class="field"><label>密码</label><input class="input" id="password" type="password"/></div>
-<div class="field hidden" id="passwordConfirmWrap"><label>确认密码</label><input class="input" id="passwordConfirm" type="password"/></div>
-<div class="notice">密码至少8位，含大写、小写、数字和特殊字符。</div>
-<div class="hidden" id="authMsg"></div><div class="actions"><button class="btn primary" onclick="login()">登录</button><button class="btn" onclick="register()">注册</button><button class="btn blue" onclick="forgotPassword()">找回密码</button></div>
+<!-- ========== 登录视图 ========== -->
+<div class="max-w-[440px] mx-auto mt-[7vh] p-6 bg-white dark:bg-slate-900 rounded-3xl shadow-soft" id="loginView">
+  <div class="flex items-center gap-3">
+    <div class="logo">雷</div>
+    <div>
+      <div class="text-lg font-black tracking-tight">售后雷达 Pro 5.0</div>
+      <div class="text-[11px] text-slate-500">云端售后 · 证据 · 3小时风险管控</div>
+    </div>
+  </div>
+  <h2 class="text-xl font-bold mt-6 mb-1">进入云端工作台</h2>
+  <p class="text-sm text-slate-500 mb-4">数据保存到 Supabase 云端，可跨设备继续处理。</p>
+  <div class="field mb-3"><label>邮箱</label><input class="input" id="email" type="email"/></div>
+  <div class="field mb-3"><label>密码</label><input class="input" id="password" type="password"/></div>
+  <div class="field hidden mb-3" id="passwordConfirmWrap"><label>确认密码</label><input class="input" id="passwordConfirm" type="password"/></div>
+  <div class="notice mb-3">密码至少8位，含大写、小写、数字和特殊字符。</div>
+  <div class="hidden" id="authMsg"></div>
+  <div class="flex flex-wrap gap-2 mt-3">
+    <button class="btn primary" onclick="login()">登录</button>
+    <button class="btn" onclick="register()">注册</button>
+    <button class="btn blue" onclick="forgotPassword()">找回密码</button>
+  </div>
 </div>
-<div class="login hidden" id="resetView"><div class="brandline"><div class="logo">雷</div><div><div class="brand">售后雷达 Pro 5.0</div><div class="sub">安全重置密码</div></div></div><h2>设置新密码</h2><input class="input" id="resetPassword" placeholder="新密码" type="password"/><br/><br/><input class="input" id="resetPasswordConfirm" placeholder="确认新密码" type="password"/><div class="hidden" id="resetMsg"></div><div class="actions"><button class="btn primary" onclick="updatePassword()">保存</button><button class="btn" onclick="backToLogin()">返回</button></div></div>
+
+<div class="max-w-[440px] mx-auto mt-[7vh] p-6 bg-white dark:bg-slate-900 rounded-3xl shadow-soft hidden" id="resetView">
+  <div class="flex items-center gap-3">
+    <div class="logo">雷</div>
+    <div>
+      <div class="text-lg font-black tracking-tight">售后雷达 Pro 5.0</div>
+      <div class="text-[11px] text-slate-500">安全重置密码</div>
+    </div>
+  </div>
+  <h2 class="text-xl font-bold mt-6 mb-3">设置新密码</h2>
+  <input class="input mb-3" id="resetPassword" placeholder="新密码" type="password"/>
+  <input class="input mb-3" id="resetPasswordConfirm" placeholder="确认新密码" type="password"/>
+  <div class="hidden" id="resetMsg"></div>
+  <div class="flex gap-2 mt-3">
+    <button class="btn primary" onclick="updatePassword()">保存</button>
+    <button class="btn" onclick="backToLogin()">返回</button>
+  </div>
+</div>
+
+<!-- ========== 主应用 ========== -->
 <div class="hidden" id="app">
+  <header class="top">
+    <div class="max-w-[1180px] mx-auto flex justify-between items-center gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="logo">雷</div>
+        <div class="min-w-0">
+          <div class="text-[17px] font-black tracking-tight">售后雷达</div>
+          <div class="text-[10px] text-slate-500">Pro 5.2 · 云端工作台</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] text-slate-500 hidden sm:inline">云端在线 · 在线 <b id="onlineCount">0</b></span>
+        <span class="text-[12px] text-slate-500 max-w-[180px] truncate hidden sm:inline" id="userEmail"></span>
+        <button class="iconBtn" onclick="toggleTheme()" title="夜间模式">◐</button>
+        <button class="iconBtn" onclick="openSettings()" title="设置">⚙</button>
+        <button class="btn hidden" id="adminStoreBtn" onclick="adminStoreCenter()">全平台店铺</button>
+        <button class="btn ghost hidden" id="adminBtn" onclick="openAdminPanel()">管理后台</button>
+        <button class="btn ghost hidden sm:inline" onclick="openSettings()">设置</button>
+        <button class="btn ghost hidden sm:inline" onclick="signOut()">退出</button>
+      </div>
+    </div>
+  </header>
 
-<header class="top">
-<div class="toprow">
-<div class="brandline">
-<div class="logo">雷</div>
-<div>
-<div class="brand">售后雷达</div>
-<div class="sub">Pro 5.2 · 云端工作台</div>
-</div>
-</div>
-<div class="authbar">
-<span class="sub" id="syncState">云端在线 · 在线 <b id="onlineCount">0</b></span>
-<span class="email" id="userEmail"></span>
-<button class="iconBtn" onclick="toggleTheme()" title="夜间模式">◐</button>
-<button class="iconBtn" onclick="openSettings()" title="设置">⚙</button>
-<button class="iconBtn" onclick="openSettings()" title="账号">◉</button>
-<button class="btn hidden" id="adminStoreBtn" onclick="adminStoreCenter()">全平台店铺</button>
-<button class="btn ghost hidden" id="adminBtn" onclick="openAdminPanel()">管理后台</button>
-<button class="btn ghost" onclick="openSettings()">设置</button>
-<button class="btn ghost" onclick="signOut()">退出</button>
-</div>
-</div>
-</header>
+  <main class="max-w-[1180px] mx-auto px-3.5 pb-[110px] pt-3.5">
+    <!-- Hero -->
+    <section class="grid grid-cols-1 lg:grid-cols-[1.25fr_.75fr] gap-3 mb-3">
+      <div class="relative overflow-hidden rounded-[26px] p-5 shadow-soft bg-gradient-to-br from-indigo-50 via-indigo-100/70 to-blue-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 border border-indigo-200/30">
+        <div class="absolute w-44 h-44 rounded-full -right-16 -top-18 bg-indigo-300/15"></div>
+        <h1 class="relative z-10 text-[22px] font-black tracking-tight">欢迎回来，今天先处理高风险。</h1>
+        <p class="relative z-10 text-[12px] text-slate-500 mt-1.5 max-w-[560px] dark:text-slate-400">拒绝协商、仲裁、举证、3小时倒计时与云端资料统一管理。</p>
+        <div class="relative z-10 flex flex-wrap gap-2 mt-3">
+          <button class="btn primary" onclick="newTask()">＋ 新建售后</button>
+          <button class="btn" onclick="quickReject()">记录拒绝协商</button>
+          <button class="btn blue" onclick="refreshAll()">↻ 同步云端</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card">
+          <div class="text-[11px] text-slate-500">最紧急任务</div>
+          <div class="text-xl font-black mt-0.5" id="urgent">—</div>
+        </div>
+        <div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card">
+          <div class="text-[11px] text-slate-500">今日完成</div>
+          <div class="text-xl font-black mt-0.5" id="doneToday">0</div>
+        </div>
+        <div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card">
+          <div class="text-[11px] text-slate-500">盯单中</div>
+          <div class="text-xl font-black mt-0.5" id="monitoring">0</div>
+        </div>
+        <div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card">
+          <div class="text-[11px] text-slate-500">云端资料</div>
+          <div class="text-xl font-black mt-0.5" id="evidenceCount">0</div>
+        </div>
+      </div>
+    </section>
 
+    <!-- 统计卡片 -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-3">
+      <div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card">
+        <div class="text-xl font-black" id="cAll">0</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">全部售后</div>
+      </div>
+      <div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card">
+        <div class="text-xl font-black" id="cPending">0</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">待处理</div>
+      </div>
+      <div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card">
+        <div class="text-xl font-black" id="cEvidence">0</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">待举证</div>
+      </div>
+      <div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card">
+        <div class="text-xl font-black text-rose-500" id="cRisk">0</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">高风险</div>
+      </div>
+    </section>
 
-<main class="wrap">
-<section class="hero">
-<div class="heroCard">
-<h1>欢迎回来，今天先处理高风险。</h1>
-<p>拒绝协商、仲裁、举证、3小时倒计时与云端资料统一管理。</p>
-<div class="heroActions">
-<button class="btn primary" onclick="newTask()">＋ 新建售后</button>
-<button class="btn" onclick="quickReject()">记录拒绝协商</button>
-<button class="btn blue" onclick="refreshAll()">↻ 同步云端</button>
+    <!-- 快速筛选 -->
+    <div class="flex gap-1.5 overflow-auto hide-scrollbar mb-3">
+      <button class="btn" onclick="openStoreCenter()">店铺中心</button>
+      <button class="btn" onclick="openLibrary()">云端资料库</button>
+      <button class="btn active bg-[#4d72d7] text-white" onclick="setQuickFilter('')">全部</button>
+      <button class="btn" onclick="setQuickFilter('risk')">高风险</button>
+      <button class="btn" onclick="setQuickFilter('待举证')">待举证</button>
+      <button class="btn" onclick="setQuickFilter('仲裁中')">仲裁中</button>
+      <button class="btn" onclick="setQuickFilter('已完成')">已完成</button>
+    </div>
+
+    <!-- 标题 + 工具栏 -->
+    <div class="flex items-center justify-between gap-2.5 mb-2.5 px-0.5">
+      <div>
+        <div class="text-[15px] font-black">售后任务</div>
+        <div class="text-[12px] text-slate-500">所有店铺统一展示</div>
+      </div>
+      <span class="text-[11px] text-slate-500 bg-slate-200/50 dark:bg-slate-700/40 px-2 py-1 rounded-full font-bold" id="taskCountPill">0 条</span>
+    </div>
+
+    <div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-2.5 grid grid-cols-2 md:grid-cols-[minmax(0,1fr)_150px_125px_125px] gap-2 shadow-card mb-2.5">
+      <input class="input col-span-2 md:col-span-1" id="search" oninput="render()" placeholder="搜索订单号、买家、店铺…"/>
+      <select id="storeFilter" onchange="render()"><option value="">全部店铺</option></select>
+      <select id="filter" onchange="render()"><option value="">全部状态</option><option>待处理</option><option>协商中</option><option>买家拒绝协商</option><option>待举证</option><option>仲裁中</option><option>已完成</option></select>
+      <select id="riskFilter" onchange="render()"><option value="">全部风险</option><option>普通</option><option>高风险</option></select>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="list"></div>
+  </main>
+
+  <!-- 底部导航 -->
+  <nav class="fixed left-1/2 bottom-3 -translate-x-1/2 w-[min(650px,calc(100%-24px))] z-40 grid grid-cols-5 gap-1 p-1.5 bg-white/85 dark:bg-slate-900/85 border border-slate-200/20 dark:border-slate-700/30 shadow-float backdrop-blur-xl rounded-[27px]">
+    <button class="active bg-indigo-50 dark:bg-indigo-900/40 text-brand rounded-[19px] py-1.5 text-[10px] font-extrabold flex flex-col items-center justify-center gap-0.5" onclick="goDashboard()"><span class="text-lg leading-none">⌂</span><span>仪表盘</span></button>
+    <button class="bg-transparent text-slate-500 rounded-[19px] py-1.5 text-[10px] font-extrabold flex flex-col items-center justify-center gap-0.5" onclick="openStoreCenter()"><span class="text-lg leading-none">▱</span><span>店铺</span></button>
+    <button class="bg-transparent text-slate-500 rounded-[19px] py-1.5 text-[10px] font-extrabold flex flex-col items-center justify-center gap-0.5" onclick="goAfterSales()"><span class="text-lg leading-none">◎</span><span>售后</span></button>
+    <button class="bg-transparent text-slate-500 rounded-[19px] py-1.5 text-[10px] font-extrabold flex flex-col items-center justify-center gap-0.5" onclick="openLibrary()"><span class="text-lg leading-none">▤</span><span>资料库</span></button>
+    <button class="bg-transparent text-slate-500 rounded-[19px] py-1.5 text-[10px] font-extrabold flex flex-col items-center justify-center gap-0.5" onclick="openSettings()"><span class="text-lg leading-none">＋</span><span>更多</span></button>
+  </nav>
 </div>
+
+<!-- 抽屉 / 模态 / Toast -->
+<div class="drawer hidden" id="drawer" onclick="if(event.target===this)closeTask()">
+  <section class="sheet">
+    <div class="sheetHead">
+      <div><b id="sheetTitle">售后详情</b><div class="text-[12px] text-slate-500" id="sheetSub"></div></div>
+      <button class="btn" onclick="closeTask()">关闭</button>
+    </div>
+    <div class="p-3.5" id="detailBody"></div>
+  </section>
 </div>
-<div class="heroMini">
-<div class="mini"><div class="k">最紧急任务</div><div class="v" id="urgent">—</div></div>
-<div class="mini"><div class="k">今日完成</div><div class="v" id="doneToday">0</div></div>
-<div class="mini"><div class="k">盯单中</div><div class="v" id="monitoring">0</div></div>
-<div class="mini"><div class="k">云端资料</div><div class="v" id="evidenceCount">0</div></div>
-</div>
-</section>
-<section class="stats">
-<div class="stat"><div class="n" id="cAll">0</div><div class="l">全部售后</div></div>
-<div class="stat"><div class="n" id="cPending">0</div><div class="l">待处理</div></div>
-<div class="stat"><div class="n" id="cEvidence">0</div><div class="l">待举证</div></div>
-<div class="stat"><div class="n" id="cRisk">0</div><div class="l">高风险</div></div>
-</section>
-<div class="nav">
-<button class="btn" onclick="openStoreCenter()">店铺中心</button>
-<button class="btn" onclick="openLibrary()">云端资料库</button>
-<button class="btn active" onclick="setQuickFilter('')">全部</button>
-<button class="btn" onclick="setQuickFilter('risk')">高风险</button>
-<button class="btn" onclick="setQuickFilter('待举证')">待举证</button>
-<button class="btn" onclick="setQuickFilter('仲裁中')">仲裁中</button>
-<button class="btn" onclick="setQuickFilter('已完成')">已完成</button>
-</div>
-<div class="sectionHeader" style="margin:12px 2px 8px"><div><b style="font-size:15px">售后任务</b><div class="muted">所有店铺统一展示</div></div><span class="pillCount" id="taskCountPill">0 条</span></div>
-<div class="toolbar">
-<input class="input search" id="search" oninput="render()" placeholder="搜索订单号、买家、店铺…"/>
-<select id="storeFilter" onchange="render()"><option value="">全部店铺</option></select>
-<select id="filter" onchange="render()"><option value="">全部状态</option><option>待处理</option><option>协商中</option><option>买家拒绝协商</option><option>待举证</option><option>仲裁中</option><option>已完成</option></select>
-<select id="riskFilter" onchange="render()"><option value="">全部风险</option><option>普通</option><option>高风险</option></select>
-</div>
-<div class="list" id="list"></div>
-</main>
-<nav class="bottomNav">
-<button class="active" onclick="goDashboard()"><span class="ico">⌂</span><span>仪表盘</span></button>
-<button onclick="openStoreCenter()"><span class="ico">▱</span><span>店铺</span></button>
-<button onclick="goAfterSales()"><span class="ico">◎</span><span>售后</span></button>
-<button onclick="openLibrary()"><span class="ico">▤</span><span>资料库</span></button>
-<button onclick="openSettings()"><span class="ico">＋</span><span>更多</span></button>
-</nav>
-</div>
-<div class="drawer hidden" id="drawer" onclick="if(event.target===this)closeTask()"><section class="sheet"><div class="sheetHead"><div><b id="sheetTitle">售后详情</b><div class="muted" id="sheetSub"></div></div><button class="btn" onclick="closeTask()">关闭</button></div><div class="sheetBody" id="detailBody"></div></section></div>
-<div class="modal hidden" id="modal"><div class="modalBox" id="modalBox"></div></div><div class="toast hidden" id="toast"></div>
+<div class="modal hidden" id="modal"><div class="modalBox" id="modalBox"></div></div>
+<div class="toast hidden" id="toast"></div>
+
 <script>
 const CONFIG={SUPABASE_URL:"https://bdnazzywqqmliqyhhtig.supabase.co",SUPABASE_KEY:"sb_publishable_AUD55Xac5eZXmNtcblkgcQ_Y4D-MYk9"};
 const sb=window.supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_KEY);
@@ -164,20 +278,20 @@ function startTimer(){clearInterval(timer);timer=setInterval(()=>{document.query
 function count(t){if(t.status==="已完成"||t.submission_status!=="pending")return"已完成 · 倒计时已停止";if(!t.deadline)return"未设置";let x=new Date(t.deadline)-Date.now();if(x<=0)return"已到期";let s=Math.floor(x/1000),h=Math.floor(s/3600);s%=3600;let m=Math.floor(s/60),q=s%60;return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(q).padStart(2,"0")}`}
 function setQuickFilter(v){quick=v;render()}
 function render(){const q=$("search").value.toLowerCase(),f=$("filter").value,r=$("riskFilter").value;const sf=$("storeFilter")?.value||"";let a=tasks.filter(t=>{const st=(window.__stores||[]).find(x=>x.id===t.store_id);const storeName=st?.name||t.store_name||"";return(!sf||t.store_id===sf)&&(!q||[t.order_id,t.buyer_name,t.tracking_no,t.reason,storeName].join(" ").toLowerCase().includes(q))&&(!f||t.status===f)&&(!r||t.risk===r)&&(quick==="risk"?t.risk==="高风险":!quick||t.status===quick)});$("list").innerHTML=a.length?a.map(card).join(""):`<div class="empty">没有匹配的售后</div>`;const pill=$("taskCountPill");if(pill)pill.textContent=`${a.length} 条`}
-function card(t){const st=(window.__stores||[]).find(x=>x.id===t.store_id);return `<article class="item"><div class="itemhead"><div><div class="storeBadge"><span class="storeDot"></span>${esc(st?.name||t.store_name||"未绑定店铺")}</div><div class="title">${esc(t.order_id||"未填写订单号")}</div><div class="meta">${esc(t.buyer_name||"未填写买家")} · ${esc(t.tracking_no||"无快递单号")}</div></div><div class="tags"><span class="tag ${t.status==="已完成"?"green":"blue"}">${esc(t.status)}</span><span class="tag ${t.risk==="高风险"?"red":""}">${esc(t.risk||"普通")}</span></div></div><div class="deadline"><span>举证倒计时</span><span class="countdown ${t.risk==="高风险"?"dangertext":""}" data-id="${t.id}">${count(t)}</span></div><div class="actions"><button class="btn primary" onclick="openTask('${t.id}')">打开详情</button><button class="btn warn" onclick="reject('${t.id}')">拒绝协商</button><button class="btn" onclick="tracking('${t.id}')">${t.tracking_no?(t.monitoring?"停止盯单":"继续盯单"):"输入快递号"}</button></div></article>`}
+function card(t){const st=(window.__stores||[]).find(x=>x.id===t.store_id);return `<article class="bg-white/85 dark:bg-slate-900/85 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card"><div class="flex justify-between gap-2.5 items-start"><div><div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-brand text-[11px] font-black"><span class="w-1.5 h-1.5 rounded-full bg-brand"></span>${esc(st?.name||t.store_name||"未绑定店铺")}</div><div class="text-[15px] font-black mt-1">${esc(t.order_id||"未填写订单号")}</div><div class="text-[12px] text-slate-500">${esc(t.buyer_name||"未填写买家")} · ${esc(t.tracking_no||"无快递单号")}</div></div><div class="flex flex-wrap gap-1.5 justify-end"><span class="inline-flex px-2 py-1 rounded-full text-[11px] font-black ${t.status==="已完成"?"bg-emerald-50 text-emerald-700":"bg-indigo-50 text-indigo-700"}">${esc(t.status)}</span><span class="inline-flex px-2 py-1 rounded-full text-[11px] font-black ${t.risk==="高风险"?"bg-rose-50 text-rose-700":"bg-slate-100 text-slate-600"}">${esc(t.risk||"普通")}</span></div></div><div class="flex justify-between gap-2.5 mt-2 text-[12px]"><span>举证倒计时</span><span class="font-black ${t.risk==="高风险"?"text-rose-500":""}" data-id="${t.id}">${count(t)}</span></div><div class="flex flex-wrap gap-1.5 mt-3"><button class="btn primary" onclick="openTask('${t.id}')">打开详情</button><button class="btn warn" onclick="reject('${t.id}')">拒绝协商</button><button class="btn" onclick="tracking('${t.id}')">${t.tracking_no?(t.monitoring?"停止盯单":"继续盯单"):"输入快递号"}</button></div></article>`}
 async function newTask(){const storeId=$("storeFilter")?.value||null;const {data,error}=await sb.from("after_sales_tasks").insert({user_id:session.user.id,store_id:storeId,status:"待处理",risk:"普通",after_sales_type:"退款/售后",submission_status:"pending",monitoring:false,deadline:new Date(Date.now()+10800000).toISOString()}).select().single();if(error)return toast(error.message,"err");await refreshAll();openTask(data.id)}
 async function quickReject(){const storeId=$("storeFilter")?.value||null;const {data,error}=await sb.from("after_sales_tasks").insert({user_id:session.user.id,store_id:storeId,status:"待举证",risk:"高风险",after_sales_type:"退款/售后",submission_status:"pending",monitoring:false,deadline:new Date(Date.now()+10800000).toISOString()}).select().single();if(error)return toast(error.message,"err");await sb.from("after_sales_events").insert({user_id:session.user.id,task_id:data.id,event_type:"rejected_negotiation",message:"买家拒绝协商，进入举证阶段"});await refreshAll();openTask(data.id)}
 async function reject(id){const {error}=await sb.from("after_sales_tasks").update({status:"待举证",risk:"高风险",submission_status:"pending",deadline:new Date(Date.now()+10800000).toISOString(),updated_at:new Date().toISOString()}).eq("id",id);if(error)return toast(error.message,"err");await sb.from("after_sales_events").insert({user_id:session.user.id,task_id:id,event_type:"rejected_negotiation",message:"买家拒绝协商，启动3小时举证倒计时"});await refreshAll()}
 async function openTask(id){current=tasks.find(x=>x.id===id);if(!current)return;const [{data:f},{data:e}]=await Promise.all([sb.from("evidence_files").select("*").eq("task_id",id).order("created_at"),sb.from("after_sales_events").select("*").eq("task_id",id).order("created_at",{ascending:false})]);fileCache=f||[];eventsCache=e||[];$("sheetTitle").textContent=current.order_id||"售后详情";$("sheetSub").textContent=`${current.buyer_name||"未填写买家"} · ${current.status}`;$("detailBody").innerHTML=detailHTML(current);$("drawer").classList.remove("hidden")}
 function closeTask(){$("drawer").classList.add("hidden");current=null}
-function detailHTML(t){return `<div class="section"><div class="notice ${t.risk==="高风险"?"warn":""}">${count(t)}</div></div><div class="section"><h3>基础信息</h3><div class="grid2"><div class="field"><label>所属店铺</label><select id="storeId" class="input">${(window.__stores||[]).map(x=>`<option value="${x.id}" ${x.id===t.store_id?"selected":""}>${esc(x.name)}</option>`).join("")}</select></div><div class="field"><label>订单号</label><input id="order" class="input" value="${esc(t.order_id)}"></div><div class="field"><label>买家</label><input id="buyer" class="input" value="${esc(t.buyer_name)}"></div><div class="field"><label>快递单号</label><input id="track" class="input" value="${esc(t.tracking_no)}"></div><div class="field"><label>售后类型</label><input id="type" class="input" value="${esc(t.after_sales_type)}"></div></div><div class="grid2"><div class="field"><label>状态</label><select id="status">${["待处理","协商中","买家拒绝协商","待举证","仲裁中","已完成"].map(x=>`<option ${x===t.status?"selected":""}>${x}</option>`).join("")}</select></div><div class="field"><label>风险</label><select id="risk"><option ${t.risk==="普通"?"selected":""}>普通</option><option ${t.risk==="高风险"?"selected":""}>高风险</option></select></div></div><div class="field"><label>售后原因</label><textarea id="reason" rows="3">${esc(t.reason)}</textarea></div><div class="field"><label>举证理由</label><textarea id="evidence" rows="6">${esc(t.evidence_reason)}</textarea></div><div class="actions"><button class="btn primary" onclick="saveTask()">保存</button><button class="btn good" onclick="submitCurrent()">提交举证</button><button class="btn danger" onclick="deleteTask()">删除</button></div></div><div class="section"><div class="actions" style="justify-content:space-between"><h3 style="margin:0">举证材料</h3><button class="btn blue" onclick="openLibrary(current?.id)">从云端资料库调用</button></div><div class="notice" style="margin-top:10px">资料库独立管理。这里不能直接上传，只能从云端资料库选择已有资料关联到当前售后。</div><div id="files" style="margin-top:10px">${fileCache.map(f=>`<div class="notice" style="margin:5px 0"><b>${esc(f.file_name)}</b><div class="muted">已关联到当前售后</div><button class="btn danger" onclick="removeFile('${f.id}')">解除关联</button></div>`).join("")||'<div class="muted">当前售后暂未关联资料</div>'}</div></div><div class="section"><h3>操作时间线</h3>${eventsCache.map(e=>`<div style="padding:7px 0;border-bottom:1px solid #eee"><b>${esc(e.message)}</b><div class="muted">${fmt(e.created_at)}</div></div>`).join("")||'<div class="muted">暂无事件</div>'}</div>`}
+function detailHTML(t){return `<div class="section"><div class="notice ${t.risk==="高风险"?"warn":""}">${count(t)}</div></div><div class="section"><h3>基础信息</h3><div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"><div class="field"><label>所属店铺</label><select id="storeId" class="input">${(window.__stores||[]).map(x=>`<option value="${x.id}" ${x.id===t.store_id?"selected":""}>${esc(x.name)}</option>`).join("")}</select></div><div class="field"><label>订单号</label><input id="order" class="input" value="${esc(t.order_id)}"></div><div class="field"><label>买家</label><input id="buyer" class="input" value="${esc(t.buyer_name)}"></div><div class="field"><label>快递单号</label><input id="track" class="input" value="${esc(t.tracking_no)}"></div><div class="field"><label>售后类型</label><input id="type" class="input" value="${esc(t.after_sales_type)}"></div></div><div class="grid grid-cols-2 gap-2.5"><div class="field"><label>状态</label><select id="status">${["待处理","协商中","买家拒绝协商","待举证","仲裁中","已完成"].map(x=>`<option ${x===t.status?"selected":""}>${x}</option>`).join("")}</select></div><div class="field"><label>风险</label><select id="risk"><option ${t.risk==="普通"?"selected":""}>普通</option><option ${t.risk==="高风险"?"selected":""}>高风险</option></select></div></div><div class="field"><label>售后原因</label><textarea id="reason" rows="3">${esc(t.reason)}</textarea></div><div class="field"><label>举证理由</label><textarea id="evidence" rows="6">${esc(t.evidence_reason)}</textarea></div><div class="flex flex-wrap gap-1.5 mt-3"><button class="btn primary" onclick="saveTask()">保存</button><button class="btn good" onclick="submitCurrent()">提交举证</button><button class="btn danger" onclick="deleteTask()">删除</button></div></div><div class="section"><div class="flex flex-wrap gap-1.5 justify-between items-center"><h3 class="m-0">举证材料</h3><button class="btn blue" onclick="openLibrary(current?.id)">从云端资料库调用</button></div><div class="notice mt-2.5">资料库独立管理。这里不能直接上传，只能从云端资料库选择已有资料关联到当前售后。</div><div id="files" class="mt-2.5">${fileCache.map(f=>`<div class="notice my-1"><b>${esc(f.file_name)}</b><div class="text-[11px] text-slate-500">已关联到当前售后</div><button class="btn danger mt-1.5" onclick="removeFile('${f.id}')">解除关联</button></div>`).join("")||'<div class="text-[11px] text-slate-500">当前售后暂未关联资料</div>'}</div></div><div class="section"><h3>操作时间线</h3>${eventsCache.map(e=>`<div class="py-1.5 border-b border-slate-200/40 dark:border-slate-700/40"><b>${esc(e.message)}</b><div class="text-[11px] text-slate-500">${fmt(e.created_at)}</div></div>`).join("")||'<div class="text-[11px] text-slate-500">暂无事件</div>'}</div>`}
 async function saveTask(){const p={store_id:$("storeId")?.value||null,order_id:$("order").value.trim(),buyer_name:$("buyer").value.trim(),tracking_no:$("track").value.trim(),after_sales_type:$("type").value.trim(),status:$("status").value,risk:$("risk").value,reason:$("reason").value,evidence_reason:$("evidence").value,updated_at:new Date().toISOString()};if(p.status==="已完成")p.submission_status="submitted_manual";const {error}=await sb.from("after_sales_tasks").update(p).eq("id",current.id);if(error)return toast(error.message,"err");await refreshAll();openTask(current.id);toast("已保存","ok")}
 async function submitCurrent(){const {data:f}=await sb.from("evidence_files").select("id").eq("task_id",current.id);if(!f?.length)return toast("请先上传举证材料","err");const {error}=await sb.from("after_sales_tasks").update({status:"已完成",submission_status:"submitted_manual",updated_at:new Date().toISOString()}).eq("id",current.id);if(error)return toast(error.message,"err");await refreshAll();openTask(current.id);toast("提交完成，倒计时已停止","ok")}
 async function uploadFiles(list){return toast("请到“云端资料库”单独上传资料，再在售后详情中调用","err")}
 async function removeFile(id){const f=fileCache.find(x=>x.id===id);if(!f)return;const x=await sb.from("evidence_files").delete().eq("id",id);if(x.error)return toast(x.error.message,"err");if(!f.library_id){await sb.storage.from("after-sales-evidence").remove([f.storage_path])}await refreshAll();openTask(current.id)}
 async function uploadLibraryFiles(list){for(const file of [...list]){const path=`${session.user.id}/library/${crypto.randomUUID()}-${file.name.replace(/[^\w.\-\u4e00-\u9fa5]/g,"_")}`;const u=await sb.storage.from("after-sales-evidence").upload(path,file,{contentType:file.type||"application/octet-stream"});if(u.error)return toast(u.error.message,"err");const x=await sb.from("evidence_library").insert({user_id:session.user.id,store_id:null,platform:"通用",file_name:file.name,mime_type:file.type,size_bytes:file.size,storage_path:path});if(x.error)return toast(x.error.message,"err")}toast("资料已保存到云端资料库","ok");openLibrary()}
 async function useLibraryFile(id,taskId){const {data:f,error}=await sb.from("evidence_library").select("*").eq("id",id).single();if(error)return toast(error.message,"err");if(!taskId)return;const x=await sb.from("evidence_files").insert({user_id:session.user.id,task_id:taskId,library_id:f.id,file_name:f.file_name,mime_type:f.mime_type,size_bytes:f.size_bytes,storage_path:f.storage_path});if(x.error)return toast(x.error.message,"err");await sb.from("evidence_library").update({usage_count:(f.usage_count||0)+1,updated_at:new Date().toISOString()}).eq("id",id);toast("资料已加入当前售后","ok");closeModal();await refreshAll();openTask(taskId)}
-async function openLibrary(taskId=null){const {data,error}=await sb.from("evidence_library").select("*").order("created_at",{ascending:false});if(error)return toast(error.message,"err");const rows=(data||[]).map(f=>`<div class="notice" style="margin:6px 0"><b>${esc(f.file_name)}</b><div class="muted">${esc(f.platform||"通用")} · ${f.size_bytes?Math.round(f.size_bytes/1024)+" KB":"—"} · 使用 ${f.usage_count||0} 次</div><div class="actions"><button class="btn blue" onclick="previewLibrary('${f.id}')">预览/打开</button>${taskId?`<button class="btn primary" onclick="useLibraryFile('${f.id}','${taskId}')">用于当前售后</button>`:""}<button class="btn danger" onclick="deleteLibrary('${f.id}')">删除</button></div></div>`).join("");$('modalBox').innerHTML=`<div class="actions" style="justify-content:space-between"><b>云端资料库</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="section"><div class="drop"><input type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.txt" onchange="uploadLibraryFiles(this.files)"><div class="muted">一次上传，之后可在任何设备、店铺和售后单中重复使用。</div></div></div><div class="section"><h3>我的云端资料</h3>${rows||'<div class="muted">暂无资料</div>'}</div>`;$('modal').classList.remove('hidden')}
+async function openLibrary(taskId=null){const {data,error}=await sb.from("evidence_library").select("*").order("created_at",{ascending:false});if(error)return toast(error.message,"err");const rows=(data||[]).map(f=>`<div class="notice my-1.5"><b>${esc(f.file_name)}</b><div class="text-[11px] text-slate-500">${esc(f.platform||"通用")} · ${f.size_bytes?Math.round(f.size_bytes/1024)+" KB":"—"} · 使用 ${f.usage_count||0} 次</div><div class="flex flex-wrap gap-1.5 mt-1.5"><button class="btn blue" onclick="previewLibrary('${f.id}')">预览/打开</button>${taskId?`<button class="btn primary" onclick="useLibraryFile('${f.id}','${taskId}')">用于当前售后</button>`:""}<button class="btn danger" onclick="deleteLibrary('${f.id}')">删除</button></div></div>`).join("");$('modalBox').innerHTML=`<div class="flex flex-wrap gap-1.5 justify-between"><b>云端资料库</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="section"><div class="border border-dashed border-slate-300 dark:border-slate-600 rounded-2xl p-4 text-center bg-slate-50/50 dark:bg-slate-800/30"><input type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.txt" onchange="uploadLibraryFiles(this.files)"><div class="text-[11px] text-slate-500 mt-2">一次上传，之后可在任何设备、店铺和售后单中重复使用。</div></div></div><div class="section"><h3>我的云端资料</h3>${rows||'<div class="text-[11px] text-slate-500">暂无资料</div>'}</div>`;$('modal').classList.remove('hidden')}
 async function previewLibrary(id){const {data:f,error}=await sb.from("evidence_library").select("*").eq("id",id).single();if(error)return toast(error.message,"err");const {data:u,error:e}=await sb.storage.from("after-sales-evidence").createSignedUrl(f.storage_path,600);if(e)return toast(e.message,"err");window.open(u.signedUrl,"_blank")}
 async function deleteLibrary(id){if(!confirm("删除资料库中的这份文件？已引用到售后的记录不会被删除。"))return;const {data:f,error}=await sb.from("evidence_library").select("storage_path").eq("id",id).single();if(error)return toast(error.message,"err");const x=await sb.from("evidence_library").delete().eq("id",id);if(x.error)return toast(x.error.message,"err");await sb.storage.from("after-sales-evidence").remove([f.storage_path]);toast("资料已删除","ok");openLibrary(current?.id)}
 async function deleteTask(){if(!confirm("确定删除？"))return;const {error}=await sb.from("after_sales_tasks").delete().eq("id",current.id);if(error)return toast(error.message,"err");closeTask();await refreshAll()}
@@ -186,8 +300,8 @@ async function openStoreCenter(){
   const stores=window.__stores||[];
   const q=($('storeCenterSearch')?.value||'').trim().toLowerCase();
   const filtered=stores.filter(st=>!q || [st.name,st.platform,st.shop_id].join(' ').toLowerCase().includes(q));
-  const cards=filtered.map(st=>{const n=tasks.filter(t=>t.store_id===st.id).length;return `<div class="storeCard"><div class="name">${esc(st.name)}</div><div class="num">${n}</div><div class="muted">${esc(st.platform||'douyin')} · ${st.status==='disabled'?'已停用':'正常'}</div><div class="actions"><button class="btn blue" onclick="editStore('${st.id}')">编辑</button><button class="btn danger" onclick="disableStore('${st.id}')">停用</button></div></div>`}).join('');
-  $('modalBox').innerHTML=`<div class="actions" style="justify-content:space-between"><b>我的店铺</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="section"><h3>添加店铺</h3><div class="grid2"><input id="newStoreName" class="input" placeholder="例如：XX官方旗舰店"><button class="btn primary" onclick="addStore()">添加店铺</button></div><div class="muted" style="margin-top:7px">普通用户只能管理自己的店铺。以后接入平台官方授权后，可在这里绑定对应平台。</div></div><div class="section"><div class="field"><label>搜索自己的店铺</label><input id="storeCenterSearch" class="input" value="${esc(q)}" placeholder="输入店铺名称、平台或店铺ID" oninput="openStoreCenter()"></div><div class="muted">共 ${stores.length} 家，当前显示 ${filtered.length} 家</div></div><div class="section"><h3>我的店铺</h3><div class="storeGrid">${cards||'<div class="muted">没有找到匹配的店铺</div>'}</div></div>`;
+  const cards=filtered.map(st=>{const n=tasks.filter(t=>t.store_id===st.id).length;return `<div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5"><div class="font-black">${esc(st.name)}</div><div class="text-2xl font-black mt-1">${n}</div><div class="text-[11px] text-slate-500">${esc(st.platform||'douyin')} · ${st.status==='disabled'?'已停用':'正常'}</div><div class="flex flex-wrap gap-1.5 mt-2"><button class="btn blue" onclick="editStore('${st.id}')">编辑</button><button class="btn danger" onclick="disableStore('${st.id}')">停用</button></div></div>`}).join('');
+  $('modalBox').innerHTML=`<div class="flex flex-wrap gap-1.5 justify-between"><b>我的店铺</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="section"><h3>添加店铺</h3><div class="grid grid-cols-2 gap-2.5"><input id="newStoreName" class="input" placeholder="例如：XX官方旗舰店"><button class="btn primary" onclick="addStore()">添加店铺</button></div><div class="text-[11px] text-slate-500 mt-1.5">普通用户只能管理自己的店铺。以后接入平台官方授权后，可在这里绑定对应平台。</div></div><div class="section"><div class="field"><label>搜索自己的店铺</label><input id="storeCenterSearch" class="input" value="${esc(q)}" placeholder="输入店铺名称、平台或店铺ID" oninput="openStoreCenter()"></div><div class="text-[11px] text-slate-500">共 ${stores.length} 家，当前显示 ${filtered.length} 家</div></div><div class="section"><h3>我的店铺</h3><div class="grid grid-cols-2 md:grid-cols-3 gap-2.5">${cards||'<div class="text-[11px] text-slate-500">没有找到匹配的店铺</div>'}</div></div>`;
   $('modal').classList.remove('hidden');
 }
 async function addStore(){const name=($('newStoreName')?.value||'').trim();if(!name)return toast('请输入店铺名称','err');const {error}=await sb.from('shop_stores').insert({user_id:session.user.id,name,status:'active'});if(error)return toast(error.message,'err');toast('店铺已添加','ok');await refreshAll();openStoreCenter()}
@@ -205,14 +319,14 @@ async function adminStoreCenter(){
   const all=data||[];
   const render=()=>{
     const q=($('adminStoreSearch')?.value||'').trim().toLowerCase();
-    const filtered=all.filter(s=>{const text=[s.store_name,s.platform,s.owner_email,s.shop_id,s.owner_user_id].filter(Boolean).join(' ').toLowerCase();return !q||text.includes(q)}); const rows=filtered.map(s=>`<tr><td><b>${esc(s.store_name||'未命名店铺')}</b><div class="muted">${esc(s.shop_id||'')}</div></td><td>${esc(s.platform||'douyin')}</td><td>${esc(s.owner_email||'—')}</td><td>${esc(s.status||'active')}</td><td>${Number(s.task_count||0)}</td><td>${fmt(s.created_at)}</td></tr>`).join('');
+    const filtered=all.filter(s=>{const text=[s.store_name,s.platform,s.owner_email,s.shop_id,s.owner_user_id].filter(Boolean).join(' ').toLowerCase();return !q||text.includes(q)}); const rows=filtered.map(s=>`<tr><td><b>${esc(s.store_name||'未命名店铺')}</b><div class="text-[11px] text-slate-500">${esc(s.shop_id||'')}</div></td><td>${esc(s.platform||'douyin')}</td><td>${esc(s.owner_email||'—')}</td><td>${esc(s.status||'active')}</td><td>${Number(s.task_count||0)}</td><td>${fmt(s.created_at)}</td></tr>`).join('');
     $('adminStoreRows').innerHTML=rows||'<tr><td colspan="6">没有找到匹配的店铺</td></tr>';
     $('adminStoreCount').textContent=`共 ${all.length} 家，当前显示 ${filtered.length} 家`;
   };
-  $('modalBox').innerHTML=`<div class="actions" style="justify-content:space-between"><b>全平台店铺管理</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="section"><div class="field"><label>搜索店铺 / 平台 / 用户邮箱</label><input id="adminStoreSearch" class="input" placeholder="输入关键词快速查找" oninput="window.__renderAdminStores&&window.__renderAdminStores()"></div><div id="adminStoreCount" class="muted"></div></div><div class="section"><div class="tableWrap"><table><thead><tr><th>店铺</th><th>平台</th><th>所属用户</th><th>状态</th><th>售后数</th><th>创建时间</th></tr></thead><tbody id="adminStoreRows"></tbody></table></div></div>`;
+  $('modalBox').innerHTML=`<div class="flex flex-wrap gap-1.5 justify-between"><b>全平台店铺管理</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="section"><div class="field"><label>搜索店铺 / 平台 / 用户邮箱</label><input id="adminStoreSearch" class="input" placeholder="输入关键词快速查找" oninput="window.__renderAdminStores&&window.__renderAdminStores()"></div><div id="adminStoreCount" class="text-[11px] text-slate-500"></div></div><div class="section"><div class="tableWrap"><table><thead><tr><th>店铺</th><th>平台</th><th>所属用户</th><th>状态</th><th>售后数</th><th>创建时间</th></tr></thead><tbody id="adminStoreRows"></tbody></table></div></div>`;
   window.__renderAdminStores=render; $('modal').classList.remove('hidden'); render();
 }
-function openSettings(){$("modalBox").innerHTML=`<div class="actions" style="justify-content:space-between"><b>设置</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="section"><b>账号</b><div class="muted">${esc(session.user.email)}</div></div><div class="section"><b>云端项目</b><div class="muted">${CONFIG.SUPABASE_URL}</div></div>`;$("modal").classList.remove("hidden")}
+function openSettings(){$("modalBox").innerHTML=`<div class="flex flex-wrap gap-1.5 justify-between"><b>设置</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="section"><b>账号</b><div class="text-[11px] text-slate-500">${esc(session.user.email)}</div></div><div class="section"><b>云端项目</b><div class="text-[11px] text-slate-500">${CONFIG.SUPABASE_URL}</div></div>`;$("modal").classList.remove("hidden")}
 function closeModal(){$("modal").classList.add("hidden")}
 function startPresence(){
   if(!session)return;
@@ -239,7 +353,7 @@ function stopPresence(){if(presenceChannel){sb.removeChannel(presenceChannel);pr
 let adminTab='overview';
 async function openAdminPanel(){
  if(!isAdmin)return toast('没有管理员权限','err');
- $('modalBox').innerHTML=`<div class="actions" style="justify-content:space-between"><b>售后雷达 Pro · 管理控制台</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="nav" id="adminNav"><button class="btn active" onclick="adminTabOpen('overview')">总览</button><button class="btn" onclick="adminTabOpen('users')">用户管理</button><button class="btn" onclick="adminTabOpen('tasks')">售后管理</button><button class="btn" onclick="adminTabOpen('evidence')">证据管理</button><button class="btn" onclick="adminTabOpen('library')">资料库</button><button class="btn" onclick="adminTabOpen('tracking')">快递监控</button><button class="btn" onclick="adminTabOpen('admins')">管理员</button><button class="btn" onclick="adminTabOpen('logs')">操作日志</button><button class="btn" onclick="adminTabOpen('settings')">系统设置</button></div><div id="adminBody"><div class="notice">正在加载…</div></div>`;
+ $('modalBox').innerHTML=`<div class="flex flex-wrap gap-1.5 justify-between"><b>售后雷达 Pro · 管理控制台</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="flex gap-1.5 overflow-auto hide-scrollbar my-2.5" id="adminNav"><button class="btn active" onclick="adminTabOpen('overview')">总览</button><button class="btn" onclick="adminTabOpen('users')">用户管理</button><button class="btn" onclick="adminTabOpen('tasks')">售后管理</button><button class="btn" onclick="adminTabOpen('evidence')">证据管理</button><button class="btn" onclick="adminTabOpen('library')">资料库</button><button class="btn" onclick="adminTabOpen('tracking')">快递监控</button><button class="btn" onclick="adminTabOpen('admins')">管理员</button><button class="btn" onclick="adminTabOpen('logs')">操作日志</button><button class="btn" onclick="adminTabOpen('settings')">系统设置</button></div><div id="adminBody"><div class="notice">正在加载…</div></div>`;
  $('modal').classList.remove('hidden');await adminTabOpen('overview');
 }
 async function adminTabOpen(tab){
@@ -261,23 +375,23 @@ async function adminOverview(){
  const [u,t,e,r]=await Promise.all([sb.rpc('admin_list_all_users'),sb.rpc('admin_list_all_tasks'),sb.rpc('admin_list_all_evidence'),sb.rpc('admin_list_tracking')]);
  for(const x of [u,t,e,r])if(x.error)throw x.error;
  const users=u.data||[],tasks=t.data||[],ev=e.data||[],tr=r.data||[];
- $('adminBody').innerHTML=`<div class="stats"><div class="stat"><div class="n">${users.length}</div><div class="l">注册用户</div></div><div class="stat"><div class="n">${tasks.length}</div><div class="l">全部售后</div></div><div class="stat"><div class="n">${tasks.filter(x=>x.risk==='高风险').length}</div><div class="l">高风险</div></div><div class="stat"><div class="n">${tr.filter(x=>x.monitoring).length}</div><div class="l">盯单中</div></div><div class="stat"><div class="n">${ev.length}</div><div class="l">证据文件</div></div><div class="stat"><div class="n">${tasks.filter(x=>x.status==='已完成').length}</div><div class="l">已完成</div></div></div><div class="section"><h3>系统运行概况</h3><div class="notice">管理员控制台已连接云端数据库。这里的数据来自全部用户，而不是当前账号。</div></div>`;
+ $('adminBody').innerHTML=`<div class="grid grid-cols-2 md:grid-cols-4 gap-2.5"><div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card"><div class="text-xl font-black">${users.length}</div><div class="text-[11px] text-slate-500 mt-0.5">注册用户</div></div><div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card"><div class="text-xl font-black">${tasks.length}</div><div class="text-[11px] text-slate-500 mt-0.5">全部售后</div></div><div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card"><div class="text-xl font-black text-rose-500">${tasks.filter(x=>x.risk==='高风险').length}</div><div class="text-[11px] text-slate-500 mt-0.5">高风险</div></div><div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card"><div class="text-xl font-black">${tr.filter(x=>x.monitoring).length}</div><div class="text-[11px] text-slate-500 mt-0.5">盯单中</div></div><div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card"><div class="text-xl font-black">${ev.length}</div><div class="text-[11px] text-slate-500 mt-0.5">证据文件</div></div><div class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/40 dark:border-slate-700/40 rounded-2xl p-3.5 shadow-card"><div class="text-xl font-black">${tasks.filter(x=>x.status==='已完成').length}</div><div class="text-[11px] text-slate-500 mt-0.5">已完成</div></div></div><div class="section mt-2.5"><h3>系统运行概况</h3><div class="notice">管理员控制台已连接云端数据库。这里的数据来自全部用户，而不是当前账号。</div></div>`;
 }
 async function adminUsers(){
  const {data,error}=await sb.rpc('admin_list_all_users');if(error)throw error;const users=data||[];
- const rows=users.map(u=>`<tr><td><b>${esc(u.email||'—')}</b><div class="muted">${esc(u.id)}</div></td><td>${fmt(u.created_at)}</td><td>${fmt(u.last_sign_in_at)}</td><td>${Number(u.task_count||0)}</td><td>${u.is_admin?'<span class="adminPill">管理员</span>':'普通用户'}</td></tr>`).join('');
- $('adminBody').innerHTML=`<div class="section"><h3>全部用户</h3><input id="adminUserSearch" class="input" placeholder="搜索邮箱 / 用户ID" oninput="filterAdminTable('adminUserTable',this.value)"><div style="overflow:auto;margin-top:10px"><table class="adminTable" id="adminUserTable"><thead><tr><th>用户</th><th>注册时间</th><th>最后登录</th><th>售后数</th><th>权限</th></tr></thead><tbody>${rows||'<tr><td colspan="5">暂无用户</td></tr>'}</tbody></table></div></div>`;
+ const rows=users.map(u=>`<tr><td><b>${esc(u.email||'—')}</b><div class="text-[11px] text-slate-500">${esc(u.id)}</div></td><td>${fmt(u.created_at)}</td><td>${fmt(u.last_sign_in_at)}</td><td>${Number(u.task_count||0)}</td><td>${u.is_admin?'<span class="adminPill">管理员</span>':'普通用户'}</td></tr>`).join('');
+ $('adminBody').innerHTML=`<div class="section"><h3>全部用户</h3><input id="adminUserSearch" class="input" placeholder="搜索邮箱 / 用户ID" oninput="filterAdminTable('adminUserTable',this.value)"><div class="overflow-auto mt-2.5"><table class="adminTable" id="adminUserTable"><thead><tr><th>用户</th><th>注册时间</th><th>最后登录</th><th>售后数</th><th>权限</th></tr></thead><tbody>${rows||'<tr><td colspan="5">暂无用户</td></tr>'}</tbody></table></div></div>`;
 }
-async function adminTasks(){const {data,error}=await sb.rpc('admin_list_all_tasks');if(error)throw error;const rows=(data||[]).map(t=>`<tr><td>${esc(t.order_id||'—')}</td><td>${esc(t.email||'—')}</td><td>${esc(t.status||'—')}</td><td>${esc(t.risk||'—')}</td><td>${esc(t.tracking_no||'—')}</td><td>${fmt(t.created_at)}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>全站售后任务</h3><div style="overflow:auto"><table class="adminTable"><thead><tr><th>订单</th><th>用户</th><th>状态</th><th>风险</th><th>快递单号</th><th>创建时间</th></tr></thead><tbody>${rows||'<tr><td colspan="6">暂无售后</td></tr>'}</tbody></table></div></div>`}
-async function adminEvidence(){const {data,error}=await sb.rpc('admin_list_all_evidence');if(error)throw error;const rows=(data||[]).map(e=>`<tr><td>${esc(e.file_name||'—')}</td><td>${esc(e.email||'—')}</td><td>${esc(e.mime_type||'—')}</td><td>${e.size_bytes?Math.round(e.size_bytes/1024)+' KB':'—'}</td><td>${fmt(e.created_at)}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>全站证据文件</h3><div style="overflow:auto"><table class="adminTable"><thead><tr><th>文件</th><th>用户</th><th>类型</th><th>大小</th><th>上传时间</th></tr></thead><tbody>${rows||'<tr><td colspan="5">暂无证据</td></tr>'}</tbody></table></div></div>`}
+async function adminTasks(){const {data,error}=await sb.rpc('admin_list_all_tasks');if(error)throw error;const rows=(data||[]).map(t=>`<tr><td>${esc(t.order_id||'—')}</td><td>${esc(t.email||'—')}</td><td>${esc(t.status||'—')}</td><td>${esc(t.risk||'—')}</td><td>${esc(t.tracking_no||'—')}</td><td>${fmt(t.created_at)}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>全站售后任务</h3><div class="overflow-auto"><table class="adminTable"><thead><tr><th>订单</th><th>用户</th><th>状态</th><th>风险</th><th>快递单号</th><th>创建时间</th></tr></thead><tbody>${rows||'<tr><td colspan="6">暂无售后</td></tr>'}</tbody></table></div></div>`}
+async function adminEvidence(){const {data,error}=await sb.rpc('admin_list_all_evidence');if(error)throw error;const rows=(data||[]).map(e=>`<tr><td>${esc(e.file_name||'—')}</td><td>${esc(e.email||'—')}</td><td>${esc(e.mime_type||'—')}</td><td>${e.size_bytes?Math.round(e.size_bytes/1024)+' KB':'—'}</td><td>${fmt(e.created_at)}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>全站证据文件</h3><div class="overflow-auto"><table class="adminTable"><thead><tr><th>文件</th><th>用户</th><th>类型</th><th>大小</th><th>上传时间</th></tr></thead><tbody>${rows||'<tr><td colspan="5">暂无证据</td></tr>'}</tbody></table></div></div>`}
 
-async function adminLibrary(){const {data,error}=await sb.rpc('admin_list_library');if(error)throw error;const rows=(data||[]).map(x=>`<tr><td>${esc(x.file_name||'—')}</td><td>${esc(x.email||'—')}</td><td>${esc(x.store_name||'通用')}</td><td>${esc(x.platform||'通用')}</td><td>${Number(x.usage_count||0)}</td><td>${fmt(x.created_at)}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>全站云端资料库</h3><div style="overflow:auto"><table class="adminTable"><thead><tr><th>文件</th><th>用户</th><th>店铺</th><th>平台</th><th>使用次数</th><th>上传时间</th></tr></thead><tbody>${rows||'<tr><td colspan="6">暂无资料</td></tr>'}</tbody></table></div></div>`}
-async function adminTracking(){const {data,error}=await sb.rpc('admin_list_tracking');if(error)throw error;const rows=(data||[]).map(t=>`<tr><td>${esc(t.tracking_no||'—')}</td><td>${esc(t.email||'—')}</td><td>${t.monitoring?'<span class="adminPill">盯单中</span>':'已停止'}</td><td>${esc(t.order_id||'—')}</td><td>${fmt(t.created_at)}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>全站快递监控</h3><div style="overflow:auto"><table class="adminTable"><thead><tr><th>快递单号</th><th>用户</th><th>状态</th><th>订单</th><th>记录时间</th></tr></thead><tbody>${rows||'<tr><td colspan="5">暂无记录</td></tr>'}</tbody></table></div></div>`}
-async function adminAdmins(){const {data,error}=await sb.rpc('admin_list_users');if(error)throw error;const rows=(data||[]).map(u=>`<tr><td><b>${esc(u.email||'—')}</b><div class="muted">${esc(u.id)}</div></td><td>${fmt(u.created_at)}</td><td>${fmt(u.last_sign_in_at)}</td><td>${Number(u.task_count||0)}</td><td>${u.id===session.user.id?'<span class="muted">当前账号</span>':`<button class="btn danger" onclick="adminRemoveUser('${u.id}','${esc(u.email||'该用户')}')">移除</button>`}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>添加管理员</h3><div class="grid2"><input id="adminEmail" class="input" type="email" placeholder="输入已注册用户邮箱"><button class="btn primary" onclick="adminAddUser()">添加管理员</button></div></div><div class="section"><h3>管理员列表</h3><div style="overflow:auto"><table class="adminTable"><thead><tr><th>邮箱</th><th>注册时间</th><th>最后登录</th><th>售后数</th><th>操作</th></tr></thead><tbody>${rows||'<tr><td colspan="5">暂无管理员</td></tr>'}</tbody></table></div></div>`}
+async function adminLibrary(){const {data,error}=await sb.rpc('admin_list_library');if(error)throw error;const rows=(data||[]).map(x=>`<tr><td>${esc(x.file_name||'—')}</td><td>${esc(x.email||'—')}</td><td>${esc(x.store_name||'通用')}</td><td>${esc(x.platform||'通用')}</td><td>${Number(x.usage_count||0)}</td><td>${fmt(x.created_at)}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>全站云端资料库</h3><div class="overflow-auto"><table class="adminTable"><thead><tr><th>文件</th><th>用户</th><th>店铺</th><th>平台</th><th>使用次数</th><th>上传时间</th></tr></thead><tbody>${rows||'<tr><td colspan="6">暂无资料</td></tr>'}</tbody></table></div></div>`}
+async function adminTracking(){const {data,error}=await sb.rpc('admin_list_tracking');if(error)throw error;const rows=(data||[]).map(t=>`<tr><td>${esc(t.tracking_no||'—')}</td><td>${esc(t.email||'—')}</td><td>${t.monitoring?'<span class="adminPill">盯单中</span>':'已停止'}</td><td>${esc(t.order_id||'—')}</td><td>${fmt(t.created_at)}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>全站快递监控</h3><div class="overflow-auto"><table class="adminTable"><thead><tr><th>快递单号</th><th>用户</th><th>状态</th><th>订单</th><th>记录时间</th></tr></thead><tbody>${rows||'<tr><td colspan="5">暂无记录</td></tr>'}</tbody></table></div></div>`}
+async function adminAdmins(){const {data,error}=await sb.rpc('admin_list_users');if(error)throw error;const rows=(data||[]).map(u=>`<tr><td><b>${esc(u.email||'—')}</b><div class="text-[11px] text-slate-500">${esc(u.id)}</div></td><td>${fmt(u.created_at)}</td><td>${fmt(u.last_sign_in_at)}</td><td>${Number(u.task_count||0)}</td><td>${u.id===session.user.id?'<span class="text-[11px] text-slate-500">当前账号</span>':`<button class="btn danger" onclick="adminRemoveUser('${u.id}','${esc(u.email||'该用户')}')">移除</button>`}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>添加管理员</h3><div class="grid grid-cols-2 gap-2.5"><input id="adminEmail" class="input" type="email" placeholder="输入已注册用户邮箱"><button class="btn primary" onclick="adminAddUser()">添加管理员</button></div></div><div class="section"><h3>管理员列表</h3><div class="overflow-auto"><table class="adminTable"><thead><tr><th>邮箱</th><th>注册时间</th><th>最后登录</th><th>售后数</th><th>操作</th></tr></thead><tbody>${rows||'<tr><td colspan="5">暂无管理员</td></tr>'}</tbody></table></div></div>`}
 async function adminAddUser(){const email=($('adminEmail')?.value||'').trim().toLowerCase();if(!email)return toast('请输入用户注册邮箱','err');const {data,error}=await sb.rpc('admin_add_user_by_email',{p_email:email});if(error)return toast(error.message||'添加失败','err');if(!data?.ok)return toast(data?.message||'添加失败','err');toast('管理员添加成功','ok');await adminAdmins()}
 async function adminRemoveUser(id,email){if(id===session.user.id)return toast('不能移除当前登录管理员','err');if(!confirm('确定移除 '+email+' 的管理员权限？'))return;const {data,error}=await sb.rpc('admin_remove_user',{p_user_id:id});if(error)return toast(error.message||'移除失败','err');if(!data?.ok)return toast(data?.message||'移除失败','err');toast('管理员权限已移除','ok');await adminAdmins()}
-async function adminLogs(){const {data,error}=await sb.rpc('admin_list_logs');if(error)throw error;const rows=(data||[]).map(x=>`<tr><td>${fmt(x.created_at)}</td><td>${esc(x.email||'—')}</td><td>${esc(x.action||'—')}</td><td>${esc(x.detail||'—')}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>操作日志</h3><div style="overflow:auto"><table class="adminTable"><thead><tr><th>时间</th><th>用户</th><th>操作</th><th>详情</th></tr></thead><tbody>${rows||'<tr><td colspan="4">暂无日志</td></tr>'}</tbody></table></div></div>`}
-function adminSettings(){$('adminBody').innerHTML=`<div class="section"><h3>系统设置</h3><div class="notice">当前版本：售后雷达 Pro 5.0 Admin Console</div><div class="grid2" style="margin-top:10px"><div><label class="muted">默认举证时限</label><input class="input" value="3小时" disabled></div><div><label class="muted">云端同步</label><input class="input" value="Supabase · 已启用" disabled></div></div></div><div class="section"><h3>安全说明</h3><div class="muted">管理员操作通过数据库 RPC 校验管理员身份。前端隐藏按钮不等于权限控制，真正权限由数据库执行。</div></div>`}
+async function adminLogs(){const {data,error}=await sb.rpc('admin_list_logs');if(error)throw error;const rows=(data||[]).map(x=>`<tr><td>${fmt(x.created_at)}</td><td>${esc(x.email||'—')}</td><td>${esc(x.action||'—')}</td><td>${esc(x.detail||'—')}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>操作日志</h3><div class="overflow-auto"><table class="adminTable"><thead><tr><th>时间</th><th>用户</th><th>操作</th><th>详情</th></tr></thead><tbody>${rows||'<tr><td colspan="4">暂无日志</td></tr>'}</tbody></table></div></div>`}
+function adminSettings(){$('adminBody').innerHTML=`<div class="section"><h3>系统设置</h3><div class="notice">当前版本：售后雷达 Pro 5.0 Admin Console</div><div class="grid grid-cols-2 gap-2.5 mt-2.5"><div><label class="text-[11px] text-slate-500">默认举证时限</label><input class="input" value="3小时" disabled></div><div><label class="text-[11px] text-slate-500">云端同步</label><input class="input" value="Supabase · 已启用" disabled></div></div></div><div class="section"><h3>安全说明</h3><div class="text-[11px] text-slate-500">管理员操作通过数据库 RPC 校验管理员身份。前端隐藏按钮不等于权限控制，真正权限由数据库执行。</div></div>`}
 function filterAdminTable(id,q){const x=q.toLowerCase();document.querySelectorAll('#'+id+' tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(x)?'':'none')}
 
 function toggleTheme(){document.documentElement.classList.toggle('dark');try{localStorage.setItem('sar_dark',document.documentElement.classList.contains('dark')?'1':'0')}catch(e){}}
