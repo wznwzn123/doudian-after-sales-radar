@@ -13,4 +13,187 @@ async function openLibrary(taskId=null){let r=await sb.from('evidence_library').
 async function openStore(){let q=($('storeq')?.value||'').toLowerCase(),a=stores.filter(s=>[s.name,s.platform,s.shop_id].join(' ').toLowerCase().includes(q));$('modalbox').innerHTML=`<b>我的店铺</b><div class="card" style="margin-top:9px"><div class="grid" style="grid-template-columns:1fr 110px"><input id="newstore" class="input" placeholder="店铺名称"><button class="btn primary" onclick="addStore()">添加</button></div><div class="muted" style="margin-top:6px">普通用户只能管理自己的店铺。</div></div><input id="storeq" class="input" style="margin-top:9px" value="${esc(q)}" placeholder="搜索店铺名称 / 平台 / 店铺ID" oninput="openStore()"><div class="grid tasks" style="margin-top:9px">${a.map(s=>`<div class="card"><b>${esc(s.name||s.store_name)}</b><div class="muted">${esc(s.platform||'douyin')} · ${esc(s.shop_id||'未绑定ID')}</div><div class="actions" style="margin-top:8px"><button class="btn blue" onclick="editStore('${s.id}')">改名</button><button class="btn danger" onclick="disableStore('${s.id}')">停用</button></div></div>`).join('')||'<div class="notice">暂无店铺</div>'}</div><button class="btn" style="margin-top:9px" onclick="closeModal()">关闭</button>`;$('modal').classList.remove('hidden')}async function addStore(){let n=$('newstore').value.trim();if(!n)return toast('请输入店铺名称');let r=await sb.from('shop_stores').insert({user_id:session.user.id,name:n,platform:'douyin',status:'active'});if(r.error)return toast(r.error.message);await refresh();openStore()}async function editStore(id){let s=stores.find(x=>x.id===id),n=prompt('修改店铺名称',s?.name||'');if(!n)return;let r=await sb.from('shop_stores').update({name:n.trim(),updated_at:new Date().toISOString()}).eq('id',id);if(r.error)return toast(r.error.message);await refresh();openStore()}async function disableStore(id){if(!confirm('停用这个店铺？'))return;let r=await sb.from('shop_stores').update({status:'disabled',updated_at:new Date().toISOString()}).eq('id',id);if(r.error)return toast(r.error.message);await refresh();openStore()}
 function more(){$('modalbox').innerHTML='<b>更多</b><div class="grid" style="margin-top:10px"><button class="btn" onclick="openStore()">店铺中心</button><button class="btn" onclick="openLibrary()">云端资料库</button><button class="btn" onclick="toggleDark()">切换深色模式</button></div>';$('modal').classList.remove('hidden')}function toggleDark(){document.body.style.filter=document.body.style.filter?'':'brightness(.9)'}
 async function adminPanel(){if(!isAdmin)return toast('没有管理员权限');$('modalbox').innerHTML='<b>管理后台</b><div class="actions" style="margin:9px 0"><button class="btn" onclick="adminOverview()">总览</button><button class="btn" onclick="adminUsers()">用户</button><button class="btn" onclick="adminStores()">店铺</button><button class="btn" onclick="adminTasks()">售后</button><button class="btn" onclick="adminLibrary()">资料库</button><button class="btn" onclick="adminTracking()">快递</button><button class="btn" onclick="adminAdmins()">管理员</button></div><div id="adminbody" class="notice">读取中…</div>';$('modal').classList.remove('hidden');adminOverview()}async function rpc(n,a={}){let r=await sb.rpc(n,a);if(r.error)throw r.error;return r.data||[]}function adminErr(e){$('adminbody').innerHTML='<div class="notice">读取失败：'+esc(e.message)+'</div>'}async function adminOverview(){try{let [u,t,s,l,tr]=await Promise.all([rpc('admin_list_all_users'),rpc('admin_list_all_tasks'),rpc('admin_list_all_stores'),rpc('admin_list_library'),rpc('admin_list_tracking')]);$('adminbody').innerHTML=`<div class="grid stats"><div class="card"><b>${u.length}</b><div class="muted">用户</div></div><div class="card"><b>${t.length}</b><div class="muted">售后</div></div><div class="card"><b>${s.length}</b><div class="muted">店铺</div></div><div class="card"><b>${l.length}</b><div class="muted">资料</div></div></div><div class="notice" style="margin-top:9px">管理员看到全平台数据；普通用户仍由 RLS 隔离。</div>`}catch(e){adminErr(e)}}async function adminUsers(){try{$('adminbody').innerHTML=table(await rpc('admin_list_all_users'),['email','id','created_at','last_sign_in_at','task_count'])}catch(e){adminErr(e)}}async function adminStores(){try{$('adminbody').innerHTML=table(await rpc('admin_list_all_stores'),['store_name','platform','owner_email','shop_id','status','task_count'])}catch(e){adminErr(e)}}async function adminTasks(){try{$('adminbody').innerHTML=table(await rpc('admin_list_all_tasks'),['order_id','store_name','email','status','risk','tracking_no','created_at'])}catch(e){adminErr(e)}}async function adminLibrary(){try{$('adminbody').innerHTML=table(await rpc('admin_list_library'),['file_name','email','store_name','platform','usage_count','created_at'])}catch(e){adminErr(e)}}async function adminTracking(){try{$('adminbody').innerHTML=table(await rpc('admin_list_tracking'),['tracking_no','email','order_id','monitoring','created_at'])}catch(e){adminErr(e)}}async function adminAdmins(){try{$('adminbody').innerHTML='<div class="card"><b>添加管理员</b><div class="grid" style="grid-template-columns:1fr 100px;margin-top:7px"><input id="ae" class="input" placeholder="已注册邮箱"><button class="btn primary" onclick="addAdmin()">添加</button></div></div>'+table(await rpc('admin_list_users'),['email','id','created_at','last_sign_in_at','task_count'])}catch(e){adminErr(e)}}async function addAdmin(){try{let d=await rpc('admin_add_user_by_email',{p_email:$('ae').value.trim().toLowerCase()});toast(d.message||'完成');adminAdmins()}catch(e){toast(e.message)}}function table(a,c){return'<div class="card" style="margin-top:9px;overflow:auto"><table><thead><tr>'+c.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+a.map(r=>'<tr>'+c.map(x=>'<td>'+esc(r[x]===true?'是':r[x]===false?'否':r[x]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'}function closeModal(){$('modal').classList.add('hidden')}function closeDrawer(){$('drawer').classList.add('hidden');current=null}function presenceStart(){presence=sb.channel('after-sales-presence',{config:{presence:{key:session.user.id}}});presence.on('presence',{event:'sync'},()=>{let s=presence.presenceState(),n=new Set();Object.values(s).flat().forEach(x=>n.add(x.user_id));$('online').textContent=n.size});presence.subscribe(async st=>{if(st==='SUBSCRIBED')await presence.track({user_id:session.user.id,online_at:new Date().toISOString()})})}init();
+
+/* 售后雷达 Pro 6.0 修复补丁
+ * 1) 管理后台增加“退出后台”（仅关闭后台，不退出账号）
+ * 2) 售后详情增加“本地上传”，同时保留“从云端资料库调用”
+ *
+ * 使用：把本文件内容追加到 Pro 6.0 index.html 最后的 </script> 前。
+ */
+(function(){
+  "use strict";
+
+  const $ = id => document.getElementById(id);
+  const escLocal = s => String(s ?? "").replace(/[&<>"']/g,m=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[m]));
+
+  function toastLocal(msg, type){
+    if(typeof window.toast === "function") return window.toast(msg, type);
+    const t = $("toast");
+    if(t){ t.textContent = msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2200); }
+  }
+
+  // ---------- 管理后台：增加“退出后台” ----------
+  function addAdminExit(){
+    const root = $("modalBox") || $("modal") || document.body;
+    const text = root.innerText || "";
+    if(!/管理员后台/.test(text)) return;
+
+    if(root.querySelector("[data-pro6-admin-exit]")) return;
+
+    const buttons = [...root.querySelectorAll("button")];
+    const closeBtn = buttons.find(b => /关闭/.test(b.textContent || ""));
+    const box = closeBtn?.parentElement || buttons[0]?.parentElement || root;
+
+    const b = document.createElement("button");
+    b.className = closeBtn?.className || "btn";
+    b.setAttribute("data-pro6-admin-exit","");
+    b.textContent = "退出后台";
+    b.style.marginLeft = "6px";
+    b.onclick = function(){
+      if(typeof window.closeModal === "function") window.closeModal();
+      else {
+        $("modal")?.classList.add("hidden");
+        $("modal")?.classList.remove("show");
+      }
+      toastLocal("已退出管理后台");
+    };
+    box.appendChild(b);
+  }
+
+  // ---------- 本地举证上传 ----------
+  async function uploadLocalEvidence(fileList){
+    const currentTask =
+      window.current ||
+      window.currentTask ||
+      window.__currentTask ||
+      null;
+
+    if(!currentTask?.id){
+      toastLocal("请先打开一个售后详情","err");
+      return;
+    }
+
+    const files = [...(fileList || [])];
+    if(!files.length) return;
+
+    if(typeof window.sb === "undefined"){
+      toastLocal("云端连接未初始化","err");
+      return;
+    }
+    if(typeof window.session === "undefined" || !window.session?.user?.id){
+      toastLocal("登录状态已失效，请重新登录","err");
+      return;
+    }
+
+    let ok = 0;
+    for(const file of files){
+      const safe = file.name.replace(/[^\w.\-\u4e00-\u9fa5]/g,"_");
+      const path = `${window.session.user.id}/task-evidence/${crypto.randomUUID()}-${safe}`;
+
+      const up = await window.sb.storage
+        .from("after-sales-evidence")
+        .upload(path,file,{contentType:file.type || "application/octet-stream"});
+
+      if(up.error){
+        toastLocal("上传失败："+up.error.message,"err");
+        continue;
+      }
+
+      const row = {
+        user_id: window.session.user.id,
+        task_id: currentTask.id,
+        file_name: file.name,
+        mime_type: file.type || "application/octet-stream",
+        size_bytes: file.size,
+        storage_path: path
+      };
+
+      const ins = await window.sb.from("evidence_files").insert(row);
+
+      if(ins.error){
+        await window.sb.storage.from("after-sales-evidence").remove([path]);
+        toastLocal("资料保存失败："+ins.error.message,"err");
+        continue;
+      }
+      ok++;
+    }
+
+    if(ok){
+      toastLocal(`已上传 ${ok} 个举证资料`,"ok");
+      if(typeof window.refreshAll === "function") await window.refreshAll();
+      if(typeof window.openTask === "function") window.openTask(currentTask.id);
+    }
+  }
+
+  function addLocalUploadUI(){
+    // 找到当前弹出的详情区域
+    const modalBox = $("modalBox");
+    if(!modalBox) return;
+
+    const text = modalBox.innerText || "";
+    const looksLikeTask =
+      /售后详情|举证|证据|资料/.test(text) &&
+      !/管理员后台/.test(text);
+
+    if(!looksLikeTask) return;
+    if(modalBox.querySelector("[data-pro6-local-upload]")) return;
+
+    const wrap = document.createElement("div");
+    wrap.setAttribute("data-pro6-local-upload","");
+    wrap.style.cssText =
+      "margin:10px 0;padding:10px;border:1px solid #e5e7eb;border-radius:12px;background:#fafafa";
+
+    wrap.innerHTML = `
+      <div style="font-weight:700;margin-bottom:7px">举证资料</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <button type="button" class="btn primary" data-pro6-pick>＋ 本地上传</button>
+        <button type="button" class="btn blue" data-pro6-library>☁ 从云端资料库调用</button>
+      </div>
+      <div style="font-size:11px;color:#6b7280;margin-top:6px">
+        支持图片、视频、PDF、文档等文件；本地上传后会直接保存到云端并关联当前售后。
+      </div>
+      <input data-pro6-file type="file" multiple
+        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+        style="display:none">
+    `;
+
+    // 优先插在包含“举证/证据”的区域前面
+    const candidates = [...modalBox.children];
+    const target = candidates.find(x => /举证|证据|资料/.test(x.innerText || ""));
+    if(target) target.parentNode.insertBefore(wrap,target);
+    else modalBox.prepend(wrap);
+
+    const input = wrap.querySelector("[data-pro6-file]");
+    wrap.querySelector("[data-pro6-pick]").onclick = () => input.click();
+    input.onchange = async () => {
+      await uploadLocalEvidence(input.files);
+      input.value = "";
+    };
+
+    wrap.querySelector("[data-pro6-library]").onclick = () => {
+      // 优先调用现有资料库入口
+      if(typeof window.openLibrary === "function"){
+        const taskId =
+          window.current?.id ||
+          window.currentTask?.id ||
+          window.__currentTask?.id;
+        window.openLibrary(taskId || null);
+      }else{
+        toastLocal("云端资料库入口不存在","err");
+      }
+    };
+  }
+
+  function scan(){
+    addAdminExit();
+    addLocalUploadUI();
+  }
+
+  const mo = new MutationObserver(()=>scan());
+  mo.observe(document.documentElement,{childList:true,subtree:true});
+  setInterval(scan,500);
+  setTimeout(scan,300);
+})();
 </script></body></html>
