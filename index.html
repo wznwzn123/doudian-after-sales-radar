@@ -1,48 +1,143 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b1020">
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<meta content="#0b1020" name="theme-color"/>
 <title>售后雷达 Pro 5.0 · 云端工作台</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root{--bg:#f3f5f9;--surface:#fff;--text:#121827;--muted:#718096;--line:#e5e9f0;--blue:#2563eb;--green:#0f9d62;--red:#d63b3b;--shadow:0 10px 30px rgba(15,23,42,.07)}
-*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}.hidden{display:none!important}
-.top{position:sticky;top:0;z-index:30;background:#0b1020;color:#fff;padding:11px 14px}.toprow{max-width:1180px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:10px}.brandline{display:flex;align-items:center;gap:9px}.logo{width:38px;height:38px;border-radius:12px;background:#fff;display:grid;place-items:center;color:#111827;font-weight:950}.brand{font-size:18px;font-weight:900}.sub{font-size:11px;color:#aeb7c8;margin-top:2px}.authbar{display:flex;align-items:center;gap:7px}.email{font-size:12px;color:#c8d0dc;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wrap{max-width:1180px;margin:auto;padding:16px 14px 48px}.hero{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-bottom:14px}.heroCard{background:linear-gradient(135deg,#111827,#243047);color:#fff;border-radius:22px;padding:20px}.hero h1{margin:0;font-size:26px}.hero p{margin:8px 0;color:#c5ccda;font-size:13px}.heroActions,.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.heroMini{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mini,.stat,.item,.section,.login{background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow)}.mini{border-radius:18px;padding:14px}.mini .k,.stat .l{font-size:12px;color:var(--muted)}.mini .v{font-size:22px;font-weight:900;margin-top:3px}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}.stat{border-radius:16px;padding:14px}.stat .n{font-size:24px;font-weight:950}.toolbar{background:#fff;border:1px solid var(--line);border-radius:18px;padding:11px;display:grid;grid-template-columns:1fr 150px 130px auto;gap:8px}.input,select,textarea{width:100%;border:1px solid #dfe4ec;background:#fff;color:var(--text);border-radius:12px;padding:10px 11px;outline:0}.btn{padding:10px 13px;border-radius:12px;background:#edf1f6;color:#1c2637;font-weight:800}.btn.primary{background:#111827;color:#fff}.btn.blue{background:#e8efff;color:#1d4ed8}.btn.good{background:#e7f8ef;color:#11754a}.btn.warn{background:#fff3dc;color:#8a5b00}.btn.danger{background:#ffe8e8;color:#a92323}.btn.ghost{background:transparent;color:#d5dbea;border:1px solid rgba(255,255,255,.16)}
-.list{display:grid;gap:10px;margin-top:12px}.item{border-radius:18px;padding:14px}.itemhead{display:flex;justify-content:space-between;gap:10px}.title{font-size:15px;font-weight:900}.meta,.muted{font-size:12px;color:var(--muted)}.tags{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.tag{display:inline-flex;padding:5px 8px;border-radius:999px;background:#eef2f7;font-size:11px;font-weight:800}.tag.red{background:#ffe9e9;color:#a92323}.tag.green{background:#e6f8ef;color:#11754a}.tag.amber{background:#fff2d5;color:#8a5b00}.tag.blue{background:#e8efff;color:#1d4ed8}.deadline{display:flex;justify-content:space-between;margin-top:8px;font-size:12px}.countdown{font-weight:950}.dangertext{color:var(--red)}.empty{padding:38px 15px;text-align:center;background:#fff;border:1px dashed #ccd3de;border-radius:18px;color:var(--muted)}
-.nav{display:flex;gap:7px;overflow:auto;margin:12px 0}.nav .btn{white-space:nowrap}.nav .active{background:#111827;color:#fff}.drawer{position:fixed;inset:0;z-index:50;background:rgba(15,23,42,.48);display:flex;justify-content:flex-end}.sheet{height:100%;width:min(760px,100%);background:#fff;overflow:auto}.sheetHead{position:sticky;top:0;z-index:3;background:#fff;border-bottom:1px solid var(--line);padding:13px 14px;display:flex;justify-content:space-between}.sheetBody{padding:14px}.section{border-radius:16px;padding:13px;margin-bottom:12px}.section h3{margin:0 0 10px;font-size:14px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}.field{margin-bottom:9px}.field label{display:block;font-size:12px;color:#657187;margin-bottom:5px}.drop{border:1px dashed #aeb8c7;border-radius:14px;padding:17px;text-align:center;background:#f8fafc}.notice{padding:10px 12px;border-radius:12px;background:#f5f7fa;font-size:12px;color:#5f6c80}.notice.warn{background:#fff6e4;color:#805800}.modal{position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.48);display:grid;place-items:center;padding:16px}.modalBox{background:#fff;border-radius:20px;width:min(760px,100%);max-height:90vh;overflow:auto;padding:18px}.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:100;background:#111827;color:#fff;padding:11px 15px;border-radius:12px;font-size:13px}.login{max-width:440px;margin:8vh auto;padding:20px;border-radius:22px}.login h2{margin-top:22px}.authmsg{padding:9px;border-radius:10px;font-size:12px;margin:8px 0}.authmsg.err{background:#fff0f0;color:#a92323}.authmsg.ok{background:#eaf8f0;color:#11754a}.adminTable{width:100%;border-collapse:collapse;font-size:12px}.adminTable th,.adminTable td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.adminTable th{color:var(--muted)}.adminPill{display:inline-flex;padding:4px 7px;border-radius:999px;background:#e7f8ef;color:#11754a;font-weight:800}
-@media(max-width:760px){.hero{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.toolbar{grid-template-columns:1fr 1fr}.toolbar .search{grid-column:1/-1}.grid2{grid-template-columns:1fr}.email{display:none}}
-.storeBadge{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#eef4ff;color:#2454c6;font-weight:900;font-size:11px}.storeDot{width:7px;height:7px;border-radius:50%;background:#2563eb}.storeSelect{min-width:150px}.storeGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.storeCard{border:1px solid var(--line);border-radius:16px;padding:13px;background:#fff}.storeCard .name{font-weight:900}.storeCard .num{font-size:22px;font-weight:950;margin-top:7px}@media(max-width:760px){.storeGrid{grid-template-columns:1fr}.storeSelect{min-width:0}}</style>
+:root{
+  --bg:#f4f7fb;--surface:rgba(255,255,255,.82);--surface-solid:#fff;--text:#202636;--muted:#737c8d;
+  --line:rgba(148,163,184,.18);--blue:#4c73d8;--blue-soft:#edf2ff;--green:#23a06b;--red:#dd5861;--amber:#b88322;
+  --shadow:0 14px 34px rgba(36,56,90,.08);--shadow-soft:0 6px 18px rgba(36,56,90,.06);--radius:22px;
+}
+html.dark{
+  --bg:#111522;--surface:rgba(27,32,48,.84);--surface-solid:#1b2030;--text:#edf2fb;--muted:#9aa4b7;--line:rgba(148,163,184,.16);
+  --blue:#85a2ff;--blue-soft:#263252;--green:#47c58d;--red:#ff8088;--amber:#dfba63;--shadow:0 14px 34px rgba(0,0,0,.22);--shadow-soft:0 6px 18px rgba(0,0,0,.16);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(circle at 12% 0%,rgba(190,207,247,.28),transparent 28%),linear-gradient(180deg,#f7f9fd 0%,var(--bg) 42%,#eef2f8 100%);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+html.dark body{background:radial-gradient(circle at 12% 0%,rgba(75,96,165,.18),transparent 28%),linear-gradient(180deg,#161a28 0%,var(--bg) 52%,#0f1320 100%)}
+button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}.hidden{display:none!important}
+.top{position:sticky;top:0;z-index:30;background:rgba(247,249,253,.76);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);padding:14px 16px 10px;border-bottom:1px solid rgba(148,163,184,.12)}
+html.dark .top{background:rgba(17,21,34,.76)}
+.toprow{max-width:1180px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:12px}.brandline{display:flex;align-items:center;gap:10px;min-width:0}
+.logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(145deg,#eef2ff,#dbe4ff);display:grid;place-items:center;color:#4c73d8;font-weight:950;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.brand{font-size:18px;font-weight:950;letter-spacing:-.4px}.sub{font-size:11px;color:var(--muted);margin-top:2px}.authbar{display:flex;align-items:center;gap:8px}.email{font-size:12px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.iconBtn{width:42px;height:42px;border-radius:50%;background:var(--surface-solid);color:var(--text);border:1px solid var(--line);box-shadow:var(--shadow-soft);display:grid;place-items:center;font-size:18px}.iconBtn.small{width:38px;height:38px;font-size:16px}
+.wrap{max-width:1180px;margin:auto;padding:14px 14px 110px}.hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:12px;margin-bottom:12px}
+.heroCard{position:relative;overflow:hidden;background:linear-gradient(135deg,#eff3ff 0%,#e7edff 52%,#f3f6ff 100%);color:#222a3a;border:1px solid rgba(112,135,194,.12);border-radius:26px;padding:20px;box-shadow:var(--shadow)}
+.heroCard:after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;right:-64px;top:-72px;background:rgba(117,148,228,.11)}
+html.dark .heroCard{background:linear-gradient(135deg,#252f49,#22293c);color:#f4f7ff}.hero h1{position:relative;z-index:1;margin:0;font-size:25px;letter-spacing:-.7px}.hero p{position:relative;z-index:1;margin:7px 0;color:#6d7687;font-size:13px;max-width:560px}html.dark .hero p{color:#adb6c8}
+.heroActions,.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.heroActions{position:relative;z-index:1}.heroMini{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mini,.stat,.item,.section,.login{background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-soft)}
+.mini{border-radius:20px;padding:15px}.mini .k,.stat .l{font-size:12px;color:var(--muted)}.mini .v{font-size:22px;font-weight:950;margin-top:3px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.stat{border-radius:18px;padding:14px}.stat .n{font-size:23px;font-weight:950;line-height:1.1}.toolbar{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:10px;display:grid;grid-template-columns:minmax(0,1fr) 150px 125px 125px;gap:8px;box-shadow:var(--shadow-soft)}
+.input,select,textarea{width:100%;border:1px solid rgba(148,163,184,.24);background:var(--surface-solid);color:var(--text);border-radius:13px;padding:10px 11px;outline:0}.input:focus,select:focus,textarea:focus{border-color:rgba(76,115,216,.55);box-shadow:0 0 0 4px rgba(76,115,216,.08)}
+.btn{padding:10px 13px;border-radius:13px;background:#eef1f6;color:#283247;font-weight:850}.btn.primary{background:#4d72d7;color:#fff}.btn.blue{background:var(--blue-soft);color:var(--blue)}.btn.good{background:#e8f7ef;color:#11754a}.btn.warn{background:#fff4df;color:#8a5b00}.btn.danger{background:#ffebed;color:#b32e39}.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+html.dark .btn{background:#262c3d;color:#eef2fb}.nav{display:flex;gap:7px;overflow:auto;margin:12px 0}.nav .btn{white-space:nowrap}.nav .active{background:#4d72d7;color:#fff}
+.list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}.item{border-radius:20px;padding:14px}.itemhead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.title{font-size:15px;font-weight:900}.meta,.muted{font-size:12px;color:var(--muted)}.tags{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.tag{display:inline-flex;padding:5px 8px;border-radius:999px;background:#eef1f6;font-size:11px;font-weight:800}.tag.red{background:#ffe9e9;color:#a92323}.tag.green{background:#e6f8ef;color:#11754a}.tag.amber{background:#fff2d5;color:#8a5b00}.tag.blue{background:#e8efff;color:#1d4ed8}.deadline{display:flex;justify-content:space-between;gap:10px;margin-top:8px;font-size:12px}.countdown{font-weight:950}.dangertext{color:var(--red)}.empty{padding:32px 15px;text-align:center;background:var(--surface);border:1px dashed rgba(148,163,184,.35);border-radius:18px;color:var(--muted)}
+.drawer{position:fixed;inset:0;z-index:50;background:rgba(15,23,42,.42);display:flex;justify-content:flex-end}.sheet{height:100%;width:min(780px,100%);background:var(--surface-solid);overflow:auto}.sheetHead{position:sticky;top:0;z-index:3;background:rgba(255,255,255,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:13px 14px;display:flex;justify-content:space-between}.sheetBody{padding:14px}.section{border-radius:18px;padding:13px;margin-bottom:10px}.section h3{margin:0 0 10px;font-size:14px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}.field{margin-bottom:9px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}.drop{border:1px dashed rgba(107,125,160,.45);border-radius:15px;padding:17px;text-align:center;background:#f7f9fc}.notice{padding:10px 12px;border-radius:12px;background:#f4f6fa;font-size:12px;color:#5f6c80}.notice.warn{background:#fff6e4;color:#805800}
+.modal{position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.42);display:grid;place-items:center;padding:12px}.modalBox{background:var(--surface-solid);border-radius:22px;width:min(800px,100%);max-height:88vh;overflow:auto;padding:16px}.toast{position:fixed;left:50%;bottom:82px;transform:translateX(-50%);z-index:100;background:#202738;color:#fff;padding:10px 14px;border-radius:12px;font-size:13px;box-shadow:var(--shadow)}
+.login{max-width:440px;margin:7vh auto;padding:20px;border-radius:24px}.login h2{margin-top:22px}.authmsg{padding:9px;border-radius:10px;font-size:12px;margin:8px 0}.authmsg.err{background:#fff0f0;color:#a92323}.authmsg.ok{background:#eaf8f0;color:#11754a}.tableWrap{overflow:auto}.tableWrap table{width:100%;min-width:680px;border-collapse:collapse}.adminTable{width:100%;border-collapse:collapse;font-size:12px}.adminTable th,.adminTable td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.adminTable th{color:var(--muted)}.adminPill{display:inline-flex;padding:4px 7px;border-radius:999px;background:#e7f8ef;color:#11754a;font-weight:800}
+.storeBadge{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:var(--blue-soft);color:var(--blue);font-weight:900;font-size:11px}.storeDot{width:7px;height:7px;border-radius:50%;background:#4c73d8}.storeSelect{min-width:150px}.storeGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.storeCard{border:1px solid var(--line);border-radius:17px;padding:13px;background:var(--surface)}.storeCard .name{font-weight:900}.storeCard .num{font-size:22px;font-weight:950;margin-top:7px}
+.bottomNav{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);width:min(650px,calc(100% - 28px));z-index:40;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:7px;background:rgba(255,255,255,.84);border:1px solid rgba(148,163,184,.18);box-shadow:0 18px 45px rgba(34,50,80,.16);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:27px}.bottomNav button{background:transparent;color:#6d7480;border-radius:19px;padding:6px 4px;font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;gap:3px;flex-direction:column}.bottomNav button .ico{font-size:20px;line-height:1}.bottomNav button.active{background:#eef2ff;color:#4d72d7}
+.compactRow{display:flex;align-items:center;justify-content:space-between;gap:10px}.sectionHeader{display:flex;align-items:center;justify-content:space-between;gap:10px}.pillCount{font-size:11px;color:var(--muted);font-weight:800;background:rgba(148,163,184,.10);padding:5px 8px;border-radius:999px}
+@media(max-width:900px){.hero{grid-template-columns:1fr}.toolbar{grid-template-columns:minmax(0,1fr) 1fr 1fr}.toolbar .search{grid-column:1/-1}.storeGrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){#adminStoreBtn:not(.hidden),#adminBtn:not(.hidden){display:inline-flex!important;padding:8px 9px;font-size:11px}.top{padding:12px 12px 9px}.brand{font-size:17px}.sub{font-size:10px}.email{display:none}.toprow{gap:8px}.authbar{gap:6px}.authbar .btn{display:none}.iconBtn{width:39px;height:39px}.wrap{padding:10px 10px 102px}.heroCard{padding:18px;border-radius:23px}.hero h1{font-size:22px}.hero p{font-size:12px}.heroActions .btn{padding:9px 10px}.heroMini{gap:8px}.mini{padding:12px;border-radius:17px}.stats{grid-template-columns:repeat(2,1fr);gap:8px}.stat{padding:12px}.stat .n{font-size:21px}.nav{margin:10px 0}.list{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.item{padding:12px;border-radius:18px}.title{font-size:14px}.meta,.muted{font-size:11px}.tags{justify-content:flex-start;margin-top:7px}.toolbar{grid-template-columns:1fr 1fr;gap:7px}.toolbar .search{grid-column:1/-1}.storeSelect{min-width:0}.sheetBody{padding:10px}.section{padding:12px}.grid2{grid-template-columns:1fr 1fr;gap:8px}.bottomNav{bottom:10px;width:calc(100% - 20px);border-radius:24px}.bottomNav button{padding:5px 2px}.storeGrid{grid-template-columns:repeat(2,1fr);gap:8px}}
+@media(max-width:430px){.list{grid-template-columns:1fr}.grid2{grid-template-columns:1fr 1fr}.storeGrid{grid-template-columns:1fr 1fr}.heroActions{display:grid;grid-template-columns:1fr 1fr 1fr}.heroActions .btn{width:100%}.toolbar{grid-template-columns:1fr 1fr}}
+</style>
 </head>
 <body>
-<div id="loginView" class="login">
+<div class="login" id="loginView">
 <div class="brandline"><div class="logo">雷</div><div><div class="brand">售后雷达 Pro 5.0</div><div class="sub">云端售后 · 证据 · 3小时风险管控</div></div></div>
 <h2>进入云端工作台</h2><p class="muted">数据保存到 Supabase 云端，可跨设备继续处理。</p>
-<div class="field"><label>邮箱</label><input id="email" class="input" type="email"></div>
-<div class="field"><label>密码</label><input id="password" class="input" type="password"></div>
-<div id="passwordConfirmWrap" class="field hidden"><label>确认密码</label><input id="passwordConfirm" class="input" type="password"></div>
+<div class="field"><label>邮箱</label><input class="input" id="email" type="email"/></div>
+<div class="field"><label>密码</label><input class="input" id="password" type="password"/></div>
+<div class="field hidden" id="passwordConfirmWrap"><label>确认密码</label><input class="input" id="passwordConfirm" type="password"/></div>
 <div class="notice">密码至少8位，含大写、小写、数字和特殊字符。</div>
-<div id="authMsg" class="hidden"></div><div class="actions"><button class="btn primary" onclick="login()">登录</button><button class="btn" onclick="register()">注册</button><button class="btn blue" onclick="forgotPassword()">找回密码</button></div>
+<div class="hidden" id="authMsg"></div><div class="actions"><button class="btn primary" onclick="login()">登录</button><button class="btn" onclick="register()">注册</button><button class="btn blue" onclick="forgotPassword()">找回密码</button></div>
 </div>
+<div class="login hidden" id="resetView"><div class="brandline"><div class="logo">雷</div><div><div class="brand">售后雷达 Pro 5.0</div><div class="sub">安全重置密码</div></div></div><h2>设置新密码</h2><input class="input" id="resetPassword" placeholder="新密码" type="password"/><br/><br/><input class="input" id="resetPasswordConfirm" placeholder="确认新密码" type="password"/><div class="hidden" id="resetMsg"></div><div class="actions"><button class="btn primary" onclick="updatePassword()">保存</button><button class="btn" onclick="backToLogin()">返回</button></div></div>
+<div class="hidden" id="app">
 
-<div id="resetView" class="login hidden"><div class="brandline"><div class="logo">雷</div><div><div class="brand">售后雷达 Pro 5.0</div><div class="sub">安全重置密码</div></div></div><h2>设置新密码</h2><input id="resetPassword" class="input" type="password" placeholder="新密码"><br><br><input id="resetPasswordConfirm" class="input" type="password" placeholder="确认新密码"><div id="resetMsg" class="hidden"></div><div class="actions"><button class="btn primary" onclick="updatePassword()">保存</button><button class="btn" onclick="backToLogin()">返回</button></div></div>
+<header class="top">
+<div class="toprow">
+<div class="brandline">
+<div class="logo">雷</div>
+<div>
+<div class="brand">售后雷达</div>
+<div class="sub">Pro 5.2 · 云端工作台</div>
+</div>
+</div>
+<div class="authbar">
+<span class="sub" id="syncState">云端在线 · 在线 <b id="onlineCount">0</b></span>
+<span class="email" id="userEmail"></span>
+<button class="iconBtn" onclick="toggleTheme()" title="夜间模式">◐</button>
+<button class="iconBtn" onclick="openSettings()" title="设置">⚙</button>
+<button class="iconBtn" onclick="openSettings()" title="账号">◉</button>
+<button class="btn hidden" id="adminStoreBtn" onclick="adminStoreCenter()">全平台店铺</button>
+<button class="btn ghost hidden" id="adminBtn" onclick="openAdminPanel()">管理后台</button>
+<button class="btn ghost" onclick="openSettings()">设置</button>
+<button class="btn ghost" onclick="signOut()">退出</button>
+</div>
+</div>
+</header>
 
-<div id="app" class="hidden">
-<header class="top"><div class="toprow"><div class="brandline"><div class="logo">雷</div><div><div class="brand">售后雷达 Pro 5.0</div><div class="sub">云端工作台 · 数据已同步</div></div></div><div class="authbar"><span id="syncState" class="sub">云端在线 · 在线 <b id="onlineCount">0</b></span><span id="userEmail" class="email"></span><button id="adminStoreBtn" class="btn hidden" onclick="adminStoreCenter()">全平台店铺</button><button id="adminBtn" class="btn ghost hidden" onclick="openAdminPanel()">管理后台</button><button class="btn ghost" onclick="openSettings()">设置</button><button class="btn ghost" onclick="signOut()">退出</button></div></div></header>
+
 <main class="wrap">
-<section class="hero"><div class="heroCard"><h1>今天的售后，先处理高风险。</h1><p>拒绝协商、仲裁、举证、3小时倒计时与云端证据统一管理。</p><div class="heroActions"><button class="btn" onclick="newTask()">＋ 新建售后</button><button class="btn" onclick="quickReject()">记录拒绝协商</button><button class="btn" onclick="refreshAll()">↻ 同步云端</button></div></div><div class="heroMini"><div class="mini"><div class="k">最紧急任务</div><div class="v" id="urgent">—</div></div><div class="mini"><div class="k">今日完成</div><div class="v" id="doneToday">0</div></div><div class="mini"><div class="k">盯单中</div><div class="v" id="monitoring">0</div></div><div class="mini"><div class="k">证据文件</div><div class="v" id="evidenceCount">0</div></div></div></section>
-<div class="stats"><div class="stat"><div class="n" id="cAll">0</div><div class="l">全部售后</div></div><div class="stat"><div class="n" id="cPending">0</div><div class="l">待处理</div></div><div class="stat"><div class="n" id="cEvidence">0</div><div class="l">待举证</div></div><div class="stat"><div class="n" id="cRisk">0</div><div class="l">高风险</div></div></div>
-<div class="nav"><button class="btn" onclick="openStoreCenter()">店铺中心</button><button class="btn" onclick="openLibrary()">云端资料库</button><button class="btn active" onclick="setQuickFilter('')">全部</button><button class="btn" onclick="setQuickFilter('risk')">高风险</button><button class="btn" onclick="setQuickFilter('待举证')">待举证</button><button class="btn" onclick="setQuickFilter('仲裁中')">仲裁中</button><button class="btn" onclick="setQuickFilter('已完成')">已完成</button></div>
-<div class="toolbar"><select id="storeFilter" class="storeSelect" onchange="render()"><option value="">全部店铺</option></select><input id="search" class="input search" placeholder="搜索订单 / 买家 / 快递单号" oninput="render()"><select id="filter" onchange="render()"><option value="">全部状态</option><option>待处理</option><option>协商中</option><option>买家拒绝协商</option><option>待举证</option><option>仲裁中</option><option>已完成</option></select><select id="riskFilter" onchange="render()"><option value="">全部风险</option><option>普通</option><option>高风险</option></select><button class="btn primary" onclick="newTask()">＋ 新建</button></div>
-<div id="list" class="list"></div>
-</main></div>
-
-<div id="drawer" class="drawer hidden" onclick="if(event.target===this)closeTask()"><section class="sheet"><div class="sheetHead"><div><b id="sheetTitle">售后详情</b><div id="sheetSub" class="muted"></div></div><button class="btn" onclick="closeTask()">关闭</button></div><div class="sheetBody" id="detailBody"></div></section></div>
-<div id="modal" class="modal hidden"><div class="modalBox" id="modalBox"></div></div><div id="toast" class="toast hidden"></div>
-
+<section class="hero">
+<div class="heroCard">
+<h1>欢迎回来，今天先处理高风险。</h1>
+<p>拒绝协商、仲裁、举证、3小时倒计时与云端资料统一管理。</p>
+<div class="heroActions">
+<button class="btn primary" onclick="newTask()">＋ 新建售后</button>
+<button class="btn" onclick="quickReject()">记录拒绝协商</button>
+<button class="btn blue" onclick="refreshAll()">↻ 同步云端</button>
+</div>
+</div>
+<div class="heroMini">
+<div class="mini"><div class="k">最紧急任务</div><div class="v" id="urgent">—</div></div>
+<div class="mini"><div class="k">今日完成</div><div class="v" id="doneToday">0</div></div>
+<div class="mini"><div class="k">盯单中</div><div class="v" id="monitoring">0</div></div>
+<div class="mini"><div class="k">云端资料</div><div class="v" id="evidenceCount">0</div></div>
+</div>
+</section>
+<section class="stats">
+<div class="stat"><div class="n" id="cAll">0</div><div class="l">全部售后</div></div>
+<div class="stat"><div class="n" id="cPending">0</div><div class="l">待处理</div></div>
+<div class="stat"><div class="n" id="cEvidence">0</div><div class="l">待举证</div></div>
+<div class="stat"><div class="n" id="cRisk">0</div><div class="l">高风险</div></div>
+</section>
+<div class="nav">
+<button class="btn" onclick="openStoreCenter()">店铺中心</button>
+<button class="btn" onclick="openLibrary()">云端资料库</button>
+<button class="btn active" onclick="setQuickFilter('')">全部</button>
+<button class="btn" onclick="setQuickFilter('risk')">高风险</button>
+<button class="btn" onclick="setQuickFilter('待举证')">待举证</button>
+<button class="btn" onclick="setQuickFilter('仲裁中')">仲裁中</button>
+<button class="btn" onclick="setQuickFilter('已完成')">已完成</button>
+</div>
+<div class="sectionHeader" style="margin:12px 2px 8px"><div><b style="font-size:15px">售后任务</b><div class="muted">所有店铺统一展示</div></div><span class="pillCount" id="taskCountPill">0 条</span></div>
+<div class="toolbar">
+<input class="input search" id="search" oninput="render()" placeholder="搜索订单号、买家、店铺…"/>
+<select id="storeFilter" onchange="render()"><option value="">全部店铺</option></select>
+<select id="filter" onchange="render()"><option value="">全部状态</option><option>待处理</option><option>协商中</option><option>买家拒绝协商</option><option>待举证</option><option>仲裁中</option><option>已完成</option></select>
+<select id="riskFilter" onchange="render()"><option value="">全部风险</option><option>普通</option><option>高风险</option></select>
+</div>
+<div class="list" id="list"></div>
+</main>
+<nav class="bottomNav">
+<button class="active" onclick="goDashboard()"><span class="ico">⌂</span><span>仪表盘</span></button>
+<button onclick="openStoreCenter()"><span class="ico">▱</span><span>店铺</span></button>
+<button onclick="goAfterSales()"><span class="ico">◎</span><span>售后</span></button>
+<button onclick="openLibrary()"><span class="ico">▤</span><span>资料库</span></button>
+<button onclick="openSettings()"><span class="ico">＋</span><span>更多</span></button>
+</nav>
+</div>
+<div class="drawer hidden" id="drawer" onclick="if(event.target===this)closeTask()"><section class="sheet"><div class="sheetHead"><div><b id="sheetTitle">售后详情</b><div class="muted" id="sheetSub"></div></div><button class="btn" onclick="closeTask()">关闭</button></div><div class="sheetBody" id="detailBody"></div></section></div>
+<div class="modal hidden" id="modal"><div class="modalBox" id="modalBox"></div></div><div class="toast hidden" id="toast"></div>
 <script>
 const CONFIG={SUPABASE_URL:"https://bdnazzywqqmliqyhhtig.supabase.co",SUPABASE_KEY:"sb_publishable_AUD55Xac5eZXmNtcblkgcQ_Y4D-MYk9"};
 const sb=window.supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_KEY);
@@ -68,7 +163,7 @@ function subscribe(){if(rt)sb.removeChannel(rt);rt=sb.channel("after-sales-live"
 function startTimer(){clearInterval(timer);timer=setInterval(()=>{document.querySelectorAll("[data-id]").forEach(e=>{const t=tasks.find(x=>x.id===e.dataset.id);if(t)e.textContent=count(t)});},1000)}
 function count(t){if(t.status==="已完成"||t.submission_status!=="pending")return"已完成 · 倒计时已停止";if(!t.deadline)return"未设置";let x=new Date(t.deadline)-Date.now();if(x<=0)return"已到期";let s=Math.floor(x/1000),h=Math.floor(s/3600);s%=3600;let m=Math.floor(s/60),q=s%60;return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(q).padStart(2,"0")}`}
 function setQuickFilter(v){quick=v;render()}
-function render(){const q=$("search").value.toLowerCase(),f=$("filter").value,r=$("riskFilter").value;const sf=$("storeFilter")?.value||"";let a=tasks.filter(t=>(!sf||t.store_id===sf)&&(!q||[t.order_id,t.buyer_name,t.tracking_no,t.reason].join(" ").toLowerCase().includes(q))&&(!f||t.status===f)&&(!r||t.risk===r)&&(quick==="risk"?t.risk==="高风险":!quick||t.status===quick));$("list").innerHTML=a.length?a.map(card).join(""):`<div class="empty">没有匹配的售后</div>`}
+function render(){const q=$("search").value.toLowerCase(),f=$("filter").value,r=$("riskFilter").value;const sf=$("storeFilter")?.value||"";let a=tasks.filter(t=>{const st=(window.__stores||[]).find(x=>x.id===t.store_id);const storeName=st?.name||t.store_name||"";return(!sf||t.store_id===sf)&&(!q||[t.order_id,t.buyer_name,t.tracking_no,t.reason,storeName].join(" ").toLowerCase().includes(q))&&(!f||t.status===f)&&(!r||t.risk===r)&&(quick==="risk"?t.risk==="高风险":!quick||t.status===quick)});$("list").innerHTML=a.length?a.map(card).join(""):`<div class="empty">没有匹配的售后</div>`;const pill=$("taskCountPill");if(pill)pill.textContent=`${a.length} 条`}
 function card(t){const st=(window.__stores||[]).find(x=>x.id===t.store_id);return `<article class="item"><div class="itemhead"><div><div class="storeBadge"><span class="storeDot"></span>${esc(st?.name||t.store_name||"未绑定店铺")}</div><div class="title">${esc(t.order_id||"未填写订单号")}</div><div class="meta">${esc(t.buyer_name||"未填写买家")} · ${esc(t.tracking_no||"无快递单号")}</div></div><div class="tags"><span class="tag ${t.status==="已完成"?"green":"blue"}">${esc(t.status)}</span><span class="tag ${t.risk==="高风险"?"red":""}">${esc(t.risk||"普通")}</span></div></div><div class="deadline"><span>举证倒计时</span><span class="countdown ${t.risk==="高风险"?"dangertext":""}" data-id="${t.id}">${count(t)}</span></div><div class="actions"><button class="btn primary" onclick="openTask('${t.id}')">打开详情</button><button class="btn warn" onclick="reject('${t.id}')">拒绝协商</button><button class="btn" onclick="tracking('${t.id}')">${t.tracking_no?(t.monitoring?"停止盯单":"继续盯单"):"输入快递号"}</button></div></article>`}
 async function newTask(){const storeId=$("storeFilter")?.value||null;const {data,error}=await sb.from("after_sales_tasks").insert({user_id:session.user.id,store_id:storeId,status:"待处理",risk:"普通",after_sales_type:"退款/售后",submission_status:"pending",monitoring:false,deadline:new Date(Date.now()+10800000).toISOString()}).select().single();if(error)return toast(error.message,"err");await refreshAll();openTask(data.id)}
 async function quickReject(){const storeId=$("storeFilter")?.value||null;const {data,error}=await sb.from("after_sales_tasks").insert({user_id:session.user.id,store_id:storeId,status:"待举证",risk:"高风险",after_sales_type:"退款/售后",submission_status:"pending",monitoring:false,deadline:new Date(Date.now()+10800000).toISOString()}).select().single();if(error)return toast(error.message,"err");await sb.from("after_sales_events").insert({user_id:session.user.id,task_id:data.id,event_type:"rejected_negotiation",message:"买家拒绝协商，进入举证阶段"});await refreshAll();openTask(data.id)}
@@ -184,6 +279,12 @@ async function adminRemoveUser(id,email){if(id===session.user.id)return toast('�
 async function adminLogs(){const {data,error}=await sb.rpc('admin_list_logs');if(error)throw error;const rows=(data||[]).map(x=>`<tr><td>${fmt(x.created_at)}</td><td>${esc(x.email||'—')}</td><td>${esc(x.action||'—')}</td><td>${esc(x.detail||'—')}</td></tr>`).join('');$('adminBody').innerHTML=`<div class="section"><h3>操作日志</h3><div style="overflow:auto"><table class="adminTable"><thead><tr><th>时间</th><th>用户</th><th>操作</th><th>详情</th></tr></thead><tbody>${rows||'<tr><td colspan="4">暂无日志</td></tr>'}</tbody></table></div></div>`}
 function adminSettings(){$('adminBody').innerHTML=`<div class="section"><h3>系统设置</h3><div class="notice">当前版本：售后雷达 Pro 5.0 Admin Console</div><div class="grid2" style="margin-top:10px"><div><label class="muted">默认举证时限</label><input class="input" value="3小时" disabled></div><div><label class="muted">云端同步</label><input class="input" value="Supabase · 已启用" disabled></div></div></div><div class="section"><h3>安全说明</h3><div class="muted">管理员操作通过数据库 RPC 校验管理员身份。前端隐藏按钮不等于权限控制，真正权限由数据库执行。</div></div>`}
 function filterAdminTable(id,q){const x=q.toLowerCase();document.querySelectorAll('#'+id+' tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(x)?'':'none')}
+
+function toggleTheme(){document.documentElement.classList.toggle('dark');try{localStorage.setItem('sar_dark',document.documentElement.classList.contains('dark')?'1':'0')}catch(e){}}
+function goDashboard(){window.scrollTo({top:0,behavior:'smooth'});}
+function goAfterSales(){const el=document.getElementById('list');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});}
+try{if(localStorage.getItem('sar_dark')==='1')document.documentElement.classList.add('dark')}catch(e){}
+
 init();
 </script>
 </body>
