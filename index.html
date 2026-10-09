@@ -1,113 +1,139 @@
 <!doctype html>
 <html lang="zh-CN"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f172a">
-<title>售后雷达 Pro 6.1</title><link rel="manifest" href="./manifest.webmanifest"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>售后雷达 Pro 6.2</title><link rel="manifest" href="./manifest.webmanifest"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#738096;--line:#e5e9f1;--brand:#4f6fdc;--soft:#eef2ff;--danger:#d94c5a;--ok:#168d5a}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}button,input,select,textarea{font:inherit}button{border:0;cursor:pointer}.hidden{display:none!important}.wrap{max-width:1180px;margin:auto;padding:12px 12px 95px}.top{position:sticky;top:0;z-index:20;background:#ffffffdf;backdrop-filter:blur(18px);border-bottom:1px solid var(--line);padding:10px 12px}.topin{max-width:1180px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:8px}.brand{display:flex;align-items:center;gap:8px}.logo{width:38px;height:38px;border-radius:12px;background:var(--soft);display:grid;place-items:center;color:var(--brand);font-weight:900}.title{font-weight:900}.sub,.muted{font-size:11px;color:var(--muted)}.actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.btn{background:#eef1f6;color:#263247;padding:9px 11px;border-radius:11px;font-weight:800;font-size:12px}.primary{background:var(--brand);color:#fff}.blue{background:var(--soft);color:var(--brand)}.danger{background:#ffebee;color:#b52f3c}.good{background:#e7f7ef;color:#13764b}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:13px;box-shadow:0 7px 25px #20304b0b}.grid{display:grid;gap:9px}.hero{padding:18px;border-radius:22px;background:linear-gradient(135deg,#eef2ff,#f8faff);border:1px solid #dfe6ff}.hero h1{margin:0;font-size:20px}.stats{grid-template-columns:repeat(4,1fr)}.two{grid-template-columns:1.25fr .75fr}.tasks{grid-template-columns:repeat(2,1fr)}.input,select,textarea{width:100%;background:var(--card);border:1px solid #dfe4ed;border-radius:11px;padding:10px;color:var(--text);outline:0}.toolbar{display:grid;grid-template-columns:minmax(0,1fr) 160px 130px 120px;gap:7px}.pill{display:inline-flex;padding:4px 8px;border-radius:99px;background:#eef1f6;font-size:11px;font-weight:800}.red{background:#ffebee;color:#b52f3c}.modal{position:fixed;inset:0;z-index:60;background:#17203366;display:grid;place-items:center;padding:10px}.modalbox{background:var(--card);width:min(900px,100%);max-height:90vh;overflow:auto;border-radius:22px;padding:15px}.drawer{position:fixed;inset:0;z-index:55;background:#17203366;display:flex;justify-content:flex-end}.sheet{width:min(760px,100%);height:100%;overflow:auto;background:var(--card)}.sheethead{position:sticky;top:0;background:#ffffffed;z-index:2;padding:12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.bottom{position:fixed;z-index:30;left:50%;bottom:9px;transform:translateX(-50%);width:min(650px,calc(100% - 20px));display:grid;grid-template-columns:repeat(5,1fr);padding:6px;background:#fffffff0;border:1px solid var(--line);border-radius:24px;box-shadow:0 15px 38px #1e2d4b22}.bottom button{background:transparent;color:var(--muted);padding:5px;font-size:10px;font-weight:800}.notice{padding:10px;border-radius:12px;background:#f3f5f9;color:#607087;font-size:12px}.file{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:9px;border:1px solid var(--line);border-radius:12px;margin:6px 0}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}th{color:var(--muted)}.toast{position:fixed;z-index:100;left:50%;bottom:78px;transform:translateX(-50%);background:#1d2637;color:white;border-radius:11px;padding:10px 14px;font-size:12px;max-width:90%;text-align:center}@media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}.two,.tasks{grid-template-columns:1fr}.toolbar{grid-template-columns:1fr 1fr}.toolbar input{grid-column:1/-1}.email{display:none}}
 </style></head><body>
-<div id="login" class="card" style="max-width:430px;margin:8vh auto;padding:24px"><div class="brand"><div class="logo">雷</div><div><div class="title">售后雷达 Pro 6.1</div><div class="sub">云端售后 · 证据 · 店铺 · 3小时风险管控</div></div></div><h2>进入云端工作台</h2><div class="muted">数据保存到 Supabase，可跨设备使用。</div><input id="email" class="input" style="margin-top:14px" placeholder="邮箱"><input id="password" class="input" style="margin-top:7px" type="password" placeholder="密码"><div id="regwrap" class="hidden"><input id="password2" class="input" style="margin-top:7px" type="password" placeholder="确认密码"></div><div class="notice" style="margin-top:8px">密码至少8位，包含大写、小写、数字和特殊字符。</div><div id="authmsg" class="notice hidden" style="margin-top:8px"></div><div class="actions" style="margin-top:10px"><button class="btn primary" onclick="login()">登录</button><button class="btn" onclick="register()">注册</button><button class="btn blue" onclick="forgot()">找回密码</button></div></div>
-<div id="app" class="hidden"><header class="top"><div class="topin"><div class="brand"><div class="logo">雷</div><div><div class="title">售后雷达</div><div class="sub">Pro 6.1 · 云端工作台</div></div></div><div class="actions"><span class="muted email" id="userEmail"></span><span class="muted">在线 <b id="online">0</b></span><button class="btn" onclick="more()">更多</button><button id="adminBtn" class="btn blue hidden" onclick="adminPanel()">管理</button><button class="btn" onclick="logout()">退出</button></div></div></header><main class="wrap">
+<div id="login" class="card" style="max-width:430px;margin:8vh auto;padding:24px"><div class="brand"><div class="logo">雷</div><div><div class="title">售后雷达 Pro 6.2</div><div class="sub">云端售后 · 证据 · 店铺 · 3小时风险管控</div></div></div><h2>进入云端工作台</h2><div class="muted">数据保存到 Supabase，可跨设备使用。</div><input id="email" class="input" style="margin-top:14px" placeholder="邮箱"><input id="password" class="input" style="margin-top:7px" type="password" placeholder="密码"><div id="regwrap" class="hidden"><input id="password2" class="input" style="margin-top:7px" type="password" placeholder="确认密码"></div><div class="notice" style="margin-top:8px">密码至少8位，包含大写、小写、数字和特殊字符。</div><div id="authmsg" class="notice hidden" style="margin-top:8px"></div><div class="actions" style="margin-top:10px"><button class="btn primary" onclick="login()">登录</button><button class="btn" onclick="register()">注册</button><button class="btn blue" onclick="forgot()">找回密码</button></div></div>
+<div id="app" class="hidden"><header class="top"><div class="topin"><div class="brand"><div class="logo">雷</div><div><div class="title">售后雷达</div><div class="sub">Pro 6.2 · 云端工作台</div></div></div><div class="actions"><span class="muted email" id="userEmail"></span><span class="muted">在线 <b id="online">0</b></span><button class="btn" onclick="more()">更多</button><button id="adminBtn" class="btn blue hidden" onclick="adminPanel()">管理</button><button class="btn" onclick="logout()">退出</button></div></div></header><main class="wrap">
 <section class="grid two"><div class="hero"><h1>今天先处理高风险售后</h1><p class="muted">拒绝协商、仲裁、举证、3小时倒计时、快递盯单和云端资料统一管理。</p><div class="actions"><button class="btn primary" onclick="newTask()">＋ 新建售后</button><button class="btn" onclick="quickReject()">记录拒绝协商</button><button class="btn blue" onclick="refresh()">↻ 同步云端</button><button class="btn" onclick="deviceDiagnostic()">设备注册诊断</button></div></div><div class="grid" style="grid-template-columns:1fr 1fr"><div class="card"><div class="muted">最紧急</div><b id="urgent">—</b></div><div class="card"><div class="muted">今日完成</div><b id="done">0</b></div><div class="card"><div class="muted">盯单中</div><b id="monitoring">0</b></div><div class="card"><div class="muted">云端资料</div><b id="libcount">0</b></div></div></section>
 <section class="grid stats" style="margin-top:9px"><div class="card"><b id="allc">0</b><div class="muted">全部售后</div></div><div class="card"><b id="pendingc">0</b><div class="muted">待处理</div></div><div class="card"><b id="evidencec">0</b><div class="muted">待举证</div></div><div class="card"><b id="riskc" style="color:var(--danger)">0</b><div class="muted">高风险</div></div></section>
 <section class="card" style="margin-top:9px"><div class="toolbar"><input id="search" class="input" placeholder="搜索订单、买家、店铺、快递单号" oninput="render()"><select id="storeFilter" onchange="render()"><option value="">全部店铺</option></select><select id="statusFilter" onchange="render()"><option value="">全部状态</option><option>待处理</option><option>协商中</option><option>买家拒绝协商</option><option>待举证</option><option>仲裁中</option><option>已完成</option></select><select id="riskFilter" onchange="render()"><option value="">全部风险</option><option>普通</option><option>高风险</option></select></div></section><div style="display:flex;justify-content:space-between;margin:12px 2px 6px"><b>售后任务</b><span class="pill" id="taskcount">0 条</span></div><section id="tasklist" class="grid tasks"></section></main><nav class="bottom"><button onclick="dashboard()">⌂<br>首页</button><button onclick="openStore()">▱<br>店铺</button><button onclick="scrollTasks()">◎<br>售后</button><button onclick="openLibrary()">▤<br>资料库</button><button onclick="more()">＋<br>更多</button></nav></div>
 <div id="modal" class="modal hidden"><div id="modalbox" class="modalbox"></div></div><div id="drawer" class="drawer hidden"><div class="sheet"><div class="sheethead"><div><b id="sheettitle">售后详情</b><div id="sheetsub" class="muted"></div></div><button class="btn" onclick="closeDrawer()">关闭</button></div><div id="detail" style="padding:13px"></div></div></div><div id="toast" class="toast hidden"></div>
 <script>
 const sb=supabase.createClient("https://bdnazzywqqmliqyhhtig.supabase.co","sb_publishable_AUD55Xac5eZXmNtcblkgcQ_Y4D-MYk9");let session,tasks=[],stores=[],library=[],current,presence,timer,isAdmin=false;const $=id=>document.getElementById(id);const esc=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));const fmt=x=>x?new Date(x).toLocaleString("zh-CN",{hour12:false}):"—";const strong=p=>p.length>=8&&/[A-Z]/.test(p)&&/[a-z]/.test(p)&&/\d/.test(p)&&/[^A-Za-z0-9]/.test(p);function toast(s){$("toast").textContent=s;$("toast").classList.remove("hidden");clearTimeout(window.__toast);window.__toast=setTimeout(()=>$("toast").classList.add("hidden"),2800)}function msg(s){$("authmsg").textContent=s;$("authmsg").classList.remove("hidden")}function closeModal(){$("modal").classList.add("hidden");$("modalbox").innerHTML=""}function closeDrawer(){$("drawer").classList.add("hidden")}function dashboard(){scrollTo({top:0,behavior:"smooth"})}function scrollTasks(){$("tasklist").scrollIntoView({behavior:"smooth"})}
+const APP_VERSION="6.2.0";
+let enteredUser=null,gateBusy=false,recheckTimer=null,gateFails=0,recheckBound=false;
+/* ---------- 设备安全：所有进入应用的路径（密码登录 / 刷新页面 / 登录事件）都必须先经过 enterApp() ---------- */
+function getDeviceId(){
+  let id=null;
+  try{id=localStorage.getItem("sar_device_id")}catch(e){}
+  if(!id||id.length<16){
+    id="WEB-"+crypto.randomUUID().replace(/-/g,"");
+    try{localStorage.setItem("sar_device_id",id)}catch(e){}
+  }
+  return id;
+}
+function getDevicePublicKey(){
+  let k=null;
+  try{k=localStorage.getItem("sar_device_public_key")}catch(e){}
+  if(!k||k.length<32){
+    k="WEB_PUBLIC_KEY_"+crypto.randomUUID().replace(/-/g,"")+"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    try{localStorage.setItem("sar_device_public_key",k)}catch(e){}
+  }
+  return k;
+}
+/* 返回 {ok:true} | {ok:false,blocked:true,denied:true,reason} | {ok:false,denied:true,reason} | {ok:false,denied:false,error}
+   denied=服务端明确拒绝；denied=false=网络/RPC 异常（进入时按失败处理，运行中的复查不因此踢人） */
+async function deviceCheck(){
+  try{
+    const r=await sb.rpc("security_register_device",{
+      p_device_id:getDeviceId(),
+      p_public_key:getDevicePublicKey(),
+      p_platform:"android",
+      p_app_version:APP_VERSION,
+      p_build_number:"1",
+      p_attestation_status:null,
+      p_attestation_details:{source:"web_login",tested_at:new Date().toISOString()}
+    });
+    if(r.error)return{ok:false,denied:false,error:r.error.message||"RPC 调用失败"};
+    const d=(Array.isArray(r.data)?r.data[0]:r.data)||{};
+    if(d.blocked===true)return{ok:false,blocked:true,denied:true,reason:d.reason||"设备已被限制访问"};
+    if(d.ok===true)return{ok:true};
+    if(d.ok===false)return{ok:false,denied:true,reason:d.reason||"设备验证未通过"};
+    return{ok:false,denied:false,error:"设备验证返回异常"};
+  }catch(e){
+    return{ok:false,denied:false,error:e?.message||String(e)};
+  }
+}
+function stopRecheck(){clearInterval(recheckTimer);recheckTimer=null}
+function startRecheck(){
+  stopRecheck();
+  recheckTimer=setInterval(recheck,120000);
+  if(!recheckBound){
+    recheckBound=true;
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")recheck()});
+    window.addEventListener("online",()=>recheck());
+  }
+}
+async function recheck(){
+  if(!enteredUser||gateBusy)return;
+  gateBusy=true;
+  let c;
+  try{c=await deviceCheck()}finally{gateBusy=false}
+  if(!enteredUser)return;
+  if(c.ok){gateFails=0;return}
+  if(c.denied)return denyAccess(c.blocked?"此设备已被禁止登录："+c.reason:"设备验证未通过："+c.reason);
+  if(++gateFails>=3)toast("设备验证连续失败，请检查网络");
+}
+function showLogin(m){
+  stopRecheck();clearInterval(timer);
+  if(presence){try{sb.removeChannel(presence)}catch(e){}presence=null}
+  session=null;enteredUser=null;tasks=[];stores=[];library=[];current=null;isAdmin=false;
+  closeModal();closeDrawer();
+  $("app").classList.add("hidden");$("adminBtn").classList.add("hidden");
+  $("tasklist").innerHTML="";$("detail").innerHTML="";$("password").value="";
+  $("login").classList.remove("hidden");
+  if(m)msg(m);
+}
+async function denyAccess(m){
+  enteredUser=null;
+  /* scope:local 只清掉本设备的登录，不会把同账号其他正常设备一起踢下线 */
+  try{await sb.auth.signOut({scope:"local"})}catch(e){}
+  showLogin(m);
+}
+async function enterApp(s){
+  if(!s?.user||gateBusy||enteredUser===s.user.id)return;
+  gateBusy=true;
+  let c;
+  try{
+    $("login").classList.add("hidden");
+    toast("正在验证设备…");
+    c=await deviceCheck();
+  }finally{gateBusy=false}
+  if(!c.ok)return denyAccess(c.blocked?"此设备已被禁止登录："+c.reason:c.denied?"设备验证未通过："+c.reason:"设备安全检查失败："+c.error);
+  session=s;enteredUser=s.user.id;gateFails=0;
+  $("toast").classList.add("hidden");
+  show();startRecheck();
+}
 async function login(){
   const email=$("email").value.trim();
   const password=$("password").value;
-
-  if(!email||!password){
-    return msg("请输入邮箱和密码");
-  }
-
+  if(!email||!password)return msg("请输入邮箱和密码");
   msg("正在登录…");
-
-  const r=await sb.auth.signInWithPassword({
-    email,
-    password
-  });
-
-  if(r.error){
-    return msg(r.error.message);
-  }
-
+  const r=await sb.auth.signInWithPassword({email,password});
+  if(r.error)return msg(r.error.message);
   const s=r.data?.session;
-  if(!s?.user){
-    return msg("登录失败：未获取到用户会话");
-  }
-
-  session=s;
-
-  try{
-    const deviceKey="sar_device_id";
-    let deviceId=localStorage.getItem(deviceKey);
-
-    if(!deviceId||deviceId.length<16){
-      deviceId="WEB-"+crypto.randomUUID().replace(/-/g,"");
-      localStorage.setItem(deviceKey,deviceId);
-    }
-
-    const publicKeyKey="sar_device_public_key";
-    let publicKey=localStorage.getItem(publicKeyKey);
-
-    if(!publicKey||publicKey.length<32){
-      publicKey=
-        "WEB_PUBLIC_KEY_"+
-        crypto.randomUUID().replace(/-/g,"")+
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-      localStorage.setItem(publicKeyKey,publicKey);
-    }
-
-    const d=await sb.rpc("security_register_device",{
-      p_device_id:deviceId,
-      p_public_key:publicKey,
-      p_platform:"android",
-      p_app_version:"6.1.0",
-      p_build_number:"1",
-      p_attestation_status:null,
-      p_attestation_details:{
-        source:"web_login",
-        tested_at:new Date().toISOString()
-      }
-    });
-
-    if(d.error){
-      await sb.auth.signOut();
-      session=null;
-      return msg("设备安全检查失败："+d.error.message);
-    }
-
-    const result=d.data||{};
-
-    if(result.blocked===true){
-      await sb.auth.signOut();
-      session=null;
-      return msg("此设备已被禁止登录");
-    }
-
-    if(result.ok!==true){
-      await sb.auth.signOut();
-      session=null;
-      return msg("设备验证未通过");
-    }
-
-    msg("设备验证通过");
-
-    show();
-
-  }catch(e){
-    await sb.auth.signOut();
-    session=null;
-    return msg("设备安全检查异常："+(e?.message||String(e)));
-  }
+  if(!s?.user)return msg("登录失败：未获取到用户会话");
+  await enterApp(s);
 }async function register(){let e=$("email").value.trim(),p=$("password").value,c=$("password2").value;$("regwrap").classList.remove("hidden");if(!strong(p))return msg("密码不符合要求");if(p!==c)return msg("两次密码不一致");let r=await sb.auth.signUp({email:e,password:p});if(r.error)msg(r.error.message);else msg("注册成功，请检查邮箱验证")}async function forgot(){let e=$("email").value.trim();if(!e)return msg("请输入邮箱");let r=await sb.auth.resetPasswordForEmail(e,{redirectTo:location.href.split("#")[0]});if(r.error)msg(r.error.message);else msg("重置邮件已发送")}async function logout(){if(presence)try{await presence.untrack()}catch(e){}await sb.auth.signOut();location.reload()}
-async function init(){let r=await sb.auth.getSession();if(r.data.session){session=r.data.session;show()}else $("login").classList.remove("hidden");sb.auth.onAuthStateChange((e,s)=>{if(e==="PASSWORD_RECOVERY"){session=s;resetPassword()}else if(e==="SIGNED_IN"&&s){session=s;show()}})}function show(){$("login").classList.add("hidden");$("app").classList.remove("hidden");$("userEmail").textContent=session.user.email||"";checkAdmin();refresh();presenceStart();clearInterval(timer);timer=setInterval(render,1000)}async function checkAdmin(){let r=await sb.rpc("is_admin");isAdmin=!r.error&&r.data===true;$("adminBtn").classList.toggle("hidden",!isAdmin)}
+async function init(){
+  let r=await sb.auth.getSession();
+  if(r.data.session)await enterApp(r.data.session);
+  else $("login").classList.remove("hidden");
+  /* 回调里不能直接 await supabase 方法（会死锁），统一 setTimeout 延后；进入应用只走 enterApp() */
+  sb.auth.onAuthStateChange((e,s)=>{
+    if(e==="PASSWORD_RECOVERY"){session=s;resetPassword()}
+    else if(e==="SIGNED_IN"&&s){setTimeout(()=>enterApp(s),0)}
+    else if(e==="SIGNED_OUT"&&enteredUser){setTimeout(()=>showLogin("登录已失效，请重新登录"),0)}
+  });
+}function show(){$("login").classList.add("hidden");$("app").classList.remove("hidden");$("userEmail").textContent=session.user.email||"";checkAdmin();refresh();presenceStart();clearInterval(timer);timer=setInterval(render,1000)}async function checkAdmin(){let r=await sb.rpc("is_admin");isAdmin=!r.error&&r.data===true;$("adminBtn").classList.toggle("hidden",!isAdmin)}
 async function loadStores(){let r=await sb.from("shop_stores").select("*").order("created_at",{ascending:true});if(r.error)return toast(r.error.message);stores=r.data||[];let s=$("storeFilter"),v=s.value;s.innerHTML='<option value="">全部店铺</option>'+stores.filter(x=>x.status!=="disabled").map(x=>`<option value="${x.id}">${esc(x.name||x.store_name)}</option>`).join("");s.value=v}async function refresh(){await loadStores();let r=await sb.from("after_sales_tasks").select("*").order("created_at",{ascending:false});if(r.error)return toast(r.error.message);tasks=r.data||[];let l=await sb.from("evidence_library").select("*").order("created_at",{ascending:false});if(!l.error)library=l.data||[];render()}function storeName(id){let s=stores.find(x=>x.id===id);return s?(s.name||s.store_name||"未命名店铺"):"未关联店铺"}function remain(t){if(t.status==="已完成"||t.submission_status!=="pending")return"已完成 · 倒计时停止";let d=new Date(t.deadline||t.deadline_at)-Date.now();if(Number.isNaN(d))return"未设置";if(d<=0)return"已到期";let s=Math.floor(d/1000),h=Math.floor(s/3600);s%=3600;let m=Math.floor(s/60),q=s%60;return`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(q).padStart(2,"0")}`}
 function render(){let q=($("search")?.value||"").toLowerCase(),sf=$("storeFilter")?.value||"",st=$("statusFilter")?.value||"",rf=$("riskFilter")?.value||"";let a=tasks.filter(t=>(!q||[t.order_id,t.buyer_name,t.tracking_no,storeName(t.store_id)].join(" ").toLowerCase().includes(q))&&(!sf||t.store_id===sf)&&(!st||t.status===st)&&(!rf||t.risk===rf));$("taskcount").textContent=a.length+" 条";$("allc").textContent=tasks.length;$("pendingc").textContent=tasks.filter(t=>["待处理","协商中"].includes(t.status)).length;$("evidencec").textContent=tasks.filter(t=>t.status==="待举证").length;$("riskc").textContent=tasks.filter(t=>t.risk==="高风险").length;$("monitoring").textContent=tasks.filter(t=>t.monitoring).length;$("libcount").textContent=library.length;let td=new Date().toDateString();$("done").textContent=tasks.filter(t=>t.status==="已完成"&&new Date(t.updated_at||t.created_at).toDateString()===td).length;let u=tasks.filter(t=>t.submission_status==="pending"&&(t.deadline||t.deadline_at)).sort((a,b)=>new Date(a.deadline||a.deadline_at)-new Date(b.deadline||b.deadline_at))[0];$("urgent").textContent=u?remain(u):"—";$("tasklist").innerHTML=a.length?a.map(t=>`<article class="card" onclick="openTask('${t.id}')"><div style="display:flex;justify-content:space-between"><b>${esc(t.order_id||"未填写订单")}</b><span class="pill ${t.risk==="高风险"?"red":""}">${esc(t.risk||"普通")}</span></div><div class="muted">${esc(storeName(t.store_id))} · ${esc(t.buyer_name||"未填写买家")}</div><div style="margin-top:8px"><span class="pill">${esc(t.status||"—")}</span> <span class="muted">${esc(t.tracking_no||"无快递单号")}</span></div><div style="margin-top:8px;font-weight:800;font-size:12px">${esc(remain(t))}</div></article>`).join(""):'<div class="card" style="grid-column:1/-1;text-align:center;padding:28px;color:var(--muted)">暂无匹配的售后任务</div>'}
 function resetPassword(){$("modalbox").innerHTML='<h3>设置新密码</h3><input id="np" class="input" type="password" placeholder="新密码"><input id="np2" class="input" style="margin-top:7px" type="password" placeholder="确认新密码"><button class="btn primary" style="margin-top:8px" onclick="savePassword()">保存</button>';$('modal').classList.remove('hidden')}async function savePassword(){let p=$("np").value,c=$("np2").value;if(!strong(p)||p!==c)return toast("密码不符合要求");let r=await sb.auth.updateUser({password:p});if(r.error)return toast(r.error.message);closeModal();toast("密码已更新")}
 /* ---------- 设备注册诊断：仅用于验证当前登录用户能否调用 security_register_device ---------- */
-async function deviceDiagnostic(){if(!session?.user?.id)return toast("当前未检测到登录用户");const key="sar_device_diag_id";let deviceId=localStorage.getItem(key);if(!deviceId||deviceId.length<16){deviceId="WEBTEST-"+crypto.randomUUID().replace(/-/g,"");localStorage.setItem(key,deviceId)}const publicKey="WEB_DIAG_PUBLIC_KEY_"+crypto.randomUUID().replace(/-/g,"")+"ABCDEFGHIJKLMNOPQRSTUVWXYZ";toast("正在测试设备注册…");try{const r=await sb.rpc("security_register_device",{p_device_id:deviceId,p_public_key:publicKey,p_platform:"android",p_app_version:"6.3.0",p_build_number:"1",p_attestation_status:null,p_attestation_details:{source:"web_diagnostic",tested_at:new Date().toISOString()}});if(r.error){alert("设备注册失败\n\n"+(r.error.message||JSON.stringify(r.error)));return}const d=r.data||{};if(d.ok)alert("设备注册成功\n\n设备ID："+deviceId+"\n状态："+JSON.stringify(d));else alert("设备注册被拒绝\n\n"+JSON.stringify(d))}catch(e){alert("设备注册异常\n\n"+(e?.message||String(e)))}}
+async function deviceDiagnostic(){if(!session?.user?.id)return toast("当前未检测到登录用户");const key="sar_device_diag_id";let deviceId=localStorage.getItem(key);if(!deviceId||deviceId.length<16){deviceId="WEBTEST-"+crypto.randomUUID().replace(/-/g,"");localStorage.setItem(key,deviceId)}const publicKey="WEB_DIAG_PUBLIC_KEY_"+crypto.randomUUID().replace(/-/g,"")+"ABCDEFGHIJKLMNOPQRSTUVWXYZ";toast("正在测试设备注册…");try{const r=await sb.rpc("security_register_device",{p_device_id:deviceId,p_public_key:publicKey,p_platform:"android",p_app_version:APP_VERSION,p_build_number:"1",p_attestation_status:null,p_attestation_details:{source:"web_diagnostic",tested_at:new Date().toISOString()}});if(r.error){alert("设备注册失败\n\n"+(r.error.message||JSON.stringify(r.error)));return}const d=r.data||{};if(d.ok)alert("设备注册成功\n\n设备ID："+deviceId+"\n状态："+JSON.stringify(d));else alert("设备注册被拒绝\n\n"+JSON.stringify(d))}catch(e){alert("设备注册异常\n\n"+(e?.message||String(e)))}}
 function newTask(){if(!stores.length)return toast("请先添加店铺");$("modalbox").innerHTML=`<h3>新建售后</h3><div class="grid" style="grid-template-columns:1fr 1fr"><select id="ts">${stores.filter(s=>s.status!=="disabled").map(s=>`<option value="${s.id}">${esc(s.name||s.store_name)}</option>`).join("")}</select><input id="to" class="input" placeholder="订单号"><input id="tb" class="input" placeholder="买家"><input id="tt" class="input" placeholder="快递单号"><select id="ty"><option>退款/售后</option><option>退货退款</option><option>仅退款</option><option>换货</option></select><select id="tr"><option>普通</option><option>高风险</option></select></div><div class="muted" style="margin-top:8px">默认3小时。当前为云端本地流程，不冒充抖店官方自动提交。</div><div class="actions" style="margin-top:9px"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="createTask()">创建</button></div>`;$("modal").classList.remove("hidden")}
 async function createTask(){let d=new Date(Date.now()+10800000).toISOString(),row={user_id:session.user.id,store_id:$("ts").value,order_id:$("to").value.trim(),buyer_name:$("tb").value.trim(),tracking_no:$("tt").value.trim(),after_sales_type:$("ty").value,risk:$("tr").value,status:"待举证",submission_status:"pending",deadline:d,deadline_at:d,monitoring:!!$("tt").value};let r=await sb.from("after_sales_tasks").insert(row).select().single();if(r.error)return toast(r.error.message);closeModal();await refresh();openTask(r.data.id)}function quickReject(){if(!stores.length)return toast("请先添加店铺");$("modalbox").innerHTML=`<h3>记录拒绝协商</h3><select id="qs">${stores.filter(s=>s.status!=="disabled").map(s=>`<option value="${s.id}">${esc(s.name||s.store_name)}</option>`).join("")}</select><input id="qo" class="input" style="margin-top:7px" placeholder="订单号"><input id="qb" class="input" style="margin-top:7px" placeholder="买家"><textarea id="qm" class="input" style="margin-top:7px" rows="3" placeholder="拒绝原因"></textarea><div class="actions" style="margin-top:8px"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="createReject()">保存</button></div>`;$("modal").classList.remove("hidden")}async function createReject(){let d=new Date(Date.now()+10800000).toISOString();let r=await sb.from("after_sales_tasks").insert({user_id:session.user.id,store_id:$("qs").value,order_id:$("qo").value.trim(),buyer_name:$("qb").value.trim(),status:"买家拒绝协商",risk:"高风险",evidence_reason:$("qm").value.trim(),submission_status:"pending",deadline:d,deadline_at:d}).select().single();if(r.error)return toast(r.error.message);await sb.from("after_sales_events").insert({user_id:session.user.id,task_id:r.data.id,event_type:"buyer_rejected_negotiation",message:$("qm").value.trim()});closeModal();await refresh();openTask(r.data.id)}
 async function openTask(id){let t=tasks.find(x=>x.id===id);if(!t)return toast("售后不存在");current=t;let ev=await sb.from("after_sales_events").select("*").eq("task_id",id).order("created_at",{ascending:false});let fs=await sb.from("evidence_files").select("*").eq("task_id",id).order("created_at",{ascending:false});$("sheettitle").textContent=t.order_id||"售后详情";$("sheetsub").textContent=storeName(t.store_id)+" · "+(t.buyer_name||"未填写买家");let files=(fs.data||[]).map(f=>`<div class="file"><div><b>${esc(f.file_name||"举证文件")}</b><div class="muted">${esc(f.mime_type||"文件")}</div></div><div class="actions"><button class="btn blue" onclick="previewEvidence('${f.id}')">打开</button><button class="btn danger" onclick="removeEvidence('${f.id}')">移除</button></div></div>`).join("");let events=(ev.data||[]).map(e=>`<div class="file"><div><b>${esc(e.event_type||"事件")}</b><div class="muted">${fmt(e.created_at)}</div></div><span class="muted">${esc(e.message||"")}</span></div>`).join("");$("detail").innerHTML=`<div class="card"><div class="muted">状态</div><b>${esc(t.status||"—")}</b><div class="muted" style="margin-top:8px">倒计时</div><b>${esc(remain(t))}</b><div class="muted" style="margin-top:8px">快递</div><b>${esc(t.tracking_no||"—")}</b></div><div class="actions"><button class="btn primary" onclick="submitTask('${id}')">提交完成</button><button class="btn" onclick="tracking('${id}')">快递盯单</button><button class="btn" onclick="markArbitration('${id}')">记录仲裁</button><button class="btn blue" onclick="uploadEvidenceClick('${id}')">上传举证</button><button class="btn" onclick="openLibrary('${id}')">调用资料</button><button class="btn danger" onclick="deleteTask('${id}')">删除</button></div><input id="evidenceInput" type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display:none" onchange="uploadEvidenceFiles(this.files,'${id}')"><div class="card" style="margin-top:9px"><b>举证材料</b>${files||'<div class="notice" style="margin-top:8px">暂无举证材料</div>'}</div><div class="card"><b>时间线</b>${events||'<div class="notice" style="margin-top:8px">暂无事件</div>'}</div>`;$("drawer").classList.remove("hidden")}
@@ -115,6 +141,44 @@ function uploadEvidenceClick(){let i=$("evidenceInput");if(!i)return toast("文�
 async function openLibrary(taskId=null){let r=await sb.from("evidence_library").select("*").order("created_at",{ascending:false});if(r.error)return toast(r.error.message);library=r.data||[];let rows=library.map(f=>`<div class="file"><div><b>${esc(f.file_name)}</b><div class="muted">${esc(f.platform||"通用")} · 使用 ${Number(f.usage_count||0)} 次</div></div><div class="actions"><button class="btn blue" onclick="previewLibrary('${f.id}')">打开</button>${taskId?`<button class="btn primary" onclick="useLibraryFile('${f.id}','${taskId}')">用于当前售后</button>`:""}</div></div>`).join("");$("modalbox").innerHTML=`<div class="actions" style="justify-content:space-between"><b>云端资料库</b><button class="btn" onclick="closeModal()">关闭</button></div><button class="btn primary" style="margin:10px 0" onclick="libraryUploadClick()">＋ 上传到资料库</button><input id="libraryInput" type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display:none" onchange="uploadLibraryFiles(this.files)">${rows||'<div class="notice">资料库暂无文件</div>'}`;$("modal").classList.remove("hidden")}function libraryUploadClick(){let i=$("libraryInput");if(i){i.value="";i.click()}}async function uploadLibraryFiles(files){if(!files?.length)return;let ok=0;for(const f of [...files]){let safe=f.name.replace(/[^\w.\-\u4e00-\u9fa5]/g,"_"),path=`${session.user.id}/library/${crypto.randomUUID()}-${safe}`;let up=await sb.storage.from("after-sales-evidence").upload(path,f,{contentType:f.type||"application/octet-stream"});if(up.error)continue;let db=await sb.from("evidence_library").insert({user_id:session.user.id,platform:"通用",file_name:f.name,mime_type:f.type||"application/octet-stream",size_bytes:f.size,storage_path:path});if(db.error)await sb.storage.from("after-sales-evidence").remove([path]);else ok++}toast("资料库上传完成："+ok+" 个");openLibrary()}async function useLibraryFile(id,taskId){let r=await sb.from("evidence_library").select("*").eq("id",id).single();if(r.error)return toast(r.error.message);let f=r.data,x=await sb.from("evidence_files").insert({user_id:session.user.id,task_id:taskId,library_id:id,file_name:f.file_name,mime_type:f.mime_type,size_bytes:f.size_bytes,storage_path:f.storage_path});if(x.error)return toast(x.error.message);await sb.from("evidence_library").update({usage_count:Number(f.usage_count||0)+1}).eq("id",id);closeModal();await refresh();openTask(taskId);toast("资料已加入当前售后")}async function previewLibrary(id){let r=await sb.from("evidence_library").select("*").eq("id",id).single();if(r.error)return toast(r.error.message);let u=await sb.storage.from("after-sales-evidence").createSignedUrl(r.data.storage_path,600);if(u.error)return toast(u.error.message);window.open(u.data.signedUrl,"_blank")}
 async function openStore(){let r=await sb.from("shop_stores").select("*").order("created_at",{ascending:false});if(r.error)return toast(r.error.message);let a=r.data||[];$("modalbox").innerHTML=`<div class="actions" style="justify-content:space-between"><b>我的店铺</b><button class="btn" onclick="closeModal()">关闭</button></div><button class="btn primary" style="margin:10px 0" onclick="addStore()">＋ 添加店铺</button>${a.map(s=>`<div class="file"><div><b>${esc(s.name||s.store_name||"未命名")}</b><div class="muted">${esc(s.platform||"抖店")} · ${esc(s.status||"active")}</div></div><button class="btn" onclick="toggleStore('${s.id}','${s.status==="disabled"?"active":"disabled"}')">${s.status==="disabled"?"启用":"停用"}</button></div>`).join("")||'<div class="notice">还没有店铺</div>'}`;$("modal").classList.remove("hidden")}async function addStore(){let n=prompt("输入店铺名称");if(!n?.trim())return;let r=await sb.from("shop_stores").insert({user_id:session.user.id,name:n.trim(),platform:"抖店",status:"active"});if(r.error)return toast(r.error.message);await refresh();openStore()}async function toggleStore(id,status){let r=await sb.from("shop_stores").update({status,updated_at:new Date().toISOString()}).eq("id",id);if(r.error)return toast(r.error.message);await refresh();openStore()}
 function more(){$("modalbox").innerHTML=`<div class="actions" style="justify-content:space-between"><b>更多功能</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="grid" style="margin-top:10px"><button class="btn" onclick="openStore()">店铺中心</button><button class="btn" onclick="openLibrary()">云端资料库</button><button class="btn" onclick="refresh();closeModal()">同步云端数据</button><button class="btn" onclick="deviceDiagnostic()">设备注册诊断</button>${isAdmin?'<button class="btn blue" onclick="adminPanel()">管理后台</button>':""}<button class="btn danger" onclick="logout()">退出账号</button></div>`;$("modal").classList.remove("hidden")}
-function adminPanel(){if(!isAdmin)return toast("没有管理员权限");$("modalbox").innerHTML='<div class="actions" style="justify-content:space-between"><b>管理员后台</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="actions" style="margin-top:10px"><button class="btn blue" onclick="adminUsers()">用户</button><button class="btn blue" onclick="adminTasks()">售后</button><button class="btn blue" onclick="adminTracking()">快递</button></div><div id="adminBody" style="margin-top:10px"></div>';$('modal').classList.remove('hidden');adminUsers()}async function adminUsers(){let r=await sb.rpc("admin_list_users");if(r.error)return $("adminBody").innerHTML='<div class="notice">'+esc(r.error.message)+'</div>';$("adminBody").innerHTML='<div style="overflow:auto"><table><tr><th>邮箱</th><th>注册</th><th>最后登录</th></tr>'+((r.data||[]).map(x=>`<tr><td>${esc(x.email||"—")}</td><td>${fmt(x.created_at)}</td><td>${fmt(x.last_sign_in_at)}</td></tr>`).join(""))+'</table></div>'}async function adminTasks(){let r=await sb.rpc("admin_list_all_tasks");if(r.error)return $("adminBody").innerHTML='<div class="notice">'+esc(r.error.message)+'</div>';$("adminBody").innerHTML='<div style="overflow:auto"><table><tr><th>订单</th><th>用户</th><th>状态</th><th>风险</th></tr>'+((r.data||[]).map(x=>`<tr><td>${esc(x.order_id||"—")}</td><td>${esc(x.owner_email||"—")}</td><td>${esc(x.status||"—")}</td><td>${esc(x.risk||"—")}</td></tr>`).join(""))+'</table></div>'}async function adminTracking(){let r=await sb.rpc("admin_list_tracking");if(r.error)return $("adminBody").innerHTML='<div class="notice">'+esc(r.error.message)+'</div>';$("adminBody").innerHTML='<div style="overflow:auto"><table><tr><th>快递</th><th>用户</th><th>订单</th><th>盯单</th></tr>'+((r.data||[]).map(x=>`<tr><td>${esc(x.tracking_no||"—")}</td><td>${esc(x.owner_email||"—")}</td><td>${esc(x.order_id||"—")}</td><td>${x.monitoring?"是":"否"}</td></tr>`).join(""))+'</table></div>'}
+function adminPanel(){if(!isAdmin)return toast("没有管理员权限");$("modalbox").innerHTML='<div class="actions" style="justify-content:space-between"><b>管理员后台</b><button class="btn" onclick="closeModal()">关闭</button></div><div class="actions" style="margin-top:10px"><button class="btn blue" onclick="adminUsers()">用户</button><button class="btn blue" onclick="adminTasks()">售后</button><button class="btn blue" onclick="adminTracking()">快递</button><button class="btn blue" onclick="adminDevices()">设备</button></div><div id="adminBody" style="margin-top:10px"></div>';$('modal').classList.remove('hidden');adminUsers()}async function adminUsers(){let r=await sb.rpc("admin_list_users");if(r.error)return $("adminBody").innerHTML='<div class="notice">'+esc(r.error.message)+'</div>';$("adminBody").innerHTML='<div style="overflow:auto"><table><tr><th>邮箱</th><th>注册</th><th>最后登录</th></tr>'+((r.data||[]).map(x=>`<tr><td>${esc(x.email||"—")}</td><td>${fmt(x.created_at)}</td><td>${fmt(x.last_sign_in_at)}</td></tr>`).join(""))+'</table></div>'}async function adminTasks(){let r=await sb.rpc("admin_list_all_tasks");if(r.error)return $("adminBody").innerHTML='<div class="notice">'+esc(r.error.message)+'</div>';$("adminBody").innerHTML='<div style="overflow:auto"><table><tr><th>订单</th><th>用户</th><th>状态</th><th>风险</th></tr>'+((r.data||[]).map(x=>`<tr><td>${esc(x.order_id||"—")}</td><td>${esc(x.owner_email||"—")}</td><td>${esc(x.status||"—")}</td><td>${esc(x.risk||"—")}</td></tr>`).join(""))+'</table></div>'}async function adminTracking(){let r=await sb.rpc("admin_list_tracking");if(r.error)return $("adminBody").innerHTML='<div class="notice">'+esc(r.error.message)+'</div>';$("adminBody").innerHTML='<div style="overflow:auto"><table><tr><th>快递</th><th>用户</th><th>订单</th><th>盯单</th></tr>'+((r.data||[]).map(x=>`<tr><td>${esc(x.tracking_no||"—")}</td><td>${esc(x.owner_email||"—")}</td><td>${esc(x.order_id||"—")}</td><td>${x.monitoring?"是":"否"}</td></tr>`).join(""))+'</table></div>'}
+let adminDeviceRows=[];
+async function adminDevices(){
+  if(!isAdmin)return toast("没有管理员权限");
+  $("adminBody").innerHTML='<div class="notice">正在加载设备…</div>';
+  const r=await sb.rpc("admin_list_devices");
+  if(r.error)return $("adminBody").innerHTML='<div class="notice">'+esc(r.error.message)+'</div>';
+  adminDeviceRows=Array.isArray(r.data)?r.data:[];
+  $("adminBody").innerHTML='<div class="actions"><input id="devQ" class="input" style="flex:1" placeholder="搜索邮箱 / 设备名称 / 设备ID" oninput="renderAdminDevices()"><button class="btn" onclick="adminDevices()">刷新</button></div><div id="devList" style="margin-top:8px"></div>';
+  renderAdminDevices();
+}
+function renderAdminDevices(){
+  const q=($("devQ")?.value||"").trim().toLowerCase(),cur=getDeviceId(),me=session?.user?.id;
+  const list=adminDeviceRows.map((d,i)=>({d,i})).filter(({d})=>!q||[d.owner_email,d.device_name,d.device_id].join(" ").toLowerCase().includes(q));
+  const blockedN=adminDeviceRows.filter(d=>d.status==="blocked").length;
+  const head='<div class="muted" style="margin-bottom:6px">共 '+adminDeviceRows.length+' 台设备，已封禁 '+blockedN+' 台</div>';
+  $("devList").innerHTML=head+(list.map(({d,i})=>{
+    const blocked=d.status==="blocked",isCur=d.user_id===me&&d.device_id===cur;
+    const btn=isCur?'<span class="muted">当前设备，不可封禁</span>':blocked?`<button class="btn good" onclick="adminSetDevice(${i},'unblock')">解除封禁</button>`:`<button class="btn danger" onclick="adminSetDevice(${i},'block')">封禁</button>`;
+    return `<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px"><b style="word-break:break-all">${esc(d.owner_email||"—")}</b><span class="pill ${blocked?"red":""}">${blocked?"已封禁":esc(d.status||"—")}</span></div><div class="muted" style="margin-top:4px;word-break:break-all">${esc(d.device_name||"未命名设备")} · ${esc(d.platform||"—")} · v${esc(d.app_version||"—")}${isCur?" · 本机":""}</div><div class="muted" style="word-break:break-all">ID：${esc(d.device_id||"—")}</div><div class="muted">创建 ${fmt(d.created_at)} · 最后在线 ${fmt(d.last_seen_at)}</div>${blocked?`<div class="muted" style="color:#b52f3c">封禁于 ${fmt(d.blocked_at)} · ${esc(d.blocked_reason||"未填写原因")}${d.blocked_by?" · 操作人 "+esc(String(d.blocked_by).slice(0,8)):""}</div>`:""}<div class="actions" style="margin-top:8px">${btn}</div></div>`;
+  }).join("")||'<div class="notice">没有匹配的设备</div>');
+}
+async function adminSetDevice(i,action){
+  if(!isAdmin)return toast("没有管理员权限");
+  const d=adminDeviceRows[i];if(!d)return toast("设备不存在，请刷新");
+  const cur=getDeviceId();let reason="";
+  if(action==="block"){
+    if(d.user_id===session.user.id&&d.device_id===cur)return toast("不能封禁当前正在使用的设备");
+    reason=(prompt("封禁原因（必填）：")||"").trim();
+    if(reason.length<2)return toast("请填写封禁原因，操作已取消");
+    if(!confirm("确认封禁这台设备？\n\n"+(d.owner_email||"—")+"\n"+(d.device_name||d.device_id)+"\n原因："+reason))return;
+  }else if(action==="unblock"){
+    if(!confirm("确认解除封禁？\n\n"+(d.owner_email||"—")+"\n"+(d.device_name||d.device_id)))return;
+  }else return;
+  const r=await sb.rpc("admin_set_device_status",{payload:{id:d.id,action,reason,current_device_id:cur}});
+  if(r.error)return toast("操作失败："+r.error.message);
+  toast(action==="block"?"已封禁":"已解除封禁");
+  await adminDevices();
+}
 function presenceStart(){if(!session)return;if(presence)sb.removeChannel(presence);presence=sb.channel("after-sales-presence",{config:{presence:{key:session.user.id}}});presence.on("presence",{event:"sync"},()=>{let state=presence.presenceState(),ids=new Set();Object.values(state).flat().forEach(x=>{if(x.user_id)ids.add(x.user_id)});$("online").textContent=String(ids.size)});presence.subscribe(async st=>{if(st==="SUBSCRIBED")await presence.track({user_id:session.user.id,online_at:new Date().toISOString()})})}init();
 </script></body></html>
