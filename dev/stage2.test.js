@@ -59,6 +59,7 @@ const STUB = `
    return{data:null,error:{message:'unexpected rpc '+name}};
   },
   from:(t)=>builder(t),
+  functions:{async invoke(name,opts){window.__fn=(window.__fn||[]).concat([{name,opts}]);return typeof window.__fnReply==='function'?window.__fnReply(name,opts):{data:null,error:{message:'not stubbed'}}}},
   channel(name){const c={name,on(type,cfg,cb){window.__rt.push({name,cfg,cb});return c},subscribe(){return c},async track(){},async untrack(){},presenceState(){return{}}};return c},
   removeChannel(c){window.__removedChannels++},
   storage:{from:()=>({
@@ -226,6 +227,43 @@ async function run(browser, htmlPath) {
     check("6.6 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+
+  // ---- 6.7: 快递100 query button (Edge Function is stubbed; NOT a real 快递100 call)
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    const toastText = () => text(page, "#toast");
+    await page.evaluate("openTask('t1')"); await page.waitForTimeout(200);
+    await page.evaluate("tracking('t1')"); await page.waitForTimeout(200);
+    check("6.7 tracking: phone field + 快递100 button", (await page.$("#tk_phone")) && (await text(page, "#tk_query")) === "用快递100查询物流");
+    await page.fill("#tk_no", "SF9999999");
+    await page.click("#tk_query"); await page.waitForTimeout(150);
+    check("6.7 query: unsaved number -> asks to save first, no call", (await toastText()).includes("请先点「保存」") && !(await page.evaluate("window.__fn")));
+    await page.fill("#tk_no", "SF1"); await page.selectOption("#tk_carrier", "中通");
+    await page.click("#tk_query"); await page.waitForTimeout(150);
+    check("6.7 query: unsaved carrier -> asks to save first", (await toastText()).includes("请先点「保存」") && !(await page.evaluate("window.__fn")));
+    await page.selectOption("#tk_carrier", "顺丰"); await page.fill("#tk_phone", "12");
+    await page.click("#tk_query"); await page.waitForTimeout(150);
+    check("6.7 query: bad phone rejected locally", (await toastText()).includes("后四位") && !(await page.evaluate("window.__fn")));
+    // server error (FunctionsHttpError: message lives in error.context JSON)
+    await page.evaluate(() => { window.__fnReply = () => ({ data: null, error: { message: "Edge Function returned a non-2xx status code", context: { json: async () => ({ ok: false, code: "need_phone", message: "顺丰、中通需要填写收件人或寄件人手机号后四位" }) } } }); });
+    await page.fill("#tk_phone", "");
+    await page.click("#tk_query"); await page.waitForTimeout(200);
+    check("6.7 query: server error message shown, button re-enabled", (await toastText()).includes("手机号后四位") && !(await page.evaluate("document.querySelector('#tk_query').disabled")) && (await text(page, "#tk_query")) === "用快递100查询物流");
+    // function not deployed / network error without JSON context
+    await page.evaluate(() => { window.__fnReply = () => ({ data: null, error: { message: "Failed to send a request to the Edge Function", context: {} } }); });
+    await page.click("#tk_query"); await page.waitForTimeout(200);
+    check("6.7 query: no JSON context -> friendly fallback", (await toastText()).includes("查询服务暂时不可用"));
+    // success: the (stubbed) function writes the record like the real one does; page refreshes and shows it
+    await page.evaluate(() => { window.__fnReply = (name, opts) => { const r = window.__db.tracking_records.find((x) => x.task_id === opts.body.task_id); r.last_match = "【在途】2026-10-10 14:20:00 已到达上海转运中心（快递100）"; return { data: { ok: true, state_text: "在途", latest: { time: "2026-10-10 14:20:00", context: "已到达上海转运中心" }, last_match: r.last_match }, error: null }; }; });
+    await page.fill("#tk_phone", "1234");
+    await page.click("#tk_query"); await page.waitForTimeout(400);
+    const fn = await page.evaluate("window.__fn.pop()");
+    check("6.7 query: invokes kuaidi100-query with task_id + phone only", fn.name === "kuaidi100-query" && JSON.stringify(fn.opts.body) === JSON.stringify({ task_id: "t1", phone: "1234" }), JSON.stringify(fn));
+    check("6.7 query: success toast + modal closed", (await toastText()).includes("物流已更新：在途") && (await page.evaluate("document.querySelector('#modal').classList.contains('hidden')")));
+    check("6.7 query: detail shows the fetched status", (await text(page, "#detail")).includes("已到达上海转运中心（快递100）"));
+    check("6.7 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
   const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [
     { id: "u1", email: "a@x.com", last_sign_in_at: new Date().toISOString() },
     { id: "u2", email: "old@x.com", last_sign_in_at: "2026-01-01T00:00:00Z" }] });
@@ -337,7 +375,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.6.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.7.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());

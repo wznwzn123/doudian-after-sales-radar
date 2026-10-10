@@ -42,7 +42,11 @@
 - 还要做：运行补丁 → 语法检查 → 给 `dev/stage2.test.js` 补测试（保存盯单走 insert 而不是 upsert、第二次保存走 update 不重复插入、单号校验、新建带单号写记录、手动举证不改状态）并把两个测试文件里的版本断言从 `6.5.0` 改成 `6.6.0` → 跑全部测试 → 提交推送 → 更新 README。
 - 不要改数据库结构也能完成这一步。
 
-### 2) 对接快递100（用户已选择快递100）
+### 2) 对接快递100（用户已选择快递100）—— **进行中**，详见 `README-快递100.md`
+- 已完成：Edge Function `kuaidi100-query`（`supabase/functions/kuaidi100-query/`）已通过 MCP 部署（v1，`verify_jwt=false`，函数内 `auth.getUser()` 校验；数据库读写用调用者 JWT + publishable key，受 RLS；不用 service_role）。线上冒烟：OPTIONS 200、未登录 401、假 token 401。
+- 已完成：前端 6.7（快递弹窗里的手机号后四位 + 「用快递100查询物流」按钮）和测试，在分支 `ccr-cffb1017-oqykqt` 上，**没有合并到 main**。
+- 等用户：注册快递100 企业版、拿到 customer/key、在 Supabase → Edge Functions → Secrets 填 `KUAIDI100_CUSTOMER`、`KUAIDI100_KEY`。用户确认后再把 6.7 推到 main，让用户用一个真实单号在手机上测。
+- 以下是最初的方案说明：
 - 方案：Supabase **Edge Function** 在服务端调用快递100，密钥放 Supabase 的 Secrets（用户在控制台里自己填，不发给开发者、不写进前端）。前端只调用自己的 Edge Function，函数内用调用者的 JWT 校验身份和任务归属，再写 `tracking_records.last_match` 并追加事件。
 - 先让用户去快递100官网看开发者接口的注册要求、收费和额度（**这些我没有查到可靠信息，别替它们下结论**），确认要用之后，再一步一步教：注册、拿到 customer/key、在 Supabase 里设置 Secrets、部署函数。
 - 顺丰等快递查询通常需要收件人/寄件人手机号后四位；`tracking_records` 没有这个字段，需要时再和用户商量（加列要让用户在 SQL Editor 执行）。
@@ -51,6 +55,7 @@
 
 ## 测试
 - 测试用真实的 `index.html` 在 Playwright Chromium 里跑，只把 Supabase 客户端换成桩（`dev/gate.test.js` 管登录/设备/账号/管理后台；`dev/stage2.test.js` 带一个内存假数据库，管 6.5 之后的用户端功能）。**这不是对真实数据库的测试**，不能当成线上已验证。
+- 快递100：`node dev/kuaidi100.test.mjs`；`deno test --no-lock --config dev/kuaidi100-fakes/deno.json --allow-env --allow-read dev/kuaidi100.handler.test.ts`（Deno 可用 `npm i deno` 装到临时目录，`DENO_CERT` 指向代理 CA）。
 - 运行：`NODE_PATH=<含 playwright 的 node_modules> node dev/gate.test.js <新index.html> <旧index.html>`；旧版本用 `git show 667a0d7~1:index.html > old.html`（6.1，用来复现旧漏洞，期望其中 7 项失败）。`node dev/stage2.test.js <index.html>` 期望全部通过。
 - Playwright 的位置因环境而异（见过 `/opt/npm-tools/node_modules` 和 `/opt/node-tools/node_modules`），换环境需要自行查找或安装。
 - 在无头 Chromium 里，下载文件名含中文会被改成 `download`，所以导出备份的文件名用英文。
