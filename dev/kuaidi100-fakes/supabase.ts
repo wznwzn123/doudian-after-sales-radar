@@ -6,10 +6,10 @@ export function createClient(_url: string, _key: string, opts: any) {
   const uid = state.users[token] || null;
   state.clients.push({ key: _key, auth });
   const from = (table: string) => {
-    const st: any = { op: "select", f: [], gte: [], payload: null, maybe: false, order: null, limit: 0 };
+    const st: any = { op: "select", f: [], gte: [], like: [], payload: null, maybe: false, order: null, limit: 0 };
     const rows = () => (state.db[table] = state.db[table] || []);
     const visible = (r: any) => r.user_id === uid; // RLS: user_id = auth.uid()
-    const match = (r: any) => visible(r) && st.f.every(([k, v]: any) => r[k] === v) && st.gte.every(([k, v]: any) => String(r[k]) >= v);
+    const match = (r: any) => visible(r) && st.f.every(([k, v]: any) => r[k] === v) && st.gte.every(([k, v]: any) => String(r[k]) >= v) && st.like.every(([k, v]: any) => new RegExp("^" + String(v).split("%").map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$", "s").test(String(r[k] ?? "")));
     const run = async () => {
       if (st.op === "select") {
         let out = rows().filter(match).map((r: any) => ({ ...r }));
@@ -35,6 +35,7 @@ export function createClient(_url: string, _key: string, opts: any) {
         if (p === "select") { /* columns ignored */ }
         else if (p === "eq") st.f.push([a[0], a[1]]);
         else if (p === "gte") st.gte.push([a[0], a[1]]);
+        else if (p === "like") st.like.push([a[0], a[1]]);
         else if (p === "order") st.order = a;
         else if (p === "limit") st.limit = a[0];
         else if (p === "maybeSingle") st.maybe = true;

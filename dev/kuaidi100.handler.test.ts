@@ -12,7 +12,14 @@ const env = new Map<string, string>([["SUPABASE_URL", "https://x.supabase.co"], 
 (Deno.env as any).toObject = () => Object.fromEntries(env);
 let calls: { url: string; body: string }[] = [];
 let upstream: any = null;
-(globalThis as any).fetch = async (url: string, init: any) => { calls.push({ url: String(url), body: String(init.body) }); return new Response(JSON.stringify(upstream)); };
+let failNext = 0, rawBody: string | null = null;
+(globalThis as any).fetch = async (url: string, init: any) => {
+  calls.push({ url: String(url), body: String(init.body) });
+  if (failNext > 0) { failNext--; throw new TypeError("connection reset"); }
+  if (rawBody !== null) return new Response(rawBody, { status: 200 });
+  return new Response(JSON.stringify(upstream));
+};
+console.error = () => {};
 await import("../supabase/functions/kuaidi100-query/index.ts");
 
 const T1 = "11111111-1111-1111-1111-111111111111", T2 = "22222222-2222-2222-2222-222222222222", T3 = "33333333-3333-3333-3333-333333333333", TX = "99999999-9999-9999-9999-999999999999";
@@ -132,4 +139,30 @@ Deno.test("misnamed secrets -> names (not values) reported; case/space variants 
   env.delete("KUAIDI_CUSTOMER"); env.set("KUAIDI100_CUSTOMER", "CUST"); upstream = OK;
   eq((await call({ task_id: T1 })).status, 200, "lowercase/space-padded key name accepted");
   env.delete("kuaidi100_key "); env.set("KUAIDI100_KEY", "KEY");
+});
+Deno.test("30-min limit is per tracking number: a new number can be queried right away", async () => {
+  seed(); upstream = OK;
+  eq((await call({ task_id: T1 })).status, 200, "first number");
+  if (!state.db.after_sales_events[0].message.includes("（YT123456789）")) throw new Error("event lacks number: " + state.db.after_sales_events[0].message);
+  state.db.tracking_records.find((x: any) => x.id === "k1").tracking_no = "YT555555555";
+  eq((await call({ task_id: T1 })).status, 200, "new number not blocked");
+  eq((await call({ task_id: T1 })).status, 429, "same new number blocked");
+});
+Deno.test("connection dropped once -> retried, succeeds", async () => {
+  seed(); upstream = OK; failNext = 1;
+  const r = await call({ task_id: T1 });
+  eq(r.status, 200, "status"); eq(calls.length, 2, "two attempts");
+});
+Deno.test("connection dropped twice -> 502 upstream with reason, nothing counted", async () => {
+  seed(); failNext = 2;
+  const r = await call({ task_id: T1 });
+  eq(r.status, 502, "status"); eq(r.json.code, "upstream", "code");
+  if (!r.json.message.includes("connection reset")) throw new Error(r.json.message);
+  eq(state.db.after_sales_events.length, 0, "no event, so retry is allowed");
+});
+Deno.test("non-JSON answer -> 502 upstream, readable message", async () => {
+  seed(); rawBody = "<html>gateway error</html>";
+  const r = await call({ task_id: T1 });
+  rawBody = null;
+  eq(r.status, 502, "status"); if (!r.json.message.includes("无法识别")) throw new Error(r.json.message);
 });

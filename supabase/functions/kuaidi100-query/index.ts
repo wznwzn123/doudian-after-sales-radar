@@ -5,6 +5,26 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { CARRIER_CODES, CONFIG_ERRORS, MIN_INTERVAL_MS, PHONE_REQUIRED, QUERY_URL, buildRequest, findSecret, normalizeNo, parseResponse, similarSecretNames, validPhone } from "./lib.ts";
 
+// 调快递100：网络异常重试一次；返回内容不是 JSON 时记日志（只记状态码和返回内容开头，不含密钥）
+async function callKuaidi100(form: string): Promise<{ j: unknown } | { err: string }> {
+  let err = "";
+  for (let i = 0; i < 2; i++) {
+    try {
+      const r = await fetch(QUERY_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form, signal: AbortSignal.timeout(15000) });
+      const txt = await r.text();
+      try { return { j: JSON.parse(txt) }; } catch {
+        console.error("kuaidi100 non-json response", r.status, txt.slice(0, 200));
+        return { err: "快递100 返回了无法识别的内容（HTTP " + r.status + "）" };
+      }
+    } catch (e) {
+      err = e instanceof Error ? e.message : String(e);
+      console.error("kuaidi100 fetch failed (attempt " + (i + 1) + ")", err);
+      if (i === 0) await new Promise((res) => setTimeout(res, 800));
+    }
+  }
+  return { err };
+}
+
 function envSnapshot(): Record<string, string> {
   try { return Deno.env.toObject(); } catch { /* 运行环境不允许列出时，只按精确名称读取 */ }
   const o: Record<string, string> = {};
@@ -75,9 +95,10 @@ Deno.serve(async (req) => {
   if (!com) return fail(400, "no_carrier", "请先在「快递」里选择具体的承运商（不能是「其他」）");
   if (PHONE_REQUIRED.has(com) && !phone) return fail(400, "need_phone", "顺丰、中通需要填写收件人或寄件人手机号后四位");
 
-  // 频率限制：同一售后 30 分钟内只查一次（以 tracking_queried 事件为准）
+  // 频率限制：同一单号 30 分钟内只查一次（以带单号的 tracking_queried 事件为准；售后换了单号可以马上查）
   const since = new Date(Date.now() - MIN_INTERVAL_MS).toISOString();
-  const recent = await sb.from("after_sales_events").select("created_at").eq("task_id", taskId).eq("event_type", "tracking_queried").gte("created_at", since).order("created_at", { ascending: false }).limit(1);
+  const tag = "（" + num + "）";
+  const recent = await sb.from("after_sales_events").select("created_at").eq("task_id", taskId).eq("event_type", "tracking_queried").like("message", "%" + tag + "%").gte("created_at", since).order("created_at", { ascending: false }).limit(1);
   if (recent.error) return fail(500, "db", "读取查询记录失败：" + recent.error.message);
   if (recent.data?.length) {
     const wait = Math.ceil((new Date(recent.data[0].created_at).getTime() + MIN_INTERVAL_MS - Date.now()) / 60000);
@@ -85,27 +106,23 @@ Deno.serve(async (req) => {
   }
 
   const { body: form } = buildRequest({ com, num, phone: phone || undefined, customer, key });
-  let j: unknown;
-  try {
-    const r = await fetch(QUERY_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form, signal: AbortSignal.timeout(15000) });
-    j = await r.json();
-  } catch (e) {
-    return fail(502, "upstream", "连接快递100 失败：" + (e instanceof Error ? e.message : String(e)));
-  }
+  const up = await callKuaidi100(form);
+  if ("err" in up) return fail(502, "upstream", "连接快递100 失败：" + up.err);
+  const j = up.j;
   const p = parseResponse(j);
   const now = new Date().toISOString();
   if (!p.ok) {
     // 和单号有关的失败（查不到、电话不对、太频繁）也计入 30 分钟频率限制（快递100 对频繁查询会锁单）；
     // 签名错误、额度用完这类配置问题不计入，修好后可以马上重试
     const counts = !CONFIG_ERRORS.has(p.code);
-    await sb.from("after_sales_events").insert({ user_id: uid, task_id: taskId, event_type: counts ? "tracking_queried" : "tracking_query_failed", message: "快递100 查询失败：" + p.message });
+    await sb.from("after_sales_events").insert({ user_id: uid, task_id: taskId, event_type: counts ? "tracking_queried" : "tracking_query_failed", message: "快递100" + tag + "查询失败：" + p.message });
     return fail(502, "kuaidi100_" + p.code, p.message);
   }
 
   // 走到这里 rec 一定存在（承运商来自它）
   const w = await sb.from("tracking_records").update({ tracking_no: num, last_match: p.lastMatch, updated_at: now }).eq("id", rec!.id);
   if (w.error) return fail(500, "db", "保存物流状态失败：" + w.error.message);
-  await sb.from("after_sales_events").insert({ user_id: uid, task_id: taskId, event_type: "tracking_queried", message: "快递100：" + p.lastMatch });
+  await sb.from("after_sales_events").insert({ user_id: uid, task_id: taskId, event_type: "tracking_queried", message: "快递100" + tag + "：" + p.lastMatch });
 
   return reply(200, { ok: true, state: p.state, state_text: p.stateText, signed: p.signed, latest: p.latest, count: p.count, last_match: p.lastMatch });
 });

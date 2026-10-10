@@ -238,7 +238,7 @@ async function run(browser, htmlPath) {
     await page.evaluate(() => { window.__fnReply = (name, opts) => new Promise((res) => setTimeout(() => {
       const r = window.__db.tracking_records.find((x) => x.task_id === opts.body.task_id);
       r.last_match = "【在途】2026-10-10 14:20:00 已到达上海转运中心（快递100）"; r.updated_at = new Date().toISOString();
-      window.__db.after_sales_events.push({ id: "q" + Date.now(), user_id: "u1", task_id: opts.body.task_id, event_type: "tracking_queried", message: "快递100", created_at: new Date().toISOString() });
+      window.__db.after_sales_events.push({ id: "q" + Date.now(), user_id: "u1", task_id: opts.body.task_id, event_type: "tracking_queried", message: "快递100（" + r.tracking_no + "）：…", created_at: new Date().toISOString() });
       res({ data: { ok: true, state_text: "在途" }, error: null });
     }, 400)); });
     await page.evaluate("openTask('t1')"); await page.waitForTimeout(100);
@@ -287,6 +287,7 @@ async function run(browser, htmlPath) {
     check("6.8 auto: not configured -> no note shown", (await text(page, "#logistics_note")) === "" && (await fnCalls()) === 2);
     await page.evaluate("window.__db.after_sales_events.length=0; closeDrawer(); openTask('t1')"); await page.waitForTimeout(300);
     check("6.8 auto: after not_configured, no more auto queries this session", (await fnCalls()) === 2);
+
     check("6.8b no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
@@ -380,6 +381,41 @@ async function run(browser, htmlPath) {
     await page.evaluate("window.__db.tracking_records[0].carrier='圆通'; delete detailCache.t1; openTask('t1')"); await page.waitForTimeout(300);
     check("6.13 other carriers: no phone box", !(await page.$("#lg_phone")));
     check("6.13 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
+
+  // ---- 6.15: auto query survives expired login / network errors; per-number limit; 立即查询 button
+  {
+    const db = seed();
+    db.tracking_records = [
+      { id: "k1", user_id: "u1", task_id: "t1", tracking_no: "YT123456789", carrier: "圆通", monitoring: true, last_match: "", created_at: "2026-10-05T00:00:00Z" },
+      { id: "k2", user_id: "u1", task_id: "t2", tracking_no: "ST123456789", carrier: "申通", monitoring: true, last_match: "", created_at: "2026-10-05T00:00:00Z" },
+    ];
+    db.after_sales_tasks[0].tracking_no = "YT123456789"; db.after_sales_tasks[1].tracking_no = "ST123456789";
+    // t1 was queried 5 min ago under its OLD number
+    db.after_sales_events = [{ id: "old", user_id: "u1", task_id: "t1", event_type: "tracking_queried", message: "快递100（790384139258）：…", created_at: new Date(Date.now() - 5 * 60000).toISOString() }];
+    const { ctx, page } = await open(browser, htmlPath, { db });
+    const fnCalls = () => page.evaluate("(window.__fn||[]).length");
+    const httpErr = (body) => `window.__fnReply = () => ({ data: null, error: { message: "non-2xx", context: { json: async () => (${JSON.stringify(body)}) } } })`;
+    await page.evaluate(httpErr({ ok: false, code: "bad_session", message: "登录已失效，请重新登录" }));
+    await page.evaluate("openTask('t1')"); await page.waitForTimeout(400);
+    check("6.15 number changed -> old query does not block", (await fnCalls()) === 1);
+    check("6.15 expired login -> clear note, auto query NOT switched off", (await text(page, "#logistics_note")).includes("登录已过期") && !(await page.evaluate("autoQueryOff")));
+    await page.evaluate(httpErr({ ok: false, code: "upstream", message: "连接快递100 失败：connection reset" }));
+    await page.evaluate("closeDrawer(); openTask('t2')"); await page.waitForTimeout(400);
+    check("6.15 network error -> note + retry hint, auto still on", (await fnCalls()) === 2 && (await text(page, "#logistics_note")).includes("立即查询") && !(await page.evaluate("autoQueryOff")));
+    check("6.15 圆通/申通 get a 立即查询 button", (await text(page, "#lg_query")) === "↻ 立即查询" && !(await page.$("#lg_phone")));
+    await page.evaluate(() => { window.__fnReply = (n, o) => { const r = window.__db.tracking_records.find((x) => x.task_id === o.body.task_id); r.last_match = "【在途】2026-10-11 10:00 已发往上海（快递100）"; return { data: { ok: true, state_text: "在途", latest: { context: "已发往上海" } }, error: null }; }; });
+    await page.click("#lg_query"); await page.waitForTimeout(300);
+    const fn = await page.evaluate("window.__fn.pop()");
+    check("6.15 立即查询 sends task_id only (no phone)", JSON.stringify(fn.opts.body) === JSON.stringify({ task_id: "t2" }));
+    check("6.15 立即查询 success -> status updated", (await text(page, "#logistics_now")).includes("已发往上海"));
+    await page.evaluate(httpErr({ ok: false, code: "not_configured", message: "快递100 还没有配置" }));
+    await page.evaluate("closeDrawer(); delete detailCache.t1; window.__db.after_sales_events.length=0; openTask('t1')"); await page.waitForTimeout(400);
+    check("6.15 not_configured still switches auto off", await page.evaluate("autoQueryOff"));
+    await page.evaluate("enterApp({user:{id:'u1',email:'a@x.com'}})"); await page.waitForTimeout(400);
+    check("6.15 logging in again turns auto query back on", !(await page.evaluate("autoQueryOff")));
+    check("6.15 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
   const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [
@@ -491,7 +527,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.14.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.15.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
