@@ -56,14 +56,17 @@ const STUB = `
    async signInWithPassword(c){window.__auth=(window.__auth||[]).concat([{op:'signIn',c}]);return window.__authReply||{data:{session:{user:{id:'u1',email:c.email||null,phone:c.phone?c.phone.replace('+',''):null}}},error:null}},
    async signUp(c){window.__auth=(window.__auth||[]).concat([{op:'signUp',c}]);return window.__authReply||{data:{session:c.phone?{user:{id:'u9',phone:c.phone.replace('+','')}}:null},error:null}},
    onAuthStateChange(cb){listeners.push(cb);return{data:{subscription:{unsubscribe(){}}}}},
-   async signOut(){listeners.forEach(cb=>cb('SIGNED_OUT',null));return{error:null}}
+   async signOut(){window.__signedOut=(window.__signedOut||0)+1;listeners.forEach(cb=>cb('SIGNED_OUT',null));return{error:null}}
   },
   async rpc(name,args){
    window.__calls.push({name,args});
    if(name==='security_register_device')return{data:{ok:true},error:null};
    if(name==='is_admin')return{data:window.__admin===true,error:null};
    if(name==='admin_list_all_users')return{data:window.__users||[],error:null};
-   return{data:null,error:{message:'unexpected rpc '+name}};
+   if(name==='my_account_status'&&!window.__noApprovalFns)return{data:{pending:!!window.__pending},error:null};
+   if(name==='admin_list_pending_phone_users'&&!window.__noApprovalFns)return{data:window.__pendingUsers||[],error:null};
+   if(name==='admin_approve_phone_user'&&!window.__noApprovalFns){window.__pendingUsers=(window.__pendingUsers||[]).filter(u=>u.id!==args.p_user_id);return{data:{ok:true,message:'已通过审核'},error:null}}
+   return{data:null,error:{message:'Could not find the function public.'+name+' in the schema cache (unexpected rpc '+name+')'}};
   },
   from:(t)=>builder(t),
   functions:{async invoke(name,opts){window.__fn=(window.__fn||[]).concat([{name,opts}]);return typeof window.__fnReply==='function'?window.__fnReply(name,opts):{data:null,error:{message:'not stubbed'}}}},
@@ -517,8 +520,9 @@ async function run(browser, htmlPath) {
     check("6.16 phone: login field says 邮箱或手机号", (await page.getAttribute("#email", "placeholder")) === "邮箱或手机号");
     const lt = await text(page, "#login");
     check("6.17 login tips: email recommended, phone not, contact + studio", lt.includes("邮箱注册【推荐】") && lt.includes("点邮件里发亮的按钮") && lt.includes("1-3 秒") && lt.includes("手机号注册【不推荐】") && lt.includes("忘记密码只能找管理员") && lt.includes("1012968575@qq.com") && lt.includes("悠然网络科技工作室™") && !lt.includes("yrnb0611"));
-    const pi = await page.evaluate(`[parseIdent("138 0013 8000"),parseIdent("+86 138-0013-8000"),parseIdent("8613800138000"),parseIdent("a@x.com"),parseIdent("+447911123456"),parseIdent("")]`);
-    check("6.16 phone: parseIdent", JSON.stringify(pi) === JSON.stringify([{ phone: "+8613800138000" }, { phone: "+8613800138000" }, { phone: "+8613800138000" }, { email: "a@x.com" }, { phone: "+447911123456" }, null]), JSON.stringify(pi));
+    const pi = await page.evaluate(`[parseIdent("138 0013 8000"),parseIdent("+86 138-0013-8000"),parseIdent("8613800138000"),parseIdent("a@x.com"),parseIdent("+447911123456"),parseIdent(""),parseIdent("12345678901"),parseIdent("10000000000"),parseIdent("1380013800"),parseIdent("abc"),parseIdent("a@b")]`);
+    const mainland = "请输入正确的中国大陆手机号（13～19 开头的 11 位数字）";
+    check("6.16/6.18 phone: parseIdent (mainland segments only, bad input flagged)", JSON.stringify(pi) === JSON.stringify([{ phone: "+8613800138000" }, { phone: "+8613800138000" }, { phone: "+8613800138000" }, { email: "a@x.com" }, { bad: mainland }, null, { bad: mainland }, { bad: mainland }, { bad: mainland }, { bad: "请输入正确的邮箱或手机号" }, { bad: "邮箱格式不正确" }]), JSON.stringify(pi));
     await page.evaluate("window.__authReply={data:null,error:{message:'Phone signups are disabled'}}");
     await page.fill("#email", "13800138000"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(100);
     await page.fill("#password2", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(200);
@@ -542,6 +546,46 @@ async function run(browser, htmlPath) {
     check("6.16 phone: forgot password for phone -> contact developer email", (await text(r3.page, "#authmsg")).includes("1012968575@qq.com"));
     check("6.16 phone no page errors", !(r3.page.__errs || []).length, JSON.stringify(r3.page.__errs));
     await r3.ctx.close();
+  }
+
+  // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
+    await page.fill("#email", "12345678901"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("登录")'); await page.waitForTimeout(150);
+    check("6.18 bad number refused locally, no request", (await text(page, "#authmsg")).includes("中国大陆手机号") && !(await page.evaluate("window.__auth")));
+    await page.evaluate("window.__pending=true");
+    await page.fill("#email", "13800138000"); await page.click('button:text-is("注册")'); await page.waitForTimeout(100);
+    await page.fill("#password2", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(800);
+    check("6.18 pending phone account: kept out of the app", await page.evaluate("document.getElementById('app').classList.contains('hidden')") && !(await page.evaluate("document.getElementById('login').classList.contains('hidden')")));
+    check("6.18 pending: clear message + contact email, signed out locally", (await text(page, "#authmsg")).includes("等待管理员审核") && (await text(page, "#authmsg")).includes("1012968575@qq.com") && (await page.evaluate("window.__signedOut")) >= 1, await text(page, "#authmsg"));
+    check("6.18 pending: password box cleared", (await page.inputValue("#password")) === "");
+    await page.evaluate("window.__pending=false");
+    await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("登录")'); await page.waitForTimeout(800);
+    check("6.18 after approval: same account gets in", !(await page.evaluate("document.getElementById('app').classList.contains('hidden')")));
+    check("6.18 login tips mention review", (await text(page, "#login")).includes("等管理员审核通过才能使用"));
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [{ id: "u1", email: "a@x.com" }], pre: { __pendingUsers: [{ id: "p1", phone: "8613800138000", created_at: "2026-10-10T20:00:00Z", last_sign_in_at: null }, { id: "p2", phone: "8613900139000", created_at: "2026-10-10T21:00:00Z" }] } });
+    await page.waitForTimeout(300);
+    await page.evaluate("adminPanel('approvals')"); await page.waitForTimeout(300);
+    const ab = await text(page, "#adminBody");
+    check("6.18 admin 审核: pending phone accounts listed (86 prefix trimmed) + warning", ab.includes("13800138000") && ab.includes("13900139000") && ab.includes("没有短信验证"), ab.slice(0, 200));
+    await page.evaluate("window.__confirm=false"); await page.evaluate("adminApprove('p1')"); await page.waitForTimeout(150);
+    check("6.18 approve asks for confirmation (cancel -> no call)", !(await page.evaluate("window.__calls.some(c=>c.name==='admin_approve_phone_user')")));
+    await page.evaluate("window.__confirm=true"); await page.evaluate("adminApprove('p1')"); await page.waitForTimeout(400);
+    const call = await page.evaluate("window.__calls.filter(c=>c.name==='admin_approve_phone_user').pop()");
+    check("6.18 approve calls server function with the user id", call && call.args.p_user_id === "p1");
+    check("6.18 approved account disappears from the list", !(await text(page, "#adminBody")).includes("13800138000") && (await text(page, "#adminBody")).includes("13900139000"));
+    check("6.18 admin tabs: 审核 present, earlier tabs kept", (await page.evaluate("ADMIN_TABS.map(t=>t[1]).join()")) === "总览,用户,管理员,售后,快递,店铺,资料库,举证,设备,账号,日志,设置,客服,审核");
+    await ctx.close();
+    const r2 = await open(browser, htmlPath, { db: seed(), admin: true, pre: { __noApprovalFns: true } });
+    await r2.page.waitForTimeout(300);
+    check("6.18 before SQL: app still opens (no pending function)", !(await r2.page.evaluate("document.getElementById('app').classList.contains('hidden')")));
+    await r2.page.evaluate("adminPanel('approvals')"); await r2.page.waitForTimeout(300);
+    check("6.18 before SQL: 审核 tab explains what to run", (await text(r2.page, "#adminBody")).includes("v6_18_phone_approval.sql"), await text(r2.page, "#adminBody"));
+    check("6.18 no page errors", !(r2.page.__errs || []).length, JSON.stringify(r2.page.__errs));
+    await r2.ctx.close();
   }
   const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [
     { id: "u1", email: "a@x.com", last_sign_in_at: new Date().toISOString() },
@@ -652,7 +696,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.17.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.18.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
