@@ -8,11 +8,14 @@ const STUB = `
  const listeners=[];window.__log=[];window.__calls=[];window.__writes=[];window.__removed=[];window.__rt=[];window.__removedChannels=0;
  const uid=()=>'id'+Math.random().toString(36).slice(2,10);
  function builder(table){
-  const st={op:'select',filters:[],payload:null,single:false,maybe:false,opts:{},ret:false};
+  const st={op:'select',filters:[],isnull:[],payload:null,single:false,maybe:false,opts:{},ret:false,cols:'*'};
   const T=()=>(window.__db[table]=window.__db[table]||[]);
   const run=async()=>{
    if(window.__latency)await new Promise(r=>setTimeout(r,window.__latency));
-   const rows=T();const match=r=>st.filters.every(([k,v])=>r[k]===v);
+   if((window.__missingTables||[]).includes(table))return{data:null,error:{message:'relation "public.'+table+'" does not exist'}};
+   if(st.op==='select'&&(window.__missingCols||[]).some(c=>c.startsWith(table+'.')&&String(st.cols).includes(c.split('.')[1])))return{data:null,error:{message:'column does not exist'}};
+   if((st.op==='insert'||st.op==='update')&&(window.__missingCols||[]).some(c=>{const [tb,col]=c.split('.');const pl=Array.isArray(st.payload)?st.payload:[st.payload];return tb===table&&pl.some(x=>x&&col in x)}))return{data:null,error:{message:'column does not exist'}};
+   const rows=T();const match=r=>st.filters.every(([k,v])=>r[k]===v)&&st.isnull.every(k=>r[k]==null);
    if(st.op==='select'){
     let out=rows.filter(match).map(r=>({...r}));
     if(st.order){const [k,o]=st.order;out.sort((a,b)=>String(a[k]).localeCompare(String(b[k]))*(o&&o.ascending===false?-1:1))}
@@ -33,7 +36,8 @@ const STUB = `
   const b=new Proxy({}, {get(_,p){
    if(p==='then')return(res,rej)=>run().then(res,rej);
    return(...a)=>{switch(p){
-    case 'select':if(st.op==='select'){st.opts=a[1]||{}}else st.ret=true;break;
+    case 'select':if(st.op==='select'){st.opts=a[1]||{};st.cols=a[0]||'*'}else st.ret=true;break;
+    case 'is':if(a[1]===null)st.isnull.push(a[0]);break;
     case 'eq':st.filters.push([a[0],a[1]]);break;
     case 'order':st.order=a;break;
     case 'single':st.single=true;break;
@@ -48,7 +52,9 @@ const STUB = `
  }
  const sb={
   auth:{
-   getSession:async()=>({data:{session:{user:{id:'u1',email:'a@x.com'}}},error:null}),
+   getSession:async()=>({data:{session:window.__noSession?null:{user:{id:'u1',email:'a@x.com'}}},error:null}),
+   async signInWithPassword(c){window.__auth=(window.__auth||[]).concat([{op:'signIn',c}]);return window.__authReply||{data:{session:{user:{id:'u1',email:c.email||null,phone:c.phone?c.phone.replace('+',''):null}}},error:null}},
+   async signUp(c){window.__auth=(window.__auth||[]).concat([{op:'signUp',c}]);return window.__authReply||{data:{session:c.phone?{user:{id:'u9',phone:c.phone.replace('+','')}}:null},error:null}},
    onAuthStateChange(cb){listeners.push(cb);return{data:{subscription:{unsubscribe(){}}}}},
    async signOut(){listeners.forEach(cb=>cb('SIGNED_OUT',null));return{error:null}}
   },
@@ -78,7 +84,7 @@ window.prompt=()=>window.__prompt;window.confirm=()=>window.__confirm;window.ale
 HTMLInputElement.prototype.click=function(){window.__clicked.push({type:this.type,accept:this.accept})};
 `;
 
-async function open(browser, htmlPath, { db, admin = false, users = [], dark = false }) {
+async function open(browser, htmlPath, { db, admin = false, users = [], dark = false, pre = null }) {
   const html = fs.readFileSync(htmlPath, "utf8");
   const ctx = await browser.newContext({ acceptDownloads: true });
   await ctx.route("**/*", (route) => {
@@ -90,10 +96,10 @@ async function open(browser, htmlPath, { db, admin = false, users = [], dark = f
     if (u.includes("@supabase/supabase-js")) return route.fulfill({ status: 200, contentType: "application/javascript", body: STUB });
     return route.abort();
   });
-  await ctx.addInitScript(({ db, admin, users, dark }) => {
-    window.__db = db; window.__admin = admin; window.__users = users;
+  await ctx.addInitScript(({ db, admin, users, dark, pre }) => {
+    window.__db = db; window.__admin = admin; window.__users = users; if (pre) Object.assign(window, pre);
     try { if (dark) localStorage.setItem("sar_dark", "1"); } catch (e) {}
-  }, { db, admin, users, dark });
+  }, { db, admin, users, dark, pre });
   await ctx.addInitScript(OBSERVER);
   const page = await ctx.newPage();
   page.on("pageerror", (e) => (page.__errs = (page.__errs || []).concat(e.message)));
@@ -418,6 +424,123 @@ async function run(browser, htmlPath) {
     check("6.15 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+
+  // ---- 6.16 before the SQL upgrade: amounts + chat hidden, nothing breaks
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __missingCols: ["after_sales_tasks.order_amount", "after_sales_tasks.refund_amount"], __missingTables: ["support_messages"] } });
+    await page.waitForTimeout(300);
+    check("6.16 pre-SQL: feature flags off", !(await page.evaluate("hasAmounts")) && !(await page.evaluate("hasSupport")));
+    check("6.16 pre-SQL: no refund total on home", await page.evaluate("document.getElementById('refundline').classList.contains('hidden')"));
+    await page.evaluate("newTask()"); await page.waitForTimeout(100);
+    check("6.16 pre-SQL: new-task form has no amount fields", !(await page.$("#ta_order")));
+    await page.fill("#to", "PRE1"); await page.evaluate("createTask()"); await page.waitForTimeout(400);
+    check("6.16 pre-SQL: creating a task still works", await page.evaluate("window.__db.after_sales_tasks.some(t=>t.order_id==='PRE1')"));
+    check("6.16 pre-SQL: edit form has no amount fields", !(await page.$("#f_amount")));
+    await page.click('button:text-is("保存到云端")'); await page.waitForTimeout(300);
+    check("6.16 pre-SQL: saving still works (no amount keys sent)", (await text(page, "#toast")).includes("已保存到云端"));
+    await page.evaluate("closeDrawer(); openSupport()"); await page.waitForTimeout(200);
+    const sp = await text(page, "#modalbox");
+    check("6.16 pre-SQL: 客服 shows 'not opened yet' + developer email", sp.includes("还没有开通") && sp.includes("yrnb0611@gmail.com") && !(await page.$("#supInput")) && (await page.evaluate("document.querySelector('#modalbox a[href^=\"mailto:yrnb0611@gmail.com\"]')!==null")));
+    check("6.16 pre-SQL no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
+  // ---- 6.16 after the SQL upgrade: amounts
+  {
+    const db = seed();
+    db.after_sales_tasks[0].order_amount = 199.9; db.after_sales_tasks[0].refund_amount = 50;
+    db.after_sales_tasks[1].refund_amount = 20.5;
+    db.support_messages = [];
+    const { ctx, page } = await open(browser, htmlPath, { db });
+    await page.waitForTimeout(300);
+    check("6.16 amounts: flag on", await page.evaluate("hasAmounts&&hasSupport"));
+    check("6.16 amounts: home refund total", (await text(page, "#refundsum")) === "¥70.50" && !(await page.evaluate("document.getElementById('refundline').classList.contains('hidden')")));
+    check("6.16 amounts: list card shows both", (await text(page, "#tasklist")).includes("订单 ¥199.90 · 退款 ¥50.00") && (await text(page, "#tasklist")).includes("退款 ¥20.50"));
+    await page.evaluate("openTask('t1')"); await page.waitForTimeout(300);
+    const top = await text(page, "#detail .card");
+    check("6.16 amounts: detail top card", top.includes("订单金额") && top.includes("¥199.90") && top.includes("¥50.00"));
+    check("6.16 amounts: edit form prefilled", (await page.inputValue("#f_amount")) === "199.9" && (await page.inputValue("#f_refund")) === "50");
+    await page.fill("#f_refund", "abc"); await page.click('button:text-is("保存到云端")'); await page.waitForTimeout(200);
+    check("6.16 amounts: invalid -> refused", (await text(page, "#toast")).includes("金额格式不对"));
+    await page.evaluate("window.__writes.length=0");
+    await page.fill("#f_refund", "￥88.8"); await page.fill("#f_amount", ""); await page.click('button:text-is("保存到云端")'); await page.waitForTimeout(300);
+    const up = (await writes(page)).find((x) => x.table === "after_sales_tasks" && x.op === "update");
+    check("6.16 amounts: save sends numbers, empty -> null, ¥ sign accepted", up && up.payload.refund_amount === 88.8 && up.payload.order_amount === null, JSON.stringify(up && up.payload));
+    await page.evaluate("closeDrawer(); newTask()"); await page.waitForTimeout(100);
+    await page.fill("#to", "AMT1"); await page.fill("#ta_order", "1,000"); await page.evaluate("createTask()"); await page.waitForTimeout(200);
+    check("6.16 amounts: new task invalid -> refused, nothing inserted", (await text(page, "#toast")).includes("金额格式不对") && !(await page.evaluate("window.__db.after_sales_tasks.some(t=>t.order_id==='AMT1')")));
+    await page.fill("#ta_order", "1000"); await page.fill("#ta_refund", "12.34"); await page.evaluate("createTask()"); await page.waitForTimeout(400);
+    const nt = await page.evaluate("window.__db.after_sales_tasks.find(t=>t.order_id==='AMT1')");
+    check("6.16 amounts: new task saved with both amounts", nt && nt.order_amount === 1000 && nt.refund_amount === 12.34, JSON.stringify(nt));
+    check("6.16 amounts no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
+  // ---- 6.16 客服: user side + admin side
+  {
+    const db = seed();
+    db.support_messages = [
+      { id: "m1", user_id: "u1", sender: "user", body: "你好，怎么导出？", created_at: "2026-10-10T08:00:00Z", read_at: "2026-10-10T08:01:00Z" },
+      { id: "m2", user_id: "u1", sender: "admin", body: "在「更多」里点导出 JSON 备份", created_at: "2026-10-10T08:05:00Z", read_at: null },
+      { id: "m3", user_id: "u2", sender: "user", body: "我要退款怎么记", created_at: "2026-10-10T09:00:00Z", read_at: null },
+    ];
+    const { ctx, page } = await open(browser, htmlPath, { db, admin: true, users: [{ id: "u1", email: "a@x.com" }, { id: "u2", email: "8613800138000" }] });
+    await page.waitForTimeout(500);
+    check("6.16 客服: unread dot shown (admin reply + user letter)", !(await page.evaluate("document.getElementById('supDot').classList.contains('hidden')")));
+    await page.evaluate("openSupport()"); await page.waitForTimeout(300);
+    const chat = await text(page, "#supList");
+    check("6.16 客服: user sees own conversation only", chat.includes("怎么导出") && chat.includes("导出 JSON 备份") && !chat.includes("我要退款"));
+    check("6.16 客服: my message right, admin reply left", (await page.evaluate("document.querySelectorAll('#supList .bub.me').length")) === 1 && (await page.evaluate("document.querySelectorAll('#supList .bub.them').length")) === 1);
+    check("6.16 客服: admin reply marked read", !!(await page.evaluate("window.__db.support_messages.find(m=>m.id==='m2').read_at")));
+    await page.click("#supSend"); await page.waitForTimeout(100);
+    check("6.16 客服: empty message refused", (await text(page, "#toast")).includes("请先输入内容"));
+    await page.fill("#supInput", "  谢谢！  "); await page.click("#supSend"); await page.waitForTimeout(300);
+    const ins = (await writes(page)).filter((x) => x.table === "support_messages" && x.op === "insert").pop();
+    check("6.16 客服: send inserts as user into own conversation (trimmed)", ins && JSON.stringify(ins.payload) === JSON.stringify({ user_id: "u1", sender: "user", body: "谢谢！" }), JSON.stringify(ins));
+    check("6.16 客服: new message shown, input cleared", (await text(page, "#supList")).includes("谢谢！") && (await page.inputValue("#supInput")) === "");
+    // admin side
+    await page.click('#modalbox button:text-is("查看用户来信（管理员）")'); await page.waitForTimeout(500);
+    const ab = await text(page, "#adminBody");
+    check("6.16 admin 客服: conversations listed with name / phone + unread", ab.includes("a@x.com") && ab.includes("8613800138000") && ab.includes("1 未读"), ab.slice(0, 300));
+    check("6.16 admin 客服: tab opened directly (not overwritten by 总览)", !(await text(page, "#adminBody")).includes("注册用户"));
+    await page.evaluate("adminSupportThread('u2')"); await page.waitForTimeout(300);
+    check("6.16 admin 客服: thread shows the user's letter, marks it read", (await text(page, "#admSupList")).includes("我要退款怎么记") && !!(await page.evaluate("window.__db.support_messages.find(m=>m.id==='m3').read_at")));
+    await page.fill("#admSupInput", "在售后详情里填退款金额"); await page.click("#admSupSend"); await page.waitForTimeout(300);
+    const rep = (await writes(page)).filter((x) => x.table === "support_messages" && x.op === "insert").pop();
+    check("6.16 admin 客服: reply inserted as admin into that user's conversation", rep && rep.payload.sender === "admin" && rep.payload.user_id === "u2" && rep.payload.body === "在售后详情里填退款金额");
+    await page.evaluate("closeModal()"); await page.waitForTimeout(5500);
+    check("6.16 客服: polling stops after closing (no errors)", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
+  // ---- 6.16 phone number login / register
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
+    await page.waitForTimeout(300);
+    check("6.16 phone: login field says 邮箱或手机号", (await page.getAttribute("#email", "placeholder")) === "邮箱或手机号");
+    const pi = await page.evaluate(`[parseIdent("138 0013 8000"),parseIdent("+86 138-0013-8000"),parseIdent("8613800138000"),parseIdent("a@x.com"),parseIdent("+447911123456"),parseIdent("")]`);
+    check("6.16 phone: parseIdent", JSON.stringify(pi) === JSON.stringify([{ phone: "+8613800138000" }, { phone: "+8613800138000" }, { phone: "+8613800138000" }, { email: "a@x.com" }, { phone: "+447911123456" }, null]), JSON.stringify(pi));
+    await page.evaluate("window.__authReply={data:null,error:{message:'Phone signups are disabled'}}");
+    await page.fill("#email", "13800138000"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(100);
+    await page.fill("#password2", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(200);
+    check("6.16 phone: provider off -> clear Chinese message", (await text(page, "#authmsg")).includes("手机号注册/登录还没有开通"), await text(page, "#authmsg"));
+    await page.evaluate("window.__authReply=null");
+    await page.click('button:text-is("注册")'); await page.waitForTimeout(600);
+    const su = await page.evaluate("window.__auth.filter(a=>a.op==='signUp').pop()");
+    check("6.16 phone: register sends +86 phone + password (no email)", su && su.c.phone === "+8613800138000" && !su.c.email && su.c.password === "Abcdef1!", JSON.stringify(su));
+    check("6.16 phone: register with session -> enters app, header shows phone", !(await page.evaluate("document.getElementById('app').classList.contains('hidden')")) && (await text(page, "#userEmail")) === "手机 13800138000");
+    await ctx.close();
+    const r2 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
+    await r2.page.fill("#email", "138-0013-8000"); await r2.page.fill("#password", "Abcdef1!"); await r2.page.click('button:text-is("登录")'); await r2.page.waitForTimeout(600);
+    const si = await r2.page.evaluate("window.__auth.filter(a=>a.op==='signIn').pop()");
+    check("6.16 phone: login with phone", si && si.c.phone === "+8613800138000" && !si.c.email);
+    await r2.ctx.close();
+    const r3 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __authReply: { data: null, error: { message: "Invalid login credentials" } } } });
+    await r3.page.fill("#email", "a@x.com"); await r3.page.fill("#password", "x"); await r3.page.click('button:text-is("登录")'); await r3.page.waitForTimeout(200);
+    const si3 = await r3.page.evaluate("window.__auth.filter(a=>a.op==='signIn').pop()");
+    check("6.16 phone: email login unchanged + Chinese error", si3 && si3.c.email === "a@x.com" && (await text(r3.page, "#authmsg")) === "邮箱或密码不正确");
+    await r3.page.fill("#email", "13800138000"); await r3.page.click('button:text-is("找回密码")'); await r3.page.waitForTimeout(100);
+    check("6.16 phone: forgot password for phone -> contact developer email", (await text(r3.page, "#authmsg")).includes("yrnb0611@gmail.com"));
+    check("6.16 phone no page errors", !(r3.page.__errs || []).length, JSON.stringify(r3.page.__errs));
+    await r3.ctx.close();
+  }
   const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [
     { id: "u1", email: "a@x.com", last_sign_in_at: new Date().toISOString() },
     { id: "u2", email: "old@x.com", last_sign_in_at: "2026-01-01T00:00:00Z" }] });
@@ -527,7 +650,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.15.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.16.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
