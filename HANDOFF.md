@@ -61,5 +61,4 @@
 - 网页加载后 GitHub Pages CDN 更新有几分钟延迟；service worker 对 index.html 是网络优先。
 
 ## 提交规范
-- 提交信息末尾加：
-  `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>` 和 `Claude-Session: https://claude.ai/code/session_01YDrw3sQgmecTEohDLNKksP`
+- 提交信息末尾按当前会话给出的署名规范加 Co-Authored-By / Claude-Session 等行。
