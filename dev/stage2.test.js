@@ -11,6 +11,7 @@ const STUB = `
   const st={op:'select',filters:[],payload:null,single:false,maybe:false,opts:{},ret:false};
   const T=()=>(window.__db[table]=window.__db[table]||[]);
   const run=async()=>{
+   if(window.__latency)await new Promise(r=>setTimeout(r,window.__latency));
    const rows=T();const match=r=>st.filters.every(([k,v])=>r[k]===v);
    if(st.op==='select'){
     let out=rows.filter(match).map(r=>({...r}));
@@ -322,6 +323,36 @@ async function run(browser, htmlPath) {
     check("6.11 reduced motion: no ghost", (await page.evaluate("document.querySelectorAll('.ghost').length")) === 0 && (await page.evaluate("document.getElementById('modal').classList.contains('hidden')")));
     await ctx.close();
   }
+
+  // ---- 6.12: opening a task is instant; the 3 detail queries run in parallel; cache; no overwrite before load
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.evaluate("window.__latency=400");
+    const t0 = Date.now();
+    page.evaluate("openTask('t1')");
+    await page.waitForFunction("!document.getElementById('drawer').classList.contains('hidden')");
+    const shown = Date.now() - t0;
+    check("6.12 open: drawer visible before any query returns", shown < 300, shown + "ms");
+    check("6.12 open: placeholders while loading", (await text(page, "#files_box")).includes("加载中") && (await text(page, "#timeline_box")).includes("加载中") && (await text(page, "#sheettitle")) === "ORD1");
+    await page.evaluate("saveTask()"); await page.waitForTimeout(20);
+    check("6.12 save before load -> refused (cannot wipe the carrier)", (await text(page, "#toast")).includes("还在加载") && !(await page.evaluate("window.__writes.some(w=>w.table==='tracking_records')")));
+    await page.evaluate("document.getElementById('f_buyer').value='加载中输入'");
+    await page.waitForFunction("document.getElementById('files_box').textContent.includes('a.jpg')", null, { timeout: 3000 });
+    const loaded = Date.now() - t0;
+    check("6.12 open: 3 queries in parallel (~1 round trip, not 3)", loaded < 1000, loaded + "ms");
+    check("6.12 open: sections filled, carrier select filled, typing kept", (await text(page, "#logistics_now")) === "已签收匹配" && (await page.inputValue("#f_carrier")) === "顺丰" && (await page.inputValue("#f_buyer")) === "加载中输入");
+    await page.evaluate("closeDrawer()"); await page.waitForTimeout(100);
+    const t1 = Date.now(); page.evaluate("openTask('t1')");
+    await page.waitForFunction("!document.getElementById('drawer').classList.contains('hidden')");
+    check("6.12 reopen: cached content shows instantly", !(await text(page, "#files_box")).includes("加载中") && (await text(page, "#files_box")).includes("a.jpg") && (await text(page, "#logistics_now")) === "已签收匹配" && Date.now() - t1 < 300);
+    await page.waitForTimeout(700);
+    // switching quickly: a slow answer for the previous task must not overwrite the new one
+    page.evaluate("openTask('t1')"); await page.waitForTimeout(50); page.evaluate("openTask('t2')"); await page.waitForTimeout(900);
+    check("6.12 fast switch: stale result ignored", (await text(page, "#sheettitle")) === "ORD2" && !(await text(page, "#files_box")).includes("a.jpg"), await text(page, "#files_box"));
+    await page.evaluate("window.__latency=0");
+    check("6.12 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
   const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [
     { id: "u1", email: "a@x.com", last_sign_in_at: new Date().toISOString() },
     { id: "u2", email: "old@x.com", last_sign_in_at: "2026-01-01T00:00:00Z" }] });
@@ -431,7 +462,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.11.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.12.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
