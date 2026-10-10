@@ -440,7 +440,7 @@ async function run(browser, htmlPath) {
     check("6.16 pre-SQL: saving still works (no amount keys sent)", (await text(page, "#toast")).includes("已保存到云端"));
     await page.evaluate("closeDrawer(); openSupport()"); await page.waitForTimeout(200);
     const sp = await text(page, "#modalbox");
-    check("6.16 pre-SQL: 客服 shows 'not opened yet' + developer email", sp.includes("还没有开通") && sp.includes("yrnb0611@gmail.com") && !(await page.$("#supInput")) && (await page.evaluate("document.querySelector('#modalbox a[href^=\"mailto:yrnb0611@gmail.com\"]')!==null")));
+    check("6.16 pre-SQL: 客服 shows 'not opened yet' + developer email", sp.includes("还没有开通") && sp.includes("1012968575@qq.com") && !(await page.$("#supInput")) && (await page.evaluate("document.querySelector('#modalbox a[href^=\"mailto:1012968575@qq.com\"]')!==null")));
     check("6.16 pre-SQL no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
@@ -515,6 +515,8 @@ async function run(browser, htmlPath) {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
     await page.waitForTimeout(300);
     check("6.16 phone: login field says 邮箱或手机号", (await page.getAttribute("#email", "placeholder")) === "邮箱或手机号");
+    const lt = await text(page, "#login");
+    check("6.17 login tips: email recommended, phone not, contact + studio", lt.includes("邮箱注册【推荐】") && lt.includes("点邮件里发亮的按钮") && lt.includes("1-3 秒") && lt.includes("手机号注册【不推荐】") && lt.includes("忘记密码只能找管理员") && lt.includes("1012968575@qq.com") && lt.includes("悠然网络科技工作室™") && !lt.includes("yrnb0611"));
     const pi = await page.evaluate(`[parseIdent("138 0013 8000"),parseIdent("+86 138-0013-8000"),parseIdent("8613800138000"),parseIdent("a@x.com"),parseIdent("+447911123456"),parseIdent("")]`);
     check("6.16 phone: parseIdent", JSON.stringify(pi) === JSON.stringify([{ phone: "+8613800138000" }, { phone: "+8613800138000" }, { phone: "+8613800138000" }, { email: "a@x.com" }, { phone: "+447911123456" }, null]), JSON.stringify(pi));
     await page.evaluate("window.__authReply={data:null,error:{message:'Phone signups are disabled'}}");
@@ -537,7 +539,7 @@ async function run(browser, htmlPath) {
     const si3 = await r3.page.evaluate("window.__auth.filter(a=>a.op==='signIn').pop()");
     check("6.16 phone: email login unchanged + Chinese error", si3 && si3.c.email === "a@x.com" && (await text(r3.page, "#authmsg")) === "邮箱或密码不正确");
     await r3.page.fill("#email", "13800138000"); await r3.page.click('button:text-is("找回密码")'); await r3.page.waitForTimeout(100);
-    check("6.16 phone: forgot password for phone -> contact developer email", (await text(r3.page, "#authmsg")).includes("yrnb0611@gmail.com"));
+    check("6.16 phone: forgot password for phone -> contact developer email", (await text(r3.page, "#authmsg")).includes("1012968575@qq.com"));
     check("6.16 phone no page errors", !(r3.page.__errs || []).length, JSON.stringify(r3.page.__errs));
     await r3.ctx.close();
   }
@@ -650,7 +652,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.16.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.17.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
