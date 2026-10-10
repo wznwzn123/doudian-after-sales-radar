@@ -36,8 +36,9 @@ Deno.serve(async (req) => {
   if (ue || !u?.user) return fail(401, "bad_session", "登录已失效，请重新登录");
   const uid = u.user.id;
 
-  const customer = Deno.env.get("KUAIDI100_CUSTOMER") || "";
-  const key = Deno.env.get("KUAIDI100_KEY") || "";
+  // 粘贴时常带进空格/换行，会导致签名失败，去掉
+  const customer = (Deno.env.get("KUAIDI100_CUSTOMER") || "").trim();
+  const key = (Deno.env.get("KUAIDI100_KEY") || "").trim();
   if (!customer || !key) return fail(503, "not_configured", "快递100 还没有配置：请在 Supabase 的 Edge Functions → Secrets 里填写 KUAIDI100_CUSTOMER 和 KUAIDI100_KEY");
 
   let body: any = {};

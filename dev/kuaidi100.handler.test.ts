@@ -112,3 +112,11 @@ Deno.test("parcel-level error (no result yet) counts toward the 30-min limit", a
   if (!r.json.message.includes("暂时查不到")) throw new Error("message: " + r.json.message);
   eq((await call({ task_id: T1 })).status, 429, "blocked for 30 min"); eq(calls.length, 1, "one upstream call");
 });
+Deno.test("secrets pasted with spaces/newlines still sign correctly", async () => {
+  seed(); upstream = OK; env.set("KUAIDI100_CUSTOMER", "  CUST\n"); env.set("KUAIDI100_KEY", " KEY \n");
+  const r = await call({ task_id: T1 }); eq(r.status, 200, "status");
+  const f = new URLSearchParams(calls[0].body);
+  eq(f.get("customer"), "CUST", "customer trimmed");
+  eq(f.get("sign"), createHash("md5").update(f.get("param")! + "KEY" + "CUST").digest("hex").toUpperCase(), "sign uses trimmed values");
+  env.set("KUAIDI100_CUSTOMER", "CUST"); env.set("KUAIDI100_KEY", "KEY");
+});
