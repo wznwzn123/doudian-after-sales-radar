@@ -168,6 +168,10 @@ async function run(browser, htmlPath) {
     check("6.6 tracking: task tracking_no/monitoring updated", tk.tracking_no === "SF2002" && tk.monitoring === true);
     check("6.6 tracking: tracking_updated event", (await page.evaluate("window.__db.after_sales_events.map(e=>e.task_id+':'+e.event_type+':'+e.message)")).some((e) => e.startsWith("t1:tracking_updated:") && e.includes("SF2002")));
     check("6.6 tracking: detail card shows the new status", (await text(page, "#detail")).includes("10-10 已到上海转运中心"));
+    check("6.7.1 top card follows the saved status", (await text(page, "#logistics_now")) === "10-10 已到上海转运中心");
+    await page.evaluate("openTask('t2')"); await page.waitForTimeout(200);
+    check("6.7.1 top card: no number + no record -> no logistics line", !(await text(page, "#detail .card")).includes("物流状态"));
+    await page.evaluate("openTask('t1')"); await page.waitForTimeout(200);
     // no record yet -> first save inserts (with empty last_match, never null), second save updates the same row
     await page.evaluate("window.__writes.length=0");
     await page.evaluate("tracking('t2')"); await page.waitForTimeout(200);
@@ -261,6 +265,7 @@ async function run(browser, htmlPath) {
     check("6.7 query: invokes kuaidi100-query with task_id + phone only", fn.name === "kuaidi100-query" && JSON.stringify(fn.opts.body) === JSON.stringify({ task_id: "t1", phone: "1234" }), JSON.stringify(fn));
     check("6.7 query: success toast + modal closed", (await toastText()).includes("物流已更新：在途") && (await page.evaluate("document.querySelector('#modal').classList.contains('hidden')")));
     check("6.7 query: detail shows the fetched status", (await text(page, "#detail")).includes("已到达上海转运中心（快递100）"));
+    check("6.7.1 top card shows the 快递100 result", (await text(page, "#logistics_now")).includes("已到达上海转运中心（快递100）"));
     check("6.7 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
@@ -291,6 +296,7 @@ async function run(browser, htmlPath) {
   check("detail: status/risk/type selects selected", (await page.inputValue("#f_status")) === "待举证" && (await page.inputValue("#f_risk")) === "高风险" && (await page.inputValue("#f_type")) === "仅退款");
   check("detail: deadline field filled (datetime-local)", /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(await page.inputValue("#f_deadline")));
   check("detail: rejection count pill", d.includes("拒绝协商 1 次"));
+  check("6.7.1 detail: current logistics status in the top card", (await text(page, "#detail .card")).includes("物流状态") && (await text(page, "#logistics_now")) === "已签收匹配" && (await text(page, "#detail .card")).includes("顺丰 · 盯单中 · 更新于"));
   check("detail: 快递监控记录 with last_match", d.includes("快递监控记录") && d.includes("已签收匹配") && d.includes("顺丰"), d.slice(0, 200));
   const btns = await page.evaluate("[...document.querySelectorAll('#detail .file button')].map(b=>b.textContent)");
   check("detail: image has 预览; library-linked shows 取消引用", btns.includes("预览") && btns.includes("取消引用") && btns.includes("移除"), JSON.stringify(btns));
@@ -375,7 +381,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.7.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.7.1") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
