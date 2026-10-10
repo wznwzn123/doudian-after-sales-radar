@@ -269,6 +269,70 @@ async function run(browser, htmlPath) {
     check("6.7 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+
+  // ---- 6.8: auto-query 快递100 when a task is opened (Edge Function stubbed; NOT a real 快递100 call)
+  {
+    const db = seed();
+    db.tracking_records = [
+      { id: "k1", user_id: "u1", task_id: "t1", tracking_no: "YT123456789", carrier: "圆通", monitoring: true, last_match: "", updated_at: "2026-10-05T00:00:00Z", created_at: "2026-10-05T00:00:00Z" },
+      { id: "k2", user_id: "u1", task_id: "t2", tracking_no: "SF123456789", carrier: "顺丰", monitoring: true, last_match: "", created_at: "2026-10-05T00:00:00Z" },
+      { id: "k3", user_id: "u1", task_id: "t3", tracking_no: "YD123456789", carrier: "韵达", monitoring: true, last_match: "【签收】2026-10-09 已签收（快递100）", created_at: "2026-10-05T00:00:00Z" },
+    ];
+    db.after_sales_tasks[1].tracking_no = "SF123456789";
+    const { ctx, page } = await open(browser, htmlPath, { db });
+    const fnCalls = () => page.evaluate("(window.__fn||[]).length");
+    // stub behaves like the real function: writes last_match + a tracking_queried event, answers after a delay
+    await page.evaluate(() => { window.__fnReply = (name, opts) => new Promise((res) => setTimeout(() => {
+      const r = window.__db.tracking_records.find((x) => x.task_id === opts.body.task_id);
+      r.last_match = "【在途】2026-10-10 14:20:00 已到达上海转运中心（快递100）"; r.updated_at = new Date().toISOString();
+      window.__db.after_sales_events.push({ id: "q" + Date.now(), user_id: "u1", task_id: opts.body.task_id, event_type: "tracking_queried", message: "快递100", created_at: new Date().toISOString() });
+      res({ data: { ok: true, state_text: "在途" }, error: null });
+    }, 400)); });
+    await page.evaluate("openTask('t1')"); await page.waitForTimeout(100);
+    check("6.8 auto: opening a 圆通 task queries once, without phone", (await fnCalls()) === 1 && JSON.stringify((await page.evaluate("window.__fn[0]")).opts.body) === JSON.stringify({ task_id: "t1" }));
+    check("6.8 auto: shows 'querying' note meanwhile", (await text(page, "#logistics_note")).includes("正在向快递100"));
+    await page.fill("#f_buyer", "正在编辑的买家");
+    await page.waitForTimeout(700);
+    check("6.8 auto: top card updated in place", (await text(page, "#logistics_now")).includes("已到达上海转运中心（快递100）") && (await text(page, "#tracking_card")).includes("已到达上海转运中心"));
+    check("6.8 auto: unsaved edits in the form are NOT wiped", (await page.inputValue("#f_buyer")) === "正在编辑的买家");
+    check("6.8 auto: note cleared after success", (await text(page, "#logistics_note")) === "");
+    await page.evaluate("closeDrawer(); openTask('t1')"); await page.waitForTimeout(600);
+    check("6.8 auto: reopening within 30 min -> no new query", (await fnCalls()) === 1);
+    await page.evaluate("closeDrawer(); openTask('t2')"); await page.waitForTimeout(300);
+    check("6.8 auto: 顺丰 (needs phone) -> no auto query", (await fnCalls()) === 1);
+    await page.evaluate("closeDrawer(); openTask('t3')"); await page.waitForTimeout(300);
+    check("6.8 auto: already 签收 -> no auto query", (await fnCalls()) === 1);
+    // closing the drawer before the answer arrives: nothing re-opens
+    await page.evaluate(() => { window.__db.tracking_records.find((x) => x.id === "k3").last_match = ""; window.__db.tracking_records.find((x) => x.id === "k3").carrier = "韵达"; });
+    await page.evaluate("closeDrawer(); openTask('t3')"); await page.waitForTimeout(50);
+    await page.evaluate("closeDrawer()"); await page.waitForTimeout(600);
+    check("6.8 auto: drawer closed during query stays closed", (await fnCalls()) === 2 && (await page.evaluate("document.querySelector('#drawer').classList.contains('hidden')")));
+    check("6.8 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
+  {
+    const db = seed();
+    db.tracking_records = [
+      { id: "k1", user_id: "u1", task_id: "t1", tracking_no: "YT123456789", carrier: "圆通", monitoring: true, last_match: "", created_at: "2026-10-05T00:00:00Z" },
+      { id: "k2", user_id: "u1", task_id: "t2", tracking_no: "ZT123456789", carrier: "申通", monitoring: true, last_match: "", created_at: "2026-10-05T00:00:00Z" },
+    ];
+    db.after_sales_tasks[1].tracking_no = "ZT123456789";
+    const { ctx, page } = await open(browser, htmlPath, { db });
+    const fnCalls = () => page.evaluate("(window.__fn||[]).length");
+    const httpErr = (body) => `window.__fnReply = () => ({ data: null, error: { message: "non-2xx", context: { json: async () => (${JSON.stringify(body)}) } } })`;
+    // parcel-level failure -> short note, auto stays on
+    await page.evaluate(httpErr({ ok: false, code: "kuaidi100_500", message: "暂时查不到物流信息（可能还没揽收，或单号/快递公司不对）" }));
+    await page.evaluate("openTask('t1')"); await page.waitForTimeout(300);
+    check("6.8 auto: parcel error -> note with reason", (await text(page, "#logistics_note")).includes("自动查询未成功：暂时查不到物流信息"));
+    // not configured -> silent, and auto-query switches off for this page session
+    await page.evaluate(httpErr({ ok: false, code: "not_configured", message: "快递100 还没有配置" }));
+    await page.evaluate("closeDrawer(); openTask('t2')"); await page.waitForTimeout(300);
+    check("6.8 auto: not configured -> no note shown", (await text(page, "#logistics_note")) === "" && (await fnCalls()) === 2);
+    await page.evaluate("window.__db.after_sales_events.length=0; closeDrawer(); openTask('t1')"); await page.waitForTimeout(300);
+    check("6.8 auto: after not_configured, no more auto queries this session", (await fnCalls()) === 2);
+    check("6.8b no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
   const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [
     { id: "u1", email: "a@x.com", last_sign_in_at: new Date().toISOString() },
     { id: "u2", email: "old@x.com", last_sign_in_at: "2026-01-01T00:00:00Z" }] });
@@ -381,7 +445,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.7.1") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.8.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());

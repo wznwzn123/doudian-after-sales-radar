@@ -446,7 +446,7 @@ async function restoreScenarios(browser, htmlPath) {
   await tab("logs"); b = await body();
   check(g, "logs tab", b.includes("device_block") && b.includes("測試") && b.includes("a@x.com"), b);
   await tab("settings"); b = await body();
-  check(g, "settings tab shows version + 3h", b.includes("6.7.1") && b.includes("3 小时"), b);
+  check(g, "settings tab shows version + 3h", b.includes("6.8.0") && b.includes("3 小时"), b);
   await tab("users"); b = await body();
   check(g, "users tab keeps working", b.includes("a@x.com") && b.includes("boss@x.com"), b);
   // admins tab
