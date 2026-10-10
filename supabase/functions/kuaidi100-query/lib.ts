@@ -81,3 +81,15 @@ export function parseResponse(j: any): Parsed {
   const lastMatch = "【" + stateText + "】" + (l ? l.time + " " + l.context : "暂无物流轨迹") + "（快递100）";
   return { ok: true, state, stateText, signed: String(j.ischeck) === "1", latest: l, count: items.length, lastMatch };
 }
+
+// 按名称读 Secret：先精确匹配，再容忍大小写和前后空格；值去掉首尾空白
+export function findSecret(env: Record<string, string>, name: string): string {
+  if (env[name] !== undefined) return String(env[name]).trim();
+  const k = Object.keys(env).find((n) => n.trim().toUpperCase() === name);
+  return k ? String(env[k]).trim() : "";
+}
+
+// 诊断用：列出看起来像快递100 的 Secret「名称」（绝不返回值）
+export function similarSecretNames(names: string[]): string[] {
+  return names.filter((n) => /kuai\s*di|kd100|快递/i.test(n)).map((n) => JSON.stringify(n)).slice(0, 6);
+}

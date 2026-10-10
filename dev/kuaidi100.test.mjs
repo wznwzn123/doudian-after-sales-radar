@@ -42,5 +42,7 @@ const eX = L.parseResponse({ result: false, returnCode: "999", message: "奇怪�
 check("parse err unknown code keeps upstream message", !eX.ok && eX.message.includes("奇怪的错误"));
 check("parse garbage", !L.parseResponse(null).ok && !L.parseResponse("x").ok && !L.parseResponse({ status: "200" }).ok);
 
+check("findSecret: exact, then case/space tolerant, value trimmed", L.findSecret({ KUAIDI100_KEY: " k \n" }, "KUAIDI100_KEY") === "k" && L.findSecret({ " kuaidi100_key ": "v" }, "KUAIDI100_KEY") === "v" && L.findSecret({ KUAIDI_KEY: "v" }, "KUAIDI100_KEY") === "");
+check("similarSecretNames: names only, never values", JSON.stringify(L.similarSecretNames(["KUAIDI_KEY", "kuaidi-100-customer", "SUPABASE_URL", "OTHER"])) === JSON.stringify(['"KUAIDI_KEY"', '"kuaidi-100-customer"']));
 console.log(`\n${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);

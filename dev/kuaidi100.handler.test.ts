@@ -9,6 +9,7 @@ let handler: (r: Request) => Promise<Response>;
 (Deno as any).serve = (h: any) => { handler = h; return {} as any; };
 const env = new Map<string, string>([["SUPABASE_URL", "https://x.supabase.co"], ["SUPABASE_PUBLISHABLE_KEYS", '{"default":"sb_publishable_test"}']]);
 (Deno.env as any).get = (k: string) => env.get(k);
+(Deno.env as any).toObject = () => Object.fromEntries(env);
 let calls: { url: string; body: string }[] = [];
 let upstream: any = null;
 (globalThis as any).fetch = async (url: string, init: any) => { calls.push({ url: String(url), body: String(init.body) }); return new Response(JSON.stringify(upstream)); };
@@ -119,4 +120,16 @@ Deno.test("secrets pasted with spaces/newlines still sign correctly", async () =
   eq(f.get("customer"), "CUST", "customer trimmed");
   eq(f.get("sign"), createHash("md5").update(f.get("param")! + "KEY" + "CUST").digest("hex").toUpperCase(), "sign uses trimmed values");
   env.set("KUAIDI100_CUSTOMER", "CUST"); env.set("KUAIDI100_KEY", "KEY");
+});
+Deno.test("misnamed secrets -> names (not values) reported; case/space variants accepted", async () => {
+  seed(); env.delete("KUAIDI100_CUSTOMER"); env.delete("KUAIDI100_KEY");
+  env.set("KUAIDI_CUSTOMER", "SECRETVALUE1"); env.set("kuaidi100_key ", "SECRETVALUE2");
+  const r = await call({ task_id: T1 });
+  eq(r.status, 503, "status");
+  if (!r.json.message.includes("KUAIDI100_CUSTOMER") || !r.json.message.includes('"KUAIDI_CUSTOMER"')) throw new Error(r.json.message);
+  if (r.json.message.includes("SECRETVALUE")) throw new Error("value leaked: " + r.json.message);
+  if (r.json.message.includes("、KUAIDI100_KEY")) throw new Error("lowercase key with space should have been accepted: " + r.json.message);
+  env.delete("KUAIDI_CUSTOMER"); env.set("KUAIDI100_CUSTOMER", "CUST"); upstream = OK;
+  eq((await call({ task_id: T1 })).status, 200, "lowercase/space-padded key name accepted");
+  env.delete("kuaidi100_key "); env.set("KUAIDI100_KEY", "KEY");
 });

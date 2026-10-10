@@ -3,7 +3,14 @@
 // 数据库读写都用「调用者自己的登录身份」（受 RLS 限制），所以只能查自己的售后；本函数不需要 service_role / secret key。
 // 部署时关闭平台的 JWT 校验（verify_jwt=false），身份在下面用 auth.getUser() 自己校验。
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { CARRIER_CODES, CONFIG_ERRORS, MIN_INTERVAL_MS, PHONE_REQUIRED, QUERY_URL, buildRequest, normalizeNo, parseResponse, validPhone } from "./lib.ts";
+import { CARRIER_CODES, CONFIG_ERRORS, MIN_INTERVAL_MS, PHONE_REQUIRED, QUERY_URL, buildRequest, findSecret, normalizeNo, parseResponse, similarSecretNames, validPhone } from "./lib.ts";
+
+function envSnapshot(): Record<string, string> {
+  try { return Deno.env.toObject(); } catch { /* 运行环境不允许列出时，只按精确名称读取 */ }
+  const o: Record<string, string> = {};
+  for (const n of ["KUAIDI100_CUSTOMER", "KUAIDI100_KEY"]) { const v = Deno.env.get(n); if (v !== undefined) o[n] = v; }
+  return o;
+}
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -36,10 +43,16 @@ Deno.serve(async (req) => {
   if (ue || !u?.user) return fail(401, "bad_session", "登录已失效，请重新登录");
   const uid = u.user.id;
 
-  // 粘贴时常带进空格/换行，会导致签名失败，去掉
-  const customer = (Deno.env.get("KUAIDI100_CUSTOMER") || "").trim();
-  const key = (Deno.env.get("KUAIDI100_KEY") || "").trim();
-  if (!customer || !key) return fail(503, "not_configured", "快递100 还没有配置：请在 Supabase 的 Edge Functions → Secrets 里填写 KUAIDI100_CUSTOMER 和 KUAIDI100_KEY");
+  // 粘贴时常带进空格/换行，会导致签名失败，去掉；名称大小写、前后空格也容错
+  const env = envSnapshot();
+  const customer = findSecret(env, "KUAIDI100_CUSTOMER");
+  const key = findSecret(env, "KUAIDI100_KEY");
+  if (!customer || !key) {
+    const missing = [!customer && "KUAIDI100_CUSTOMER", !key && "KUAIDI100_KEY"].filter(Boolean).join("、");
+    const near = similarSecretNames(Object.keys(env));
+    return fail(503, "not_configured", "快递100 还没有配置：Supabase 的 Edge Functions → Secrets 里缺少 " + missing +
+      (near.length ? "。找到名称相近的：" + near.join("、") + "（只显示名称），请把名称改成和上面完全一样" : "。没有找到任何名称里带 KUAIDI 的 Secret，请确认已经保存"));
+  }
 
   let body: any = {};
   try { body = await req.json(); } catch { /* empty */ }
