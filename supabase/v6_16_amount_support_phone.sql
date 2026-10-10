@@ -1,5 +1,5 @@
 -- 售后雷达 Pro 6.16：售后金额 + 在线客服 + 手机号用户在管理后台显示
--- 状态：待用户在 Supabase SQL Editor 手动执行（整段一次执行即可，可重复执行）。
+-- 状态：已于 2026-10-10 由用户在 Supabase SQL Editor 执行，并用只读查询核对（2 / 1 / 5）。可重复执行。
 -- 写之前已用只读查询核对：after_sales_tasks 没有金额列；没有 support_messages 表；
 -- is_admin()、is_user_banned() 已存在（security definer，可直接复用，不重复创建）；
 -- supabase_realtime 发布里没有任何表（所以前端用定时刷新，不依赖 Realtime）。
