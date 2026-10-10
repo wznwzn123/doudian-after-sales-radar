@@ -44,5 +44,12 @@ check("parse garbage", !L.parseResponse(null).ok && !L.parseResponse("x").ok && 
 
 check("findSecret: exact, then case/space tolerant, value trimmed", L.findSecret({ KUAIDI100_KEY: " k \n" }, "KUAIDI100_KEY") === "k" && L.findSecret({ " kuaidi100_key ": "v" }, "KUAIDI100_KEY") === "v" && L.findSecret({ KUAIDI_KEY: "v" }, "KUAIDI100_KEY") === "");
 check("similarSecretNames: names only, never values", JSON.stringify(L.similarSecretNames(["KUAIDI_KEY", "kuaidi-100-customer", "SUPABASE_URL", "OTHER"])) === JSON.stringify(['"KUAIDI_KEY"', '"kuaidi-100-customer"']));
+const adv = L.parseResponse({ status: "200", state: "206", ischeck: "0", data: [{ ftime: "2026-10-10 16:18:27", context: "客户地址无人，且无法联系上收件人，投递失败" }] });
+check("advanced state code 206 -> 无法联系 (was 未知状态 in production)", adv.ok && adv.stateText === "无法联系" && adv.lastMatch.startsWith("【无法联系】"), JSON.stringify(adv));
+const named = L.parseResponse({ status: "200", state: "5", data: [{ ftime: "2026-10-11 09:00:00", context: "已放入驿站", status: "投柜或驿站", statusCode: "501" }] });
+check("item status name preferred", named.ok && named.stateText === "投柜或驿站");
+const codeOnly = L.parseResponse({ status: "200", state: "3", data: [{ ftime: "2026-10-11 09:00:00", context: "签收", statusCode: "303" }] });
+check("item statusCode used when no name", codeOnly.ok && codeOnly.stateText === "代签");
+check("unknown sub-code falls back to its group; 100x -> 在途", L.parseResponse({ status: "200", state: "299", data: [] }).stateText === "疑难" && L.parseResponse({ status: "200", state: "1009", data: [] }).stateText === "在途");
 console.log(`\n${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);

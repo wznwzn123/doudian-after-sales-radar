@@ -19,10 +19,25 @@ export const CARRIER_CODES: Record<string, string> = {
 // 快递100 要求这些公司带收/寄件人电话
 export const PHONE_REQUIRED = new Set(["shunfeng", "zhongtong"]);
 
+// 基本状态 + 高级状态（resultv2=4 时 state / statusCode 可能是细分码，例如 206 无法联系）。官方文档原文名称
 export const STATE_TEXT: Record<string, string> = {
   "0": "在途", "1": "揽收", "2": "疑难", "3": "签收", "4": "退签", "5": "派件", "6": "退回", "7": "转投",
   "8": "清关", "10": "待清关", "11": "清关中", "12": "已清关", "13": "清关异常", "14": "拒签",
+  "101": "已下单", "102": "待揽收", "103": "已揽收",
+  "1001": "到达派件城市", "1002": "干线", "1003": "转递",
+  "501": "投柜或驿站",
+  "301": "本人签收", "302": "派件异常后签收", "303": "代签", "304": "投柜或站签收",
+  "401": "已销单",
+  "201": "超时未签收", "202": "超时未更新", "203": "拒收", "204": "派件异常", "205": "柜或驿站超时未取",
+  "206": "无法联系", "207": "超区", "208": "滞留", "209": "破损", "210": "销单",
 };
+// 细分码归到大类（只在没有名称时兜底）
+function stateName(code: string): string {
+  if (STATE_TEXT[code]) return STATE_TEXT[code];
+  if (/^100\d$/.test(code)) return STATE_TEXT["0"];
+  if (/^\d{3}$/.test(code)) return STATE_TEXT[code[0]] || "";
+  return "";
+}
 
 // 账号/配置类错误（不是这个单号的问题）
 export const CONFIG_ERRORS = new Set(["503", "601", "501", "502"]);
@@ -73,10 +88,11 @@ export function parseResponse(j: any): Parsed {
   }
   if (String(j.status) !== "200" || !Array.isArray(j.data)) return { ok: false, code: String(j.status ?? "unknown"), message: "快递100 返回错误：" + (j.message || "未知") };
   const state = String(j.state ?? "");
-  const stateText = STATE_TEXT[state] || "未知状态";
   const items = j.data as any[];
   // 默认 order=desc，最新在前；保险起见按时间取最大
   const latest = items.reduce((a: any, b: any) => (!a || String(b.ftime || b.time) > String(a.ftime || a.time) ? b : a), null);
+  // 优先用最新一条轨迹自带的中文状态名，其次按状态码查表
+  const stateText = (latest && String(latest.status || "").trim()) || stateName(String(latest?.statusCode ?? "")) || stateName(state) || "未知状态";
   const l = latest ? { time: String(latest.ftime || latest.time || ""), context: String(latest.context || "") } : null;
   const lastMatch = "【" + stateText + "】" + (l ? l.time + " " + l.context : "暂无物流轨迹") + "（快递100）";
   return { ok: true, state, stateText, signed: String(j.ischeck) === "1", latest: l, count: items.length, lastMatch };

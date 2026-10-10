@@ -255,6 +255,10 @@ async function run(browser, htmlPath) {
     check("6.8 auto: 顺丰 (needs phone) -> no auto query", (await fnCalls()) === 1);
     await page.evaluate("closeDrawer(); openTask('t3')"); await page.waitForTimeout(300);
     check("6.8 auto: already 签收 -> no auto query", (await fnCalls()) === 1);
+    await page.evaluate(() => { const r = window.__db.tracking_records.find((x) => x.id === "k3"); r.last_match = "【本人签收】2026-10-09 已签收（快递100）"; });
+    await page.evaluate("closeDrawer(); delete detailCache.t3; openTask('t3')"); await page.waitForTimeout(300);
+    check("6.14 auto: advanced signed state (本人签收) -> no auto query", (await fnCalls()) === 1);
+    await page.evaluate(() => { const r = window.__db.tracking_records.find((x) => x.id === "k3"); r.last_match = "【签收】2026-10-09 已签收（快递100）"; });
     // closing the drawer before the answer arrives: nothing re-opens
     await page.evaluate(() => { window.__db.tracking_records.find((x) => x.id === "k3").last_match = ""; window.__db.tracking_records.find((x) => x.id === "k3").carrier = "韵达"; });
     await page.evaluate("closeDrawer(); openTask('t3')"); await page.waitForTimeout(50);
@@ -487,7 +491,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.13.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.14.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
