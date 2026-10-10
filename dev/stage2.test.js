@@ -202,6 +202,9 @@ async function run(browser, htmlPath) {
     await page.fill("#me_reason", ""); await page.fill("#me_extra", ""); await page.fill("#me_video", "");
     await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(200);
     check("6.6/6.9 evidence: all empty -> rejected, no write", (await toastText()).includes("至少填写一项") && (await writes(page)).length === 0);
+    await page.fill("#me_reason", "e1"); await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(200);
+    check("6.9.1 evidence: nothing changed -> not saved, explains why, no write", (await toastText()).includes("内容没有变化") && (await writes(page)).length === 0 && !(await page.evaluate("document.querySelector('#modal').classList.contains('hidden')")));
+    await page.fill("#me_reason", "");
     const before = await page.evaluate("({...window.__db.after_sales_tasks.find(t=>t.id==='t1')})");
     await page.fill("#me_reason", "买家签收后申请仅退款"); await page.fill("#me_extra", "买家又说少件"); await page.fill("#me_video", "https://pan.test/v1");
     await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(300);
@@ -391,7 +394,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.9.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.9.1") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
