@@ -154,119 +154,68 @@ async function run(browser, htmlPath) {
     const trk = (tid) => page.evaluate((t) => window.__db.tracking_records.filter((r) => r.task_id === t), tid);
     const tw = async () => (await writes(page)).filter((x) => x.table === "tracking_records");
     await page.evaluate("openTask('t1')"); await page.waitForTimeout(200);
-    check("6.6 detail: 录入举证内容 button", (await page.evaluate("[...document.querySelectorAll('#detail button')].map(b=>b.textContent)")).includes("录入举证内容"));
-    // existing record -> form prefilled, save goes through update (no upsert, no duplicate)
-    await page.evaluate("tracking('t1')"); await page.waitForTimeout(200);
-    check("6.6 tracking: form prefilled from task + record", (await page.inputValue("#tk_no")) === "SF1" && (await page.inputValue("#tk_carrier")) === "顺丰" && (await page.inputValue("#tk_match")) === "已签收匹配" && (await page.isChecked("#tk_mon")));
-    check("6.6 tracking: no prompt() used", !(await page.evaluate("document.querySelector('#modal').classList.contains('hidden')")));
-    await page.fill("#tk_no", " SF 2002 "); await page.selectOption("#tk_carrier", "中通"); await page.fill("#tk_match", "10-10 已到上海转运中心");
-    await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(300);
-    let w = await tw(); let rows = await trk("t1");
-    check("6.6 tracking: existing record -> update by id, no upsert/insert", w.length === 1 && w[0].op === "update" && JSON.stringify(w[0].filters) === '[["id","k1"]]' && !w.some((x) => x.op === "upsert"), JSON.stringify(w));
-    check("6.6 tracking: record holds number (spaces stripped), carrier, status", rows.length === 1 && rows[0].tracking_no === "SF2002" && rows[0].carrier === "中通" && rows[0].last_match === "10-10 已到上海转运中心" && rows[0].monitoring === true, JSON.stringify(rows));
-    const tk = await page.evaluate("window.__db.after_sales_tasks.find(t=>t.id==='t1')");
-    check("6.6 tracking: task tracking_no/monitoring updated", tk.tracking_no === "SF2002" && tk.monitoring === true);
-    check("6.6 tracking: tracking_updated event", (await page.evaluate("window.__db.after_sales_events.map(e=>e.task_id+':'+e.event_type+':'+e.message)")).some((e) => e.startsWith("t1:tracking_updated:") && e.includes("SF2002")));
-    check("6.6 tracking: detail card shows the new status", (await text(page, "#detail")).includes("10-10 已到上海转运中心"));
-    check("6.7.1 top card follows the saved status", (await text(page, "#logistics_now")) === "10-10 已到上海转运中心");
-    await page.evaluate("openTask('t2')"); await page.waitForTimeout(200);
-    check("6.7.1 top card: no number + no record -> no logistics line", !(await text(page, "#detail .card")).includes("物流状态"));
-    await page.evaluate("openTask('t1')"); await page.waitForTimeout(200);
-    // no record yet -> first save inserts (with empty last_match, never null), second save updates the same row
-    await page.evaluate("window.__writes.length=0");
-    await page.evaluate("tracking('t2')"); await page.waitForTimeout(200);
-    check("6.6 tracking: empty form for task without number", (await page.inputValue("#tk_no")) === "");
-    await page.fill("#tk_no", "ab"); await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(200);
-    check("6.6 tracking: invalid number rejected, nothing written", (await toastText()).includes("正确的快递单号") && (await writes(page)).length === 0);
-    await page.fill("#tk_no", "YT123456789"); await page.selectOption("#tk_carrier", "圆通"); await page.uncheck("#tk_mon");
-    await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(300);
-    w = await tw(); rows = await trk("t2");
-    check("6.6 tracking: no record -> insert (not upsert)", w.length === 1 && w[0].op === "insert" && w[0].payload.user_id === "u1" && w[0].payload.task_id === "t2", JSON.stringify(w));
-    check("6.6 tracking: empty status saved as '' (column is NOT NULL)", rows.length === 1 && rows[0].last_match === "" && rows[0].monitoring === false, JSON.stringify(rows));
-    check("6.6 tracking: success toast", (await toastText()).includes("快递盯单已保存"));
-    await page.evaluate("tracking('t2')"); await page.waitForTimeout(200);
-    check("6.6 tracking: reopen shows saved values", (await page.inputValue("#tk_no")) === "YT123456789" && (await page.inputValue("#tk_carrier")) === "圆通" && !(await page.isChecked("#tk_mon")));
-    await page.check("#tk_mon"); await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(300);
-    w = await tw(); rows = await trk("t2");
-    check("6.6 tracking: second save -> update, still one row", w.length === 2 && w[1].op === "update" && rows.length === 1 && rows[0].monitoring === true, JSON.stringify(w));
-    // createTask with a number writes a tracking record
+    check("6.6/6.9 detail: 录入举证内容 button", (await page.evaluate("[...document.querySelectorAll('#detail button')].map(b=>b.textContent)")).includes("录入举证内容"));
+    // 6.9: 快递盯单 dialog removed; number + carrier live in the new-task and edit forms
+    const btns = await page.evaluate("[...document.querySelectorAll('#detail button')].map(b=>b.textContent)");
+    check("6.9 detail: no 快递盯单 button, no 快递监控记录 card", !btns.includes("快递盯单") && !(await text(page, "#detail")).includes("快递监控记录"), JSON.stringify(btns));
+    check("6.9 detail: top card shows the logistics status", (await text(page, "#logistics_now")) === "已签收匹配");
+    check("6.9 edit form: carrier select prefilled from record", (await page.inputValue("#f_carrier")) === "顺丰");
+    check("6.9 home: no 盯单中 stat/chip", !(await page.evaluate("!!document.getElementById('monitoring')")) && !(await page.evaluate("[...document.querySelectorAll('.chip')].some(c=>c.textContent==='盯单中')")));
+    let w, rows;
+    // new task: number + carrier -> one record with carrier
     await page.evaluate("window.__writes.length=0; closeDrawer()");
     await page.evaluate("newTask()"); await page.waitForTimeout(150);
-    await page.fill("#to", "ORD-NEW"); await page.fill("#tt", "JT0001234567");
+    check("6.9 new task: carrier select present, empty by default", (await page.inputValue("#tc")) === "");
+    await page.fill("#to", "ORD-NEW"); await page.fill("#tt", "JT0001234567"); await page.selectOption("#tc", "极兔");
     await page.evaluate("createTask()"); await page.waitForTimeout(400);
     const nt = await page.evaluate("window.__db.after_sales_tasks.find(t=>t.order_id==='ORD-NEW')");
     rows = nt ? await trk(nt.id) : [];
-    check("6.6 createTask: number -> tracking record inserted", nt && rows.length === 1 && rows[0].tracking_no === "JT0001234567" && rows[0].monitoring === true && rows[0].user_id === "u1", JSON.stringify(rows));
+    check("6.9 createTask: number + carrier -> record inserted", nt && rows.length === 1 && rows[0].tracking_no === "JT0001234567" && rows[0].carrier === "极兔" && rows[0].last_match === undefined && rows[0].user_id === "u1", JSON.stringify(rows));
+    check("6.9 createTask: opened task says it will auto-query", (await text(page, "#detail .card")).includes("打开售后时会自动向快递100 查询"));
     await page.evaluate("closeDrawer(); newTask()"); await page.waitForTimeout(150);
     await page.fill("#to", "ORD-NONO"); await page.evaluate("createTask()"); await page.waitForTimeout(400);
     const nn = await page.evaluate("window.__db.after_sales_tasks.find(t=>t.order_id==='ORD-NONO')");
-    check("6.6 createTask: no number -> no tracking record", nn && (await trk(nn.id)).length === 0);
-    // saveTask: changing the number syncs the record; unchanged number does not touch it
+    check("6.9 createTask: no number -> no tracking record", nn && (await trk(nn.id)).length === 0);
+    // edit form: unchanged -> untouched; set number + carrier on a task without record -> insert; change carrier -> update
     await page.evaluate("window.__writes.length=0; openTask('t2')"); await page.waitForTimeout(200);
     await page.click('button:text-is("保存到云端")'); await page.waitForTimeout(250);
-    check("6.6 saveTask: unchanged number -> tracking_records untouched", (await tw()).length === 0);
+    check("6.9 saveTask: no number -> tracking_records untouched", (await tw()).length === 0);
+    check("6.9 detail: no number -> no logistics line", !(await text(page, "#detail .card")).includes("物流状态"));
     await page.fill("#f_track", "YT999999999"); await page.click('button:text-is("保存到云端")'); await page.waitForTimeout(300);
     w = await tw(); rows = await trk("t2");
-    check("6.6 saveTask: changed number -> record updated, no duplicate", w.length === 1 && w[0].op === "update" && rows.length === 1 && rows[0].tracking_no === "YT999999999", JSON.stringify(w));
+    check("6.9 saveTask: new number, no carrier -> record inserted, asks for carrier", w.length === 1 && w[0].op === "insert" && rows.length === 1 && rows[0].tracking_no === "YT999999999" && rows[0].carrier === "" && (await text(page, "#detail .card")).includes("请在下方「售后信息」里选择承运商"), JSON.stringify(w));
+    await page.selectOption("#f_carrier", "圆通"); await page.click('button:text-is("保存到云端")'); await page.waitForTimeout(300);
+    w = await tw(); rows = await trk("t2");
+    check("6.9 saveTask: carrier change -> same record updated, no duplicate", w.length === 2 && w[1].op === "update" && rows.length === 1 && rows[0].carrier === "圆通" && rows[0].tracking_no === "YT999999999", JSON.stringify(w));
+    await page.click('button:text-is("保存到云端")'); await page.waitForTimeout(300);
+    check("6.9 saveTask: nothing changed -> no tracking write", (await tw()).length === 2);
+    await page.fill("#f_track", "YT888888888"); await page.click('button:text-is("保存到云端")'); await page.waitForTimeout(300);
+    rows = await trk("t2");
+    check("6.9 saveTask: number change resets old status, keeps carrier", rows.length === 1 && rows[0].tracking_no === "YT888888888" && rows[0].carrier === "圆通" && rows[0].last_match === "", JSON.stringify(rows));
+    await page.evaluate("openTask('t1')"); await page.waitForTimeout(200);
+    await page.selectOption("#f_carrier", "中通"); await page.click('button:text-is("保存到云端")'); await page.waitForTimeout(300);
+    check("6.9 detail: 中通 -> explains phone needed, no auto query", (await text(page, "#detail .card")).includes("中通查询需要收/寄件人手机号后四位"));
     // manual evidence: saves text + event, never changes status or submits
     await page.evaluate("window.__writes.length=0; openTask('t1')"); await page.waitForTimeout(200);
     await page.click('#detail button:text-is("录入举证内容")'); await page.waitForTimeout(150);
-    check("6.6 evidence: reason prefilled", (await page.inputValue("#me_reason")) === "e1");
+    check("6.6/6.9 evidence: reason prefilled", (await page.inputValue("#me_reason")) === "e1");
     await page.fill("#me_reason", ""); await page.fill("#me_extra", ""); await page.fill("#me_video", "");
     await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(200);
-    check("6.6 evidence: all empty -> rejected, no write", (await toastText()).includes("至少填写一项") && (await writes(page)).length === 0);
+    check("6.6/6.9 evidence: all empty -> rejected, no write", (await toastText()).includes("至少填写一项") && (await writes(page)).length === 0);
     const before = await page.evaluate("({...window.__db.after_sales_tasks.find(t=>t.id==='t1')})");
     await page.fill("#me_reason", "买家签收后申请仅退款"); await page.fill("#me_extra", "买家又说少件"); await page.fill("#me_video", "https://pan.test/v1");
     await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(300);
     w = (await writes(page)).filter((x) => x.table === "after_sales_tasks");
     const after = await page.evaluate("window.__db.after_sales_tasks.find(t=>t.id==='t1')");
-    check("6.6 evidence: text saved with stamped 补充/视频 sections", after.evidence_reason.startsWith("买家签收后申请仅退款") && /【补充 [^】]+】买家又说少件/.test(after.evidence_reason) && /【视频 [^】]+】https:\/\/pan\.test\/v1/.test(after.evidence_reason), after.evidence_reason);
-    check("6.6 evidence: only evidence_reason/updated_at written (no auto-submit)", w.length === 1 && Object.keys(w[0].payload).sort().join() === "evidence_reason,updated_at", JSON.stringify(w));
-    check("6.6 evidence: status/submission unchanged", after.status === before.status && after.submission_status === before.submission_status);
-    check("6.6 evidence: evidence_manual event", (await page.evaluate("window.__db.after_sales_events.filter(e=>e.task_id==='t1').map(e=>e.event_type+':'+e.message)")).some((e) => e.startsWith("evidence_manual:") && e.includes("补充说明") && e.includes("视频说明")));
-    check("6.6 evidence: drawer field shows saved text", (await page.inputValue("#f_evidence")) === after.evidence_reason);
+    check("6.6/6.9 evidence: text saved with stamped 补充/视频 sections", after.evidence_reason.startsWith("买家签收后申请仅退款") && /【补充 [^】]+】买家又说少件/.test(after.evidence_reason) && /【视频 [^】]+】https:\/\/pan\.test\/v1/.test(after.evidence_reason), after.evidence_reason);
+    check("6.6/6.9 evidence: only evidence_reason/updated_at written (no auto-submit)", w.length === 1 && Object.keys(w[0].payload).sort().join() === "evidence_reason,updated_at", JSON.stringify(w));
+    check("6.6/6.9 evidence: status/submission unchanged", after.status === before.status && after.submission_status === before.submission_status);
+    check("6.6/6.9 evidence: evidence_manual event", (await page.evaluate("window.__db.after_sales_events.filter(e=>e.task_id==='t1').map(e=>e.event_type+':'+e.message)")).some((e) => e.startsWith("evidence_manual:") && e.includes("补充说明") && e.includes("视频说明")));
+    check("6.6/6.9 evidence: drawer field shows saved text", (await page.inputValue("#f_evidence")) === after.evidence_reason);
     await page.click('#detail button:text-is("录入举证内容")'); await page.waitForTimeout(150);
     await page.evaluate("pickEvidence('video')");
-    check("6.6 evidence: 选择视频上传 opens a video picker", (await page.evaluate("window.__clicked")).pop().accept === "video/*");
-    check("6.6 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
-    await ctx.close();
-  }
-
-  // ---- 6.7: 快递100 query button (Edge Function is stubbed; NOT a real 快递100 call)
-  {
-    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
-    const toastText = () => text(page, "#toast");
-    await page.evaluate("openTask('t1')"); await page.waitForTimeout(200);
-    await page.evaluate("tracking('t1')"); await page.waitForTimeout(200);
-    check("6.7 tracking: phone field + 快递100 button", (await page.$("#tk_phone")) && (await text(page, "#tk_query")) === "用快递100查询物流");
-    await page.fill("#tk_no", "SF9999999");
-    await page.click("#tk_query"); await page.waitForTimeout(150);
-    check("6.7 query: unsaved number -> asks to save first, no call", (await toastText()).includes("请先点「保存」") && !(await page.evaluate("window.__fn")));
-    await page.fill("#tk_no", "SF1"); await page.selectOption("#tk_carrier", "中通");
-    await page.click("#tk_query"); await page.waitForTimeout(150);
-    check("6.7 query: unsaved carrier -> asks to save first", (await toastText()).includes("请先点「保存」") && !(await page.evaluate("window.__fn")));
-    await page.selectOption("#tk_carrier", "顺丰"); await page.fill("#tk_phone", "12");
-    await page.click("#tk_query"); await page.waitForTimeout(150);
-    check("6.7 query: bad phone rejected locally", (await toastText()).includes("后四位") && !(await page.evaluate("window.__fn")));
-    // server error (FunctionsHttpError: message lives in error.context JSON)
-    await page.evaluate(() => { window.__fnReply = () => ({ data: null, error: { message: "Edge Function returned a non-2xx status code", context: { json: async () => ({ ok: false, code: "need_phone", message: "顺丰、中通需要填写收件人或寄件人手机号后四位" }) } } }); });
-    await page.fill("#tk_phone", "");
-    await page.click("#tk_query"); await page.waitForTimeout(200);
-    check("6.7 query: server error message shown, button re-enabled", (await toastText()).includes("手机号后四位") && !(await page.evaluate("document.querySelector('#tk_query').disabled")) && (await text(page, "#tk_query")) === "用快递100查询物流");
-    // function not deployed / network error without JSON context
-    await page.evaluate(() => { window.__fnReply = () => ({ data: null, error: { message: "Failed to send a request to the Edge Function", context: {} } }); });
-    await page.click("#tk_query"); await page.waitForTimeout(200);
-    check("6.7 query: no JSON context -> friendly fallback", (await toastText()).includes("查询服务暂时不可用"));
-    // success: the (stubbed) function writes the record like the real one does; page refreshes and shows it
-    await page.evaluate(() => { window.__fnReply = (name, opts) => { const r = window.__db.tracking_records.find((x) => x.task_id === opts.body.task_id); r.last_match = "【在途】2026-10-10 14:20:00 已到达上海转运中心（快递100）"; return { data: { ok: true, state_text: "在途", latest: { time: "2026-10-10 14:20:00", context: "已到达上海转运中心" }, last_match: r.last_match }, error: null }; }; });
-    await page.fill("#tk_phone", "1234");
-    await page.click("#tk_query"); await page.waitForTimeout(400);
-    const fn = await page.evaluate("window.__fn.pop()");
-    check("6.7 query: invokes kuaidi100-query with task_id + phone only", fn.name === "kuaidi100-query" && JSON.stringify(fn.opts.body) === JSON.stringify({ task_id: "t1", phone: "1234" }), JSON.stringify(fn));
-    check("6.7 query: success toast + modal closed", (await toastText()).includes("物流已更新：在途") && (await page.evaluate("document.querySelector('#modal').classList.contains('hidden')")));
-    check("6.7 query: detail shows the fetched status", (await text(page, "#detail")).includes("已到达上海转运中心（快递100）"));
-    check("6.7.1 top card shows the 快递100 result", (await text(page, "#logistics_now")).includes("已到达上海转运中心（快递100）"));
-    check("6.7 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    check("6.6/6.9 evidence: 选择视频上传 opens a video picker", (await page.evaluate("window.__clicked")).pop().accept === "video/*");
+    check("6.6/6.9 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
 
@@ -293,7 +242,7 @@ async function run(browser, htmlPath) {
     check("6.8 auto: shows 'querying' note meanwhile", (await text(page, "#logistics_note")).includes("正在向快递100"));
     await page.fill("#f_buyer", "正在编辑的买家");
     await page.waitForTimeout(700);
-    check("6.8 auto: top card updated in place", (await text(page, "#logistics_now")).includes("已到达上海转运中心（快递100）") && (await text(page, "#tracking_card")).includes("已到达上海转运中心"));
+    check("6.8 auto: top card updated in place", (await text(page, "#logistics_now")).includes("已到达上海转运中心（快递100）"));
     check("6.8 auto: unsaved edits in the form are NOT wiped", (await page.inputValue("#f_buyer")) === "正在编辑的买家");
     check("6.8 auto: note cleared after success", (await text(page, "#logistics_note")) === "");
     await page.evaluate("closeDrawer(); openTask('t1')"); await page.waitForTimeout(600);
@@ -349,8 +298,6 @@ async function run(browser, htmlPath) {
   check("quick: 仲裁中 -> ORD2", (await text(page, "#tasklist")).includes("ORD2") && (await count()) === "1 条");
   await page.click('.chip:text-is("今日完成")');
   check("quick: 今日完成 -> ORD3", (await text(page, "#tasklist")).includes("ORD3") && (await count()) === "1 条");
-  await page.click('.chip:text-is("盯单中")');
-  check("quick: 盯单中 -> ORD1", (await text(page, "#tasklist")).includes("ORD1") && (await count()) === "1 条");
   await page.click('.chip:text-is("全部")');
   check("quick: 全部 -> 3", (await count()) === "3 条");
   // ---- open task: edit form, tracking card, evidence rows
@@ -360,8 +307,7 @@ async function run(browser, htmlPath) {
   check("detail: status/risk/type selects selected", (await page.inputValue("#f_status")) === "待举证" && (await page.inputValue("#f_risk")) === "高风险" && (await page.inputValue("#f_type")) === "仅退款");
   check("detail: deadline field filled (datetime-local)", /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(await page.inputValue("#f_deadline")));
   check("detail: rejection count pill", d.includes("拒绝协商 1 次"));
-  check("6.7.1 detail: current logistics status in the top card", (await text(page, "#detail .card")).includes("物流状态") && (await text(page, "#logistics_now")) === "已签收匹配" && (await text(page, "#detail .card")).includes("顺丰 · 盯单中 · 更新于"));
-  check("detail: 快递监控记录 with last_match", d.includes("快递监控记录") && d.includes("已签收匹配") && d.includes("顺丰"), d.slice(0, 200));
+  check("6.7.1 detail: current logistics status in the top card", (await text(page, "#detail .card")).includes("物流状态") && (await text(page, "#logistics_now")) === "已签收匹配" && (await text(page, "#detail .card")).includes("顺丰 · 更新于"));
   const btns = await page.evaluate("[...document.querySelectorAll('#detail .file button')].map(b=>b.textContent)");
   check("detail: image has 预览; library-linked shows 取消引用", btns.includes("预览") && btns.includes("取消引用") && btns.includes("移除"), JSON.stringify(btns));
   // ---- saveTask
@@ -445,7 +391,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.8.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.9.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
