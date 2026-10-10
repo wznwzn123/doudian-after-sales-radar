@@ -353,6 +353,31 @@ async function run(browser, htmlPath) {
     check("6.12 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+
+  // ---- 6.13: 顺丰/中通 one-off query with phone last-4 (not stored; Edge Function stubbed)
+  {
+    const db = seed(); db.tracking_records[0].last_match = "";
+    const { ctx, page } = await open(browser, htmlPath, { db });
+    await page.evaluate("openTask('t1')"); await page.waitForTimeout(300);
+    check("6.13 顺丰: phone box + 查询 button shown", !!(await page.$("#lg_phone")) && (await text(page, "#lg_query")) === "查询" && (await text(page, "#detail .card")).includes("顺丰查询需要收/寄件人手机号后四位"));
+    check("6.13 顺丰: no auto query on open", !(await page.evaluate("window.__fn")));
+    await page.fill("#lg_phone", "12"); await page.click("#lg_query"); await page.waitForTimeout(100);
+    check("6.13 bad phone -> local error, no call", (await text(page, "#toast")).includes("4 位数字") && !(await page.evaluate("window.__fn")));
+    await page.evaluate(() => { window.__fnReply = () => ({ data: null, error: { message: "non-2xx", context: { json: async () => ({ ok: false, code: "kuaidi100_408", message: "电话号码校验未通过，请核对收/寄件人手机号后四位" }) } } }); });
+    await page.fill("#lg_phone", "9999"); await page.click("#lg_query"); await page.waitForTimeout(200);
+    check("6.13 server error -> shown under the status, button re-enabled", (await text(page, "#logistics_note")).includes("电话号码校验未通过") && (await text(page, "#lg_query")) === "查询" && !(await page.evaluate("document.getElementById('lg_query').disabled")));
+    await page.evaluate(() => { window.__fnReply = (n, o) => { const r = window.__db.tracking_records.find((x) => x.task_id === o.body.task_id); r.last_match = "【派件】2026-10-11 09:00 快递员正在派件（快递100）"; return { data: { ok: true, state_text: "派件", latest: { context: "快递员正在派件" } }, error: null }; }; });
+    await page.fill("#lg_phone", "1234"); await page.click("#lg_query"); await page.waitForTimeout(300);
+    const fn = await page.evaluate("window.__fn.pop()");
+    check("6.13 query sends task_id + phone only", fn.name === "kuaidi100-query" && JSON.stringify(fn.opts.body) === JSON.stringify({ task_id: "t1", phone: "1234" }), JSON.stringify(fn));
+    check("6.13 success -> status updated in place + toast", (await text(page, "#logistics_now")).includes("快递员正在派件") && (await text(page, "#toast")).includes("物流已更新：派件"));
+    check("6.13 phone not stored anywhere", !(await page.evaluate("JSON.stringify(window.__db).includes('1234')")) && !(await page.evaluate("window.__writes.some(w=>JSON.stringify(w.payload||{}).includes('1234'))")));
+    await page.evaluate("closeDrawer()"); await page.waitForTimeout(100);
+    await page.evaluate("window.__db.tracking_records[0].carrier='圆通'; delete detailCache.t1; openTask('t1')"); await page.waitForTimeout(300);
+    check("6.13 other carriers: no phone box", !(await page.$("#lg_phone")));
+    check("6.13 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
   const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [
     { id: "u1", email: "a@x.com", last_sign_in_at: new Date().toISOString() },
     { id: "u2", email: "old@x.com", last_sign_in_at: "2026-01-01T00:00:00Z" }] });
@@ -462,7 +487,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.12.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.13.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
