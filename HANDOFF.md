@@ -16,7 +16,7 @@
 - 管理员权限必须在服务端校验，不能只在前端隐藏按钮。
 
 ## 当前线上状态
-- 已推送到 main 的最新版是 **Pro 6.5**（`APP_VERSION="6.5.0"`）。
+- 已推送到 main 的最新版是 **Pro 6.6**（`APP_VERSION="6.6.0"`）。
 - 6.2/6.3：设备检查三条入口统一走 `enterApp()`、失败即拒绝、账号封禁、设备/账号管理页。
 - 6.4：管理后台补回总览、管理员管理、店铺、资料库、举证、日志、设置、搜索；修复「用户」列 `owner_email`→`email`。
 - 6.5：夜间模式、导出 JSON、工作台设置、在线用户面板、快速筛选、售后详情可编辑、拒绝协商（3 小时倒计时）、快递监控记录展示、预览、分类上传、资料库删除/取消引用、店铺改名/停用/搜索、Realtime、到期兜底处理。
@@ -31,7 +31,8 @@
 - Supabase 安全检查剩下的提示是有意的或无法处理：`admin_*` 等 SECURITY DEFINER 函数「登录用户可执行」（函数内部都校验管理员）；6 张安全表「有 RLS 无策略」（即普通用户完全不可访问）；泄露密码保护需要 Pro 套餐，免费版不可开。
 
 ## 未完成的任务
-### 1) 6.6：快递单号手动录入 + 手动举证录入（补丁已写好，**尚未应用、尚未测试、尚未上线**）
+### 1) 6.6：快递单号手动录入 + 手动举证录入 —— **已完成**：补丁已应用、测试通过、已推送 main（以下保留作记录）
+- 应用时修了补丁里的一个问题：`tracking_records.last_match` 实际是 `NOT NULL DEFAULT ''`，原补丁留空时写 `null` 会被数据库拒绝，已改为写空字符串。`dev/stage2.test.js` 的假数据库现在模拟了这条约束，以及 `upsert(onConflict:"task_id")` 在真实表上会报错。
 - 补丁脚本：`dev/patch5_tracking_manual_evidence.py`（用法：`python3 dev/patch5_tracking_manual_evidence.py index.html`，基于 6.5 的 index.html；每处替换都断言恰好匹配一次）。
 - 它做的事：
   - 用表单弹窗替换原来基于 `prompt()` 的 `tracking(id)`：单号、承运商、持续盯单开关、手动记录最近物流状态（写入 `tracking_records.last_match`）。
@@ -51,7 +52,7 @@
 ## 测试
 - 测试用真实的 `index.html` 在 Playwright Chromium 里跑，只把 Supabase 客户端换成桩（`dev/gate.test.js` 管登录/设备/账号/管理后台；`dev/stage2.test.js` 带一个内存假数据库，管 6.5 之后的用户端功能）。**这不是对真实数据库的测试**，不能当成线上已验证。
 - 运行：`NODE_PATH=<含 playwright 的 node_modules> node dev/gate.test.js <新index.html> <旧index.html>`；旧版本用 `git show 667a0d7~1:index.html > old.html`（6.1，用来复现旧漏洞，期望其中 7 项失败）。`node dev/stage2.test.js <index.html>` 期望全部通过。
-- Playwright 在这台机器的位置是 `/opt/npm-tools/node_modules`，换环境需要自行安装。
+- Playwright 的位置因环境而异（见过 `/opt/npm-tools/node_modules` 和 `/opt/node-tools/node_modules`），换环境需要自行查找或安装。
 - 在无头 Chromium 里，下载文件名含中文会被改成 `download`，所以导出备份的文件名用英文。
 
 ## 已知限制（别当成 bug 重复修）

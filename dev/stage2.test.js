@@ -19,10 +19,15 @@ const STUB = `
     if(st.maybe){return{data:out[0]||null,error:null}}
     return{data:st.opts.head?null:out,error:null,count:out.length};
    }
+   if(st.op==='insert'&&table==='tracking_records'){const list=Array.isArray(st.payload)?st.payload:[st.payload];if(list.some(p=>p.last_match===null))return{data:null,error:{message:'null value in column "last_match" violates not-null constraint'}}}
    if(st.op==='insert'){const list=Array.isArray(st.payload)?st.payload:[st.payload];const ins=list.map(p=>({id:uid(),created_at:new Date().toISOString(),...p}));ins.forEach(r=>rows.push(r));window.__writes.push({table,op:'insert',payload:st.payload});return st.single?{data:ins[0],error:null}:{data:ins,error:null}}
+   if(st.op==='update'&&table==='tracking_records'&&st.payload.last_match===null)return{data:null,error:{message:'null value in column "last_match" violates not-null constraint'}};
    if(st.op==='update'){const hit=rows.filter(match);hit.forEach(r=>Object.assign(r,st.payload));window.__writes.push({table,op:'update',payload:st.payload,filters:st.filters,hit:hit.length});return{data:st.ret?hit.map(r=>({...r})):null,error:null}}
    if(st.op==='delete'){const keep=rows.filter(r=>!match(r));const n=rows.length-keep.length;window.__db[table]=keep;window.__writes.push({table,op:'delete',filters:st.filters,n});return{data:null,error:null}}
-   if(st.op==='upsert'){window.__writes.push({table,op:'upsert',payload:st.payload});return{data:null,error:null}}
+   if(st.op==='upsert'){window.__writes.push({table,op:'upsert',payload:st.payload});
+    // real tracking_records has no unique constraint on task_id -> Postgres rejects ON CONFLICT (task_id)
+    if(table==='tracking_records'&&st.opts.onConflict==='task_id')return{data:null,error:{message:'there is no unique or exclusion constraint matching the ON CONFLICT specification'}};
+    return{data:null,error:null}}
   };
   const b=new Proxy({}, {get(_,p){
    if(p==='then')return(res,rej)=>run().then(res,rej);
@@ -35,7 +40,7 @@ const STUB = `
     case 'insert':st.op='insert';st.payload=a[0];break;
     case 'update':st.op='update';st.payload=a[0];break;
     case 'delete':st.op='delete';break;
-    case 'upsert':st.op='upsert';st.payload=a[0];break;
+    case 'upsert':st.op='upsert';st.payload=a[0];st.opts=a[1]||{};break;
    }return b}
   }});
   return b;
@@ -139,6 +144,87 @@ async function run(browser, htmlPath) {
     const r2 = await open(browser, htmlPath, { db: seed(), dark: true });
     check("theme: restored from localStorage on load", await r2.page.evaluate("document.documentElement.classList.contains('dark')"));
     await r2.ctx.close();
+  }
+
+  // ---- 6.6: tracking form + manual evidence (own context so the main flow below is untouched)
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    const toastText = () => text(page, "#toast");
+    const trk = (tid) => page.evaluate((t) => window.__db.tracking_records.filter((r) => r.task_id === t), tid);
+    const tw = async () => (await writes(page)).filter((x) => x.table === "tracking_records");
+    await page.evaluate("openTask('t1')"); await page.waitForTimeout(200);
+    check("6.6 detail: 录入举证内容 button", (await page.evaluate("[...document.querySelectorAll('#detail button')].map(b=>b.textContent)")).includes("录入举证内容"));
+    // existing record -> form prefilled, save goes through update (no upsert, no duplicate)
+    await page.evaluate("tracking('t1')"); await page.waitForTimeout(200);
+    check("6.6 tracking: form prefilled from task + record", (await page.inputValue("#tk_no")) === "SF1" && (await page.inputValue("#tk_carrier")) === "顺丰" && (await page.inputValue("#tk_match")) === "已签收匹配" && (await page.isChecked("#tk_mon")));
+    check("6.6 tracking: no prompt() used", !(await page.evaluate("document.querySelector('#modal').classList.contains('hidden')")));
+    await page.fill("#tk_no", " SF 2002 "); await page.selectOption("#tk_carrier", "中通"); await page.fill("#tk_match", "10-10 已到上海转运中心");
+    await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(300);
+    let w = await tw(); let rows = await trk("t1");
+    check("6.6 tracking: existing record -> update by id, no upsert/insert", w.length === 1 && w[0].op === "update" && JSON.stringify(w[0].filters) === '[["id","k1"]]' && !w.some((x) => x.op === "upsert"), JSON.stringify(w));
+    check("6.6 tracking: record holds number (spaces stripped), carrier, status", rows.length === 1 && rows[0].tracking_no === "SF2002" && rows[0].carrier === "中通" && rows[0].last_match === "10-10 已到上海转运中心" && rows[0].monitoring === true, JSON.stringify(rows));
+    const tk = await page.evaluate("window.__db.after_sales_tasks.find(t=>t.id==='t1')");
+    check("6.6 tracking: task tracking_no/monitoring updated", tk.tracking_no === "SF2002" && tk.monitoring === true);
+    check("6.6 tracking: tracking_updated event", (await page.evaluate("window.__db.after_sales_events.map(e=>e.task_id+':'+e.event_type+':'+e.message)")).some((e) => e.startsWith("t1:tracking_updated:") && e.includes("SF2002")));
+    check("6.6 tracking: detail card shows the new status", (await text(page, "#detail")).includes("10-10 已到上海转运中心"));
+    // no record yet -> first save inserts (with empty last_match, never null), second save updates the same row
+    await page.evaluate("window.__writes.length=0");
+    await page.evaluate("tracking('t2')"); await page.waitForTimeout(200);
+    check("6.6 tracking: empty form for task without number", (await page.inputValue("#tk_no")) === "");
+    await page.fill("#tk_no", "ab"); await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(200);
+    check("6.6 tracking: invalid number rejected, nothing written", (await toastText()).includes("正确的快递单号") && (await writes(page)).length === 0);
+    await page.fill("#tk_no", "YT123456789"); await page.selectOption("#tk_carrier", "圆通"); await page.uncheck("#tk_mon");
+    await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(300);
+    w = await tw(); rows = await trk("t2");
+    check("6.6 tracking: no record -> insert (not upsert)", w.length === 1 && w[0].op === "insert" && w[0].payload.user_id === "u1" && w[0].payload.task_id === "t2", JSON.stringify(w));
+    check("6.6 tracking: empty status saved as '' (column is NOT NULL)", rows.length === 1 && rows[0].last_match === "" && rows[0].monitoring === false, JSON.stringify(rows));
+    check("6.6 tracking: success toast", (await toastText()).includes("快递盯单已保存"));
+    await page.evaluate("tracking('t2')"); await page.waitForTimeout(200);
+    check("6.6 tracking: reopen shows saved values", (await page.inputValue("#tk_no")) === "YT123456789" && (await page.inputValue("#tk_carrier")) === "圆通" && !(await page.isChecked("#tk_mon")));
+    await page.check("#tk_mon"); await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(300);
+    w = await tw(); rows = await trk("t2");
+    check("6.6 tracking: second save -> update, still one row", w.length === 2 && w[1].op === "update" && rows.length === 1 && rows[0].monitoring === true, JSON.stringify(w));
+    // createTask with a number writes a tracking record
+    await page.evaluate("window.__writes.length=0; closeDrawer()");
+    await page.evaluate("newTask()"); await page.waitForTimeout(150);
+    await page.fill("#to", "ORD-NEW"); await page.fill("#tt", "JT0001234567");
+    await page.evaluate("createTask()"); await page.waitForTimeout(400);
+    const nt = await page.evaluate("window.__db.after_sales_tasks.find(t=>t.order_id==='ORD-NEW')");
+    rows = nt ? await trk(nt.id) : [];
+    check("6.6 createTask: number -> tracking record inserted", nt && rows.length === 1 && rows[0].tracking_no === "JT0001234567" && rows[0].monitoring === true && rows[0].user_id === "u1", JSON.stringify(rows));
+    await page.evaluate("closeDrawer(); newTask()"); await page.waitForTimeout(150);
+    await page.fill("#to", "ORD-NONO"); await page.evaluate("createTask()"); await page.waitForTimeout(400);
+    const nn = await page.evaluate("window.__db.after_sales_tasks.find(t=>t.order_id==='ORD-NONO')");
+    check("6.6 createTask: no number -> no tracking record", nn && (await trk(nn.id)).length === 0);
+    // saveTask: changing the number syncs the record; unchanged number does not touch it
+    await page.evaluate("window.__writes.length=0; openTask('t2')"); await page.waitForTimeout(200);
+    await page.click('button:text-is("保存到云端")'); await page.waitForTimeout(250);
+    check("6.6 saveTask: unchanged number -> tracking_records untouched", (await tw()).length === 0);
+    await page.fill("#f_track", "YT999999999"); await page.click('button:text-is("保存到云端")'); await page.waitForTimeout(300);
+    w = await tw(); rows = await trk("t2");
+    check("6.6 saveTask: changed number -> record updated, no duplicate", w.length === 1 && w[0].op === "update" && rows.length === 1 && rows[0].tracking_no === "YT999999999", JSON.stringify(w));
+    // manual evidence: saves text + event, never changes status or submits
+    await page.evaluate("window.__writes.length=0; openTask('t1')"); await page.waitForTimeout(200);
+    await page.click('#detail button:text-is("录入举证内容")'); await page.waitForTimeout(150);
+    check("6.6 evidence: reason prefilled", (await page.inputValue("#me_reason")) === "e1");
+    await page.fill("#me_reason", ""); await page.fill("#me_extra", ""); await page.fill("#me_video", "");
+    await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(200);
+    check("6.6 evidence: all empty -> rejected, no write", (await toastText()).includes("至少填写一项") && (await writes(page)).length === 0);
+    const before = await page.evaluate("({...window.__db.after_sales_tasks.find(t=>t.id==='t1')})");
+    await page.fill("#me_reason", "买家签收后申请仅退款"); await page.fill("#me_extra", "买家又说少件"); await page.fill("#me_video", "https://pan.test/v1");
+    await page.click('#modalbox button:text-is("保存")'); await page.waitForTimeout(300);
+    w = (await writes(page)).filter((x) => x.table === "after_sales_tasks");
+    const after = await page.evaluate("window.__db.after_sales_tasks.find(t=>t.id==='t1')");
+    check("6.6 evidence: text saved with stamped 补充/视频 sections", after.evidence_reason.startsWith("买家签收后申请仅退款") && /【补充 [^】]+】买家又说少件/.test(after.evidence_reason) && /【视频 [^】]+】https:\/\/pan\.test\/v1/.test(after.evidence_reason), after.evidence_reason);
+    check("6.6 evidence: only evidence_reason/updated_at written (no auto-submit)", w.length === 1 && Object.keys(w[0].payload).sort().join() === "evidence_reason,updated_at", JSON.stringify(w));
+    check("6.6 evidence: status/submission unchanged", after.status === before.status && after.submission_status === before.submission_status);
+    check("6.6 evidence: evidence_manual event", (await page.evaluate("window.__db.after_sales_events.filter(e=>e.task_id==='t1').map(e=>e.event_type+':'+e.message)")).some((e) => e.startsWith("evidence_manual:") && e.includes("补充说明") && e.includes("视频说明")));
+    check("6.6 evidence: drawer field shows saved text", (await page.inputValue("#f_evidence")) === after.evidence_reason);
+    await page.click('#detail button:text-is("录入举证内容")'); await page.waitForTimeout(150);
+    await page.evaluate("pickEvidence('video')");
+    check("6.6 evidence: 选择视频上传 opens a video picker", (await page.evaluate("window.__clicked")).pop().accept === "video/*");
+    check("6.6 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
   }
   const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [
     { id: "u1", email: "a@x.com", last_sign_in_at: new Date().toISOString() },
@@ -251,7 +337,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.5.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.6.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
