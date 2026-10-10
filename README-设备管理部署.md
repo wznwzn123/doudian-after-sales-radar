@@ -11,9 +11,9 @@
 - 删除资料库文件时，如果某个售后仍在引用同一个存储文件，文件会保留；移除举证材料同理。
 - 导出备份的文件名是英文 `after-sales-radar-backup-日期.json`，避免部分浏览器把中文文件名改掉。
 
-## 清理调试函数（待你在 SQL Editor 执行）
+## 清理调试函数（已执行，2026-10-10）
 
-`supabase/cleanup_debug_functions.sql`：删除 5 个调试遗留的测试函数。已用只读查询确认它们没有被触发器、其他函数、RLS 策略或前端引用。
+`supabase/cleanup_debug_functions.sql`：删除了 5 个调试遗留的测试函数（手动在 SQL Editor 执行，已用只读查询确认不存在）。执行前已确认它们没有被触发器、其他函数、RLS 策略或前端引用。
 
 ## 这一版做了什么
 
@@ -77,4 +77,5 @@ drop policy account_not_banned_evidence on storage.objects;
 - 设备封禁只在前端（`enterApp`）强制执行；数据表的 RLS 不看设备状态。账号封禁已在数据库层强制，见上面「数据库层加固」。
 - 「不能封自己当前设备」依赖前端传来的 `current_device_id`，作用是防误操作，不是安全边界；没有传这个值时，数据库会拒绝封禁管理员名下的任何设备。
 - 后台「用户」页调用的 `admin_list_users` 只返回管理员账号；要看全部账号请用「账号」页。
-- 调试遗留的测试函数（见上面「清理调试函数」，待执行）；另外 Auth 的「泄露密码保护」未开启（需要在 Supabase 控制台里手动打开）。
+- Auth 的「泄露密码保护」未开启：它需要 Supabase Pro 套餐，免费版无法开启（已尝试，提示 Pro 以上才可用）。
+- Supabase 安全检查对 `admin_*` 等 SECURITY DEFINER 函数的「登录用户可执行」提示是有意为之：这些函数在内部校验管理员身份，匿名用户不可执行。
