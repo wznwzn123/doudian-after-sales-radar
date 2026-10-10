@@ -1,5 +1,5 @@
 -- 售后雷达 Pro 6.18：手机号注册的账号需要管理员审核后才能使用（服务端强制）
--- 状态：待用户在 Supabase SQL Editor 手动执行（整段一次执行即可，可重复执行）。
+-- 状态：已于 2026-10-10 由用户在 SQL Editor 分 3 段执行并核对（1 / 4 / 7）；当时的 revoke 只对 anon、没撤 PUBLIC，已在本文件修正，补丁见 v6_18b_fix_function_grants.sql。
 -- 写之前已用只读查询核对：没有审核相关的表/函数；account_not_banned 限制性策略在 7 张业务表 + storage.objects（after-sales-evidence 桶）上，
 -- 这里用同样的方式加 account_not_pending。客服表 support_messages 不加，待审核的用户以后仍可联系客服。
 --
@@ -67,7 +67,9 @@ as $function$begin
   return jsonb_build_object('ok', true, 'message', '已通过审核');
 end$function$;
 
-revoke execute on function public.is_account_pending(uuid), public.my_account_status(), public.admin_list_pending_phone_users(), public.admin_approve_phone_user(uuid) from anon;
+-- 注意：函数默认对 PUBLIC 开放执行，只 revoke anon 不够；要先 revoke public 再只授权 authenticated（RLS 策略里用到 is_account_pending，authenticated 必须能执行）
+revoke execute on function public.is_account_pending(uuid), public.my_account_status(), public.admin_list_pending_phone_users(), public.admin_approve_phone_user(uuid) from public, anon;
+grant execute on function public.is_account_pending(uuid), public.my_account_status(), public.admin_list_pending_phone_users(), public.admin_approve_phone_user(uuid) to authenticated;
 
 -- ========== 服务端强制：待审核账号读写不了任何业务数据 ==========
 drop policy if exists account_not_pending on public.after_sales_tasks;
