@@ -6,7 +6,8 @@
 --
 -- 这里给业务表和存储桶加「限制性（restrictive）策略」：被封账号（is_user_banned）一律拒绝。
 -- 限制性策略和现有策略是「且」的关系，所以不会放宽任何现有权限；未被封的用户完全不受影响。
--- 回滚：对每张表执行  drop policy account_not_banned on public.<表名>;
+-- 状态：已于 2026-10-10 在生产库执行（手动，Supabase SQL Editor）。
+-- 回滚：对每张表执行  drop policy account_not_banned on public.<表名>;  存储桶：drop policy account_not_banned_evidence on storage.objects;
 --
 -- is_user_banned 判断：security_user_bans 里有 status='blocked' 且未过期的记录。
 -- 管理员的 RPC 函数是 security definer，不受这些策略影响。

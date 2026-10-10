@@ -24,9 +24,23 @@
 
 已核对：这些函数都在内部校验管理员，匿名用户不可执行；`security_devices`、`security_user_bans`、`security_events`、`admin_operation_logs` 开启了 RLS 且没有任何直接权限，登录用户无法直接读写。
 
-**可选的加固（尚未执行）**：`supabase/account_ban_enforcement.sql`。
+**数据库层加固（已执行，2026-10-10）**：`supabase/account_ban_enforcement.sql`。
 
-目前账号封禁只在登录检查里被拦。如果有人绕过前端、直接调用接口，被封账号仍然能读写自己名下的数据。这个文件给业务表和证据存储桶加「限制性策略」，让被封账号在数据库层面也读写不了。它只会拒绝被封账号，未被封的用户不受影响；回滚方法写在文件开头。
+账号封禁不只在登录检查里被拦：被封账号绕过前端、直接调用接口，在数据库层面也读写不了业务数据。做法是给 6 张业务表（`after_sales_tasks`、`after_sales_events`、`evidence_files`、`evidence_library`、`shop_stores`、`tracking_records`）和证据存储桶 `after-sales-evidence` 加了名为 `account_not_banned` 的「限制性策略」。它只会拒绝被封账号，未被封的用户不受影响。这 7 条策略是在 Supabase SQL Editor 里手动执行的，已用 `pg_policies` 核对。
+
+一键撤销（任何异常时在 SQL Editor 里分别执行）：
+
+```sql
+drop policy account_not_banned on public.after_sales_tasks;
+drop policy account_not_banned on public.after_sales_events;
+drop policy account_not_banned on public.evidence_files;
+drop policy account_not_banned on public.evidence_library;
+drop policy account_not_banned on public.shop_stores;
+drop policy account_not_banned on public.tracking_records;
+drop policy account_not_banned_evidence on storage.objects;
+```
+
+注意：这些策略对「被封账号绕过前端」的行为做了数据库层强制，但**设备封禁**仍只在前端强制（数据库看不到设备 ID），见下面的已知限制。
 
 ## 测试步骤（手机上做）
 
@@ -45,7 +59,7 @@
 
 - 网页端的设备 ID 存在浏览器 `localStorage`，清除浏览器数据后会生成新的设备 ID，所以**设备封禁是软约束**。要强约束请用「账号封禁」。
 - `public_key` 目前是前端生成的占位字符串，不是真实硬件密钥，也不是真正的设备证明。
-- 设备封禁只在前端（`enterApp`）强制执行；数据表的 RLS 不看设备状态。账号封禁的数据库层强制见上面「可选的加固」。
+- 设备封禁只在前端（`enterApp`）强制执行；数据表的 RLS 不看设备状态。账号封禁已在数据库层强制，见上面「数据库层加固」。
 - 「不能封自己当前设备」依赖前端传来的 `current_device_id`，作用是防误操作，不是安全边界；没有传这个值时，数据库会拒绝封禁管理员名下的任何设备。
 - 后台「用户」页调用的 `admin_list_users` 只返回管理员账号；要看全部账号请用「账号」页。
 - Supabase 安全检查还提示：数据库里有几个调试遗留的测试函数（`device_test_user`、`hello_test`、`one_param_test`、`test_device_function`、`test_security_function`），其中 `device_test_user` 匿名也能调用（只返回当前用户 ID，无数据泄露）；另外 Auth 的「泄露密码保护」未开启。均建议清理 / 开启，但不影响本功能。
