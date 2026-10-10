@@ -285,6 +285,43 @@ async function run(browser, htmlPath) {
     check("6.8b no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+
+  // ---- 6.11: iOS style transitions
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.evaluate("more()"); await page.waitForTimeout(100);
+    await page.evaluate("closeModal()");
+    const g = await page.evaluate(() => { const gs = [...document.querySelectorAll(".ghost")]; return { n: gs.length, ids: gs.reduce((k, x) => k + x.querySelectorAll("[id]").length + (x.id ? 1 : 0), 0), clicks: gs.reduce((k, x) => k + x.querySelectorAll("[onclick]").length, 0), pe: gs[0] && getComputedStyle(gs[0]).pointerEvents }; });
+    check("6.11 closeModal: real modal hidden immediately", await page.evaluate("document.getElementById('modal').classList.contains('hidden')"));
+    check("6.11 closeModal: one inert ghost plays the exit (no ids, no handlers, no pointer events)", g.n === 1 && g.ids === 0 && g.clicks === 0 && g.pe === "none", JSON.stringify(g));
+    await page.waitForTimeout(500);
+    check("6.11 ghost removed after the animation", (await page.evaluate("document.querySelectorAll('.ghost').length")) === 0);
+    await page.evaluate("openTask('t1')"); await page.waitForTimeout(200);
+    await page.evaluate("document.querySelector('#drawer .sheet').scrollTop=400; document.getElementById('f_buyer').value='未保存的输入'");
+    await page.evaluate("closeDrawer()");
+    const dg = await page.evaluate(() => { const x = document.querySelector(".ghost.drawer"); return x ? { inp: [...x.querySelectorAll("input")].some((i) => i.value === "未保存的输入"), top: x.querySelector(".sheet").scrollTop } : null; });
+    check("6.11 closeDrawer: ghost keeps typed values + scroll position", dg && dg.inp && dg.top > 0, JSON.stringify(dg));
+    check("6.11 closeDrawer: real drawer hidden immediately", await page.evaluate("document.getElementById('drawer').classList.contains('hidden')"));
+    await page.waitForTimeout(500);
+    await page.evaluate("closeModal(); closeDrawer()");
+    check("6.11 closing something already closed -> no ghost", (await page.evaluate("document.querySelectorAll('.ghost').length")) === 0);
+    // list entrance animation only when the result set changes
+    await page.evaluate("render()");
+    check("6.11 list: same results re-rendered -> no entrance animation", !(await page.evaluate("document.getElementById('tasklist').classList.contains('enter')")));
+    await page.click('.chip:text-is("高风险")'); await page.waitForTimeout(50);
+    check("6.11 list: filter changes results -> entrance animation", await page.evaluate("document.getElementById('tasklist').classList.contains('enter')"));
+    await page.click('.chip:text-is("全部")');
+    check("6.11 tab bar: 5 icon buttons", (await page.evaluate("document.querySelectorAll('nav.bottom button svg').length")) === 5);
+    check("6.11 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.evaluate("more()"); await page.evaluate("closeModal()");
+    check("6.11 reduced motion: no ghost", (await page.evaluate("document.querySelectorAll('.ghost').length")) === 0 && (await page.evaluate("document.getElementById('modal').classList.contains('hidden')")));
+    await ctx.close();
+  }
   const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [
     { id: "u1", email: "a@x.com", last_sign_in_at: new Date().toISOString() },
     { id: "u2", email: "old@x.com", last_sign_in_at: "2026-01-01T00:00:00Z" }] });
@@ -394,7 +431,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.10.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.11.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
