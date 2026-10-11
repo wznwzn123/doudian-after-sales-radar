@@ -33,8 +33,8 @@
 - **6.23 新设备登录提醒**（用户选择：系统内提醒、只在新设备登录时）：`supabase/v6_23_login_alerts.sql`（已执行，见下）新增 `login_alert_acks` 表、`note_login_device()`（本人给自己的设备补型号/UA/IP，用 `request_ip()`）、`my_login_alerts(p_device_id)`（返回本人设备，first_seen 晚于上次确认且不是本机的标 is_new；第一次调用只建基准）、`ack_login_alerts()`；**没改** `security_register_device`。前端：进入系统后 `loginAlertsAfterEnter()`，有新设备弹窗「是我本人 / 不是我，马上改密码」；工作台设置加「登录记录」。注意：设备 ID 存在 localStorage，清浏览器数据会被当成新设备（已知限制）。
 - **6.23 SQL 已全部执行**（2026-10-11：先执行第 1 段，后来补执行第 2 段；只读核对 1 / 3 / 3，`note_login_device` / `ack_login_alerts` / `my_login_alerts` 都是 anon 不可执行、authenticated 可执行）。新设备弹窗和登录记录已可用。
 - **6.24 新设备登录邮件提醒**（用户问「会发邮件提醒吗」：之前不会，只有系统内提醒；用户要求手机号用户弹窗问是否绑定邮箱作为辅助验证，别人登录时发邮件）。
-  - Supabase 自带邮件只能发给项目团队成员的邮箱，所以**不用 Supabase Auth 的邮件**，而是 Edge Function `login-alert-mail`（v1 已部署，`verify_jwt=false`）自己用 SMTP 发信：nodemailer，**只能 465 端口**（Supabase 禁止 25/587），发信邮箱账号/授权码放在 Edge Function Secrets：`SMTP_USER`、`SMTP_PASS`（必填），`SMTP_HOST`（qq.com/foxmail.com/163.com/126.com 自动推断）、`SMTP_FROM_NAME`（默认「售后雷达」）。**用户还没配置**；没配置时前端不弹窗，设置页说明「发信邮箱还没有配置好」。
-  - 提醒邮箱存在新表 `login_alert_emails`（**不改 auth.users.email**，所以手机号审核 `is_account_pending()` 不受影响，不能借绑邮箱绕过审核）；`login_alert_mails(user_id, device_id)` 主键去重，每台设备只发一次。两张表前端读写不了，只有函数的 secret key 能读写。SQL：`supabase/v6_24_login_alert_email.sql`（**待用户执行**，一段，期望 2 / 3 / 2）。
+  - Supabase 自带邮件只能发给项目团队成员的邮箱，所以**不用 Supabase Auth 的邮件**，而是 Edge Function `login-alert-mail`（v1 已部署，`verify_jwt=false`）自己用 SMTP 发信：nodemailer，**只能 465 端口**（Supabase 禁止 25/587），发信邮箱账号/授权码放在 Edge Function Secrets：`SMTP_USER`、`SMTP_PASS`（必填），`SMTP_HOST`（qq.com/foxmail.com/163.com/126.com 自动推断）、`SMTP_FROM_NAME`（默认「售后雷达」）。**用户还没配置 SMTP Secrets**（SQL 已执行）；没配置时前端不弹窗，设置页说明「发信邮箱还没有配置好」。
+  - 提醒邮箱存在新表 `login_alert_emails`（**不改 auth.users.email**，所以手机号审核 `is_account_pending()` 不受影响，不能借绑邮箱绕过审核）；`login_alert_mails(user_id, device_id)` 主键去重，每台设备只发一次。两张表前端读写不了，只有函数的 secret key 能读写。SQL：`supabase/v6_24_login_alert_email.sql`（**用户已于 2026-10-11 执行**，只读核对 2 / 3 / 2 / 6）。
   - 函数动作：`status`、`send_code`（6 位码只存 SHA-256 哈希、10 分钟有效、60 秒一次、每天 5 次、错 5 次作废；待审核/被封账号拒绝——防止陌生人注册手机号后拿来给别人发邮件）、`verify_code`、`use_account_email`（邮箱注册的用户可一键用已验证的登录邮箱开启）、`remove`、`decline`（不再弹窗）、`notify`（前端每次进入系统调用；用调用者身份调 `my_login_alerts` 拿本机设备，`first_seen` 在 15 分钟内且晚于绑定时间才算新设备）。
   - 前端：`loginAlertsAfterEnter()` 之后 `mailAfterEnter()`；手机号账号、发信已配置、没绑定、没点过「不再提醒」时弹「绑定邮箱，开启登录提醒？」（有新设备弹窗时不叠加）；工作台设置加「登录邮件提醒」（`openMailAlert`）。
   - **限制（已告诉用户）**：提醒由新设备上的网页触发（和设备注册一样），懂技术的人绕过网页直接调接口就不会触发；依赖 v6_23 第 2 段（`my_login_alerts`）。
@@ -45,7 +45,7 @@
   - 换绑/绑定登录邮箱：先密码，再发 6 位码到**新邮箱**（`chg_*` 列，和提醒邮箱的码分开、共用每天 5 次的发送额度），验证后 `email_confirm: true`。手机号用户绑定后手机号和邮箱都能登录；如果还没有提醒邮箱，顺便设为提醒邮箱。需要 SMTP 已配置。
   - 被别人占用的手机号/邮箱 → 「已经被其他账号使用」。成功后通知旧登录邮箱和提醒邮箱，并在 `admin_operation_logs` 写 `change_phone` / `change_email`（user_id = 本人，管理后台「日志」可见）。
   - 手机号用户绑定登录邮箱后 `is_account_pending()` 会因为 email 不再为空而返回 false —— 只有已审核的账号能换绑（函数里先查 `my_account_status`），所以不会被用来绕过审核。
-  - 需要的 6 个新列已并进 `supabase/v6_24_login_alert_email.sql`（用户还没执行，期望 2 / 3 / 2 / 6；表已存在时 `add column if not exists` 也会补上）。
+  - 需要的 6 个新列已并进 `supabase/v6_24_login_alert_email.sql`（已执行，见上）。
 - **6.9（用户明确要求删除）**：去掉了用户端的「快递盯单」按钮和弹窗（含手动记录物流状态、手动「用快递100查询」、顺丰/中通手机号输入）、「快递监控记录」卡片、首页「盯单中」统计和快速筛选。详情页只保留顶部「物流状态」。承运商改在「新建售后」和详情「售后信息」表单里选（`#tc` / `#f_carrier`），保存时同步 `tracking_records`；改单号会清空旧的物流状态。管理后台里的「盯单」列和统计**没动**。顺丰、中通目前**查不了**（不保存手机号是用户的决定，手动查询入口随弹窗一起删了）。
 - 用户真正想要的是「抖店来了新售后，自动匹配对应的快递单号」。这需要抖店开放平台的应用和店铺授权，项目里**没有**任何抖店接口，现在做不了；已如实告诉用户，**不要做假的自动匹配**。快递100 的「智能单号识别」（根据单号自动判断快递公司）是另一个产品，官方文档还没核实，等用户有快递100 账号后再评估。6.7 是用户自己合并 PR #1 上线的；6.7.1 在售后详情顶部卡片直接显示当前物流状态（`tracking_records.last_match`）。
 - 用户已在手机上确认 6.6 的快递盯单正常（数据库里看到了 `tracking_records` 的写入和 `tracking_updated` 事件）。「录入举证内容」弹窗已在线上验证保存链路：2026-10-10 19:23 UTC 数据库里有 `evidence_manual` 事件、售后 `updated_at` 同步更新、状态未变。之后用户又测了补充说明：数据库里有 1 条售后带【补充 时间】、事件「手动录入举证：补充说明」（19:27 UTC）。**6.6 全部线上验证完成。**6.9.1 起内容没变化时不保存、不记事件，并提示原因。

@@ -1,5 +1,5 @@
 -- 售后雷达 Pro 6.24 / 6.25：新设备登录邮件提醒（手机号账号可以绑定一个提醒邮箱）+ 换绑登录手机号 / 登录邮箱
--- 状态：待用户在 Supabase SQL Editor 执行（一段，可重复执行）。前提：v6_23_login_alerts.sql 的两段都已执行（邮件提醒要用 my_login_alerts）。
+-- 状态：已于 2026-10-11 由用户在 SQL Editor 执行，只读核对 2 / 3 / 2 / 6（两张表开 RLS、service_role 可读写、anon/authenticated 不可读；admin_operation_logs 已可由 service_role insert）。可重复执行。
 -- 写之前已用只读查询核对：
 --   * 本项目 public 下新建表的默认权限不给 service_role 读写（只有 TRUNCATE/REFERENCES/TRIGGER），所以下面要显式 grant 给 service_role；
 --   * security_devices 没有任何策略、authenticated 也没有权限，Edge Function 不直接读它，而是用调用者身份调 my_login_alerts()（只返回本人设备）；
