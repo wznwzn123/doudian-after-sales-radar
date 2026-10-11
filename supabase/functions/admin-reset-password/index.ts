@@ -1,6 +1,8 @@
 // 管理员给用户重置密码：生成临时密码，只返回给管理员，由管理员私下告诉用户；用户登录后在「工作台设置 → 修改密码」改掉。
 // 改别人密码必须用 secret（service_role）权限，所以放在服务端；密钥来自 Supabase 自动注入的环境变量，不在前端、不在仓库。
 // 身份：用调用者自己的登录身份 auth.getUser() 校验，再用 is_admin()（服务端 security definer）确认是管理员；不是就拒绝。
+// 6.33：重置后用管理员自己的身份调 admin_revoke_user_sessions()（v6_33 SQL，服务端再校验一次管理员），让对方所有设备立刻退出登录；
+//   函数还没装时只是不退出（和以前一样），重置照样成功。
 // 部署时 verify_jwt=false（项目用新式 publishable/secret key），身份在下面自己校验。
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isUuid, strong, tempPassword } from "./lib.ts";
@@ -65,5 +67,10 @@ Deno.serve(async (req) => {
   const lg = await svc.from("admin_operation_logs").insert({ user_id: adminId, action: "reset_password", detail: "重置了 " + label + " 的密码" });
   if (lg.error) console.error("audit log insert failed", lg.error.message);
 
-  return reply(200, { ok: true, password, account: label });
+  let signedOut = false, sessions = 0;
+  const rv = await caller.rpc("admin_revoke_user_sessions", { p_user_id: target });
+  if (!rv.error && rv.data?.ok) { signedOut = true; sessions = Number(rv.data.sessions || 0); }
+  else console.error("admin_revoke_user_sessions failed", rv.error?.message || rv.data?.message);
+
+  return reply(200, { ok: true, password, account: label, signed_out: signedOut, sessions });
 });

@@ -45,6 +45,12 @@ export const CONFIG_ERRORS = new Set(["503", "601", "501", "502"]);
 // 同一单号两次查询至少间隔 30 分钟（快递100 文档：过于频繁会锁单）
 export const MIN_INTERVAL_MS = 30 * 60 * 1000;
 
+// 每日查询额度（v6_33 SQL 的 take_quota，服务端计数，用户自己删不掉）：每人每天、全站每天。
+// 防止有人刷接口把快递100 的额度用光。要调整就改这两个数再重新部署本函数。
+export const DAILY_USER_LIMIT = 100;
+export const DAILY_TOTAL_LIMIT = 1000;
+export const QUOTA_ALL_USERS = "00000000-0000-0000-0000-000000000000";
+
 export function sign(param: string, key: string, customer: string): string {
   return createHash("md5").update(param + key + customer, "utf8").digest("hex").toUpperCase();
 }

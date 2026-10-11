@@ -7,6 +7,8 @@
 //   改账号本身的手机号/邮箱必须用 secret key 的 auth.admin.updateUserById，所以只能在服务端做。
 // 6.32 修改密码（change_password）：必须先验证当前密码（同上，30 分钟错 5 次锁定），改完用调用者自己的 JWT 做 admin.signOut(scope=others)，
 //   把其他设备上的登录全部作废（刷新令牌失效），并发邮件通知登录邮箱和提醒邮箱。
+// 6.33（需要 v6_33 SQL；没执行时自动退回旧做法）：修改密码先用调用者身份调 revoke_other_sessions()，其他设备还没过期的访问令牌也立刻读写不了数据；
+//   换绑查重改用 auth_identity_taken()（不再逐页扫描全部用户），并限制每人每天查重 10 次（take_quota），防止拿换绑来试探别人的手机号 / 邮箱有没有注册。
 // 部署时 verify_jwt=false（项目用新式 publishable/secret key），身份在下面自己校验。
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { alertMail, changedMail, codeMail, fmtCN, genCode, hashCode, isEmail, maskEmail, maskPhone, normPhone, passwordMail, smtpConfig, strongPassword } from "./lib.ts";
@@ -15,6 +17,7 @@ import { sendMail } from "./mail.ts";
 const DEV_EMAIL = "1012968575@qq.com";
 const CODE_TTL_MS = 10 * 60 * 1000, RESEND_MS = 60 * 1000, DAY_MS = 24 * 3600 * 1000, MAX_PER_DAY = 5, MAX_TRIES = 5;
 const PW_LOCK_MS = 30 * 60 * 1000, PW_MAX_FAILS = 5;
+const IDENTITY_CHECKS_PER_DAY = 10;
 const NEW_DEVICE_MS = 15 * 60 * 1000; // 设备第一次出现 15 分钟内才算「刚登录的新设备」
 
 const cors = {
@@ -137,6 +140,9 @@ Deno.serve(async (req) => {
   // 登录邮箱 / 手机号在 auth.users 里是唯一的。GoTrue 撞到唯一约束时只回 500「Error updating user」（日志里才看得到 users_email_partial_key），
   // 所以换绑前先自己查一遍有没有被别的账号占用（用户量小，按页扫 admin 列表；最多扫 10 页 × 1000）。
   const takenByOther = async (kind: "email" | "phone", value: string): Promise<boolean> => {
+    const q = await svc.rpc("auth_identity_taken", { p_user: uid, p_kind: kind, p_value: value });
+    if (!q.error && typeof q.data === "boolean") return q.data;
+    if (q.error) console.error("auth_identity_taken failed, scanning instead", q.error.message);
     const v = kind === "phone" ? value.replace(/^\+/, "") : value.toLowerCase();
     for (let page = 1; page <= 10; page++) {
       const r = await svc.auth.admin.listUsers({ page, perPage: 1000 });
@@ -146,6 +152,12 @@ Deno.serve(async (req) => {
       if (users.length < 1000) return false;
     }
     return false;
+  };
+  // 换绑查重次数（每人每天 IDENTITY_CHECKS_PER_DAY 次）；计数函数没装或出错时不拦（前面已经要求输对当前密码）
+  const identityQuota = async (): Promise<Response | null> => {
+    const q = await svc.rpc("take_quota", { p_user: uid, p_bucket: "identity_check", p_limit: IDENTITY_CHECKS_PER_DAY, p_window_seconds: 86400 });
+    if (q.error) { console.error("identity quota failed", q.error.message); return null; }
+    return q.data === false ? fail(429, "too_many_checks", "今天换绑的次数太多了，请明天再试") : null;
   };
   const dupMsg = (msg: string, kind: string) => /already|exists|registered|duplicate|unique|error updating user/i.test(msg) ? "这个" + kind + "已经被其他账号使用，请换一个" : "换绑失败：" + msg;
 
@@ -159,8 +171,10 @@ Deno.serve(async (req) => {
       const pw = await checkPassword(String(body.password || "")); if (pw) return pw;
       const up = await svc.auth.admin.updateUserById(uid, { password: np } as any);
       if (up.error) return fail(500, "update_failed", "修改失败，请稍后再试");
-      let others = true;
-      try { const so = await svc.auth.admin.signOut(auth.replace(/^Bearer\s+/i, ""), "others" as any); if (so?.error) { others = false; console.error("signOut others failed", so.error.message); } } catch (e) { others = false; console.error("signOut others failed", (e as Error).message); }
+      // 先在数据库里作废其他登录（连还没过期的访问令牌一起，立刻生效），再用 Auth 接口退出其他会话（v6_33 SQL 没执行时只有这一步）
+      let others = false;
+      try { const rv = await caller.rpc("revoke_other_sessions"); if (!rv.error && rv.data?.ok) others = true; else console.error("revoke_other_sessions failed", rv.error?.message || rv.data?.message); } catch (e) { console.error("revoke_other_sessions failed", (e as Error).message); }
+      try { const so = await svc.auth.admin.signOut(auth.replace(/^Bearer\s+/i, ""), "others" as any); if (so?.error) console.error("signOut others failed", so.error.message); else others = true; } catch (e) { console.error("signOut others failed", (e as Error).message); }
       const lg = await svc.from("admin_operation_logs").insert({ user_id: uid, action: "change_password", detail: "修改了自己的密码" + (others ? "，其他设备已退出" : "（其他设备退出失败）") });
       if (lg.error) console.error("change log insert failed", lg.error.message);
       if (smtp.ok) {
@@ -177,6 +191,7 @@ Deno.serve(async (req) => {
       if (phone.slice(1) === String(me.phone || "").replace(/^\+/, "")) return fail(400, "same", "新手机号和现在的一样");
       const why = await mayBind(); if (why) return fail(403, "forbidden", why);
       const pw = await checkPassword(String(body.password || "")); if (pw) return pw;
+      const iq = await identityQuota(); if (iq) return iq;
       if (await takenByOther("phone", phone)) return fail(409, "taken", "这个手机号已经被其他账号使用，请换一个");
       const up = await svc.auth.admin.updateUserById(uid, { phone, phone_confirm: true } as any);
       if (up.error) return fail(409, "update_failed", dupMsg(up.error.message, "手机号"));
@@ -193,6 +208,7 @@ Deno.serve(async (req) => {
       if (!smtp.ok) return fail(503, "smtp_missing", smtp.message);
       const lim = sendLimit(); if (lim instanceof Response) return lim;
       const pw = await checkPassword(String(body.password || "")); if (pw) return pw;
+      const iq = await identityQuota(); if (iq) return iq;
       if (await takenByOther("email", email)) return fail(409, "taken", "这个邮箱已经是另一个账号的登录邮箱了（一个邮箱只能登录一个账号），请换一个。只想收提醒的话，可以在「登录邮件提醒」里绑定，提醒邮箱可以重复。");
       const code = genCode(), now = Date.now();
       await save({ chg_email: email, chg_code_hash: await hashCode(uid, "login:" + code), chg_code_expires: new Date(now + CODE_TTL_MS).toISOString(), chg_tries: 0, last_sent_at: new Date(now).toISOString(), sent_count: lim.count + 1, sent_window: lim.window });

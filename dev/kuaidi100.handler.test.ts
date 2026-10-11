@@ -166,3 +166,46 @@ Deno.test("non-JSON answer -> 502 upstream, readable message", async () => {
   rawBody = null;
   eq(r.status, 502, "status"); if (!r.json.message.includes("无法识别")) throw new Error(r.json.message);
 });
+// 6.33 每日额度（take_quota 是服务端计数；这里用假的 rpc 模拟计数结果）
+function quota(limitUser: number, limitAll: number) {
+  const n: Record<string, number> = {}; const seen: any[] = [];
+  state.rpcs.take_quota = (a: any) => { seen.push(a); const k = a.p_user + ":" + a.p_bucket; n[k] = (n[k] || 0) + 1; return { data: n[k] <= (a.p_user === "00000000-0000-0000-0000-000000000000" ? limitAll : limitUser) && a.p_limit > 0, error: null }; };
+  return seen;
+}
+Deno.test("daily quota: counted with the secret key, per user then all users, before calling 快递100", async () => {
+  seed(); upstream = OK; env.set("SUPABASE_SECRET_KEYS", '{"default":"sb_secret_test"}');
+  const seen = quota(5, 5);
+  const r = await call({ task_id: T1 });
+  eq(r.status, 200, "status"); eq(seen.length, 2, "two counters");
+  eq(seen[0].p_user, "u1", "user first"); eq(seen[0].p_limit, 100, "user limit"); eq(seen[0].p_window_seconds, 86400, "per day");
+  eq(seen[1].p_user, "00000000-0000-0000-0000-000000000000", "then all users"); eq(seen[1].p_limit, 1000, "total limit");
+  delete state.rpcs.take_quota; env.delete("SUPABASE_SECRET_KEYS");
+});
+Deno.test("daily quota: user limit reached -> 429, 快递100 not called, no event", async () => {
+  seed(); upstream = OK; env.set("SUPABASE_SECRET_KEYS", '{"default":"sb_secret_test"}');
+  quota(0, 5);
+  const r = await call({ task_id: T1 });
+  eq(r.status, 429, "status"); eq(r.json.code, "daily_limit", "code"); eq(calls.length, 0, "no upstream call"); eq(state.db.after_sales_events.length, 0, "no event");
+  delete state.rpcs.take_quota; env.delete("SUPABASE_SECRET_KEYS");
+});
+Deno.test("daily quota: site-wide limit reached -> 429", async () => {
+  seed(); upstream = OK; env.set("SUPABASE_SECRET_KEYS", '{"default":"sb_secret_test"}');
+  quota(5, 0);
+  const r = await call({ task_id: T1 });
+  eq(r.status, 429, "status"); eq(r.json.code, "daily_limit_all", "code"); eq(calls.length, 0, "no upstream call");
+  delete state.rpcs.take_quota; env.delete("SUPABASE_SECRET_KEYS");
+});
+Deno.test("daily quota: counter not installed yet (rpc error) -> query still works", async () => {
+  seed(); upstream = OK; env.set("SUPABASE_SECRET_KEYS", '{"default":"sb_secret_test"}');
+  const r = await call({ task_id: T1 });
+  eq(r.status, 200, "status"); eq(calls.length, 1, "upstream called");
+  env.delete("SUPABASE_SECRET_KEYS");
+});
+Deno.test("daily quota: the 30-minute check runs first and does not use up the quota", async () => {
+  seed(); upstream = OK; env.set("SUPABASE_SECRET_KEYS", '{"default":"sb_secret_test"}');
+  const seen = quota(5, 5);
+  eq((await call({ task_id: T1 })).status, 200, "first");
+  eq((await call({ task_id: T1 })).status, 429, "too soon");
+  eq(seen.length, 2, "second (too soon) call did not count");
+  delete state.rpcs.take_quota; env.delete("SUPABASE_SECRET_KEYS");
+});

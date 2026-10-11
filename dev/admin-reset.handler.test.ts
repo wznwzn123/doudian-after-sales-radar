@@ -64,3 +64,23 @@ Deno.test("audit log write refused (missing grant) -> reset still succeeds, erro
   const r = await call({ user_id: P1 }, "tok-admin"); console.error = orig; state.deny = {};
   eq(r.status, 200, "status"); eq(state.adminCalls.length, 1, "password changed"); if (!logged.some((l) => l.includes("audit log insert failed"))) throw new Error("not logged");
 });
+// 6.33：重置后让对方所有设备退出（admin_revoke_user_sessions，用管理员自己的身份调，服务端再校验管理员）
+Deno.test("6.33: after the reset, all of the user's devices are signed out (called as the admin)", async () => {
+  seed(); const seen: any[] = [];
+  state.rpcs.admin_revoke_user_sessions = (a: any, uid: string) => { seen.push({ ...a, uid }); return { data: { ok: true, sessions: 3 }, error: null }; };
+  const r = await call({ user_id: P1 }, "tok-admin");
+  eq(r.status, 200, "ok"); eq(r.json.signed_out, true, "signed out"); eq(r.json.sessions, 3, "count");
+  eq(seen.length, 1, "called once"); eq(seen[0].p_user_id, P1, "target"); eq(seen[0].uid, ADMIN, "as the admin");
+  delete state.rpcs.admin_revoke_user_sessions;
+});
+Deno.test("6.33: SQL not installed yet -> reset still succeeds, signed_out false", async () => {
+  seed(); const orig = console.error; console.error = () => {};
+  const r = await call({ user_id: P1 }, "tok-admin");
+  console.error = orig;
+  eq(r.status, 200, "ok"); eq(r.json.signed_out, false, "reported"); eq(state.adminCalls.length, 1, "password changed");
+});
+Deno.test("6.33: a refused reset (normal user) never signs anyone out", async () => {
+  seed(); let n = 0; state.rpcs.admin_revoke_user_sessions = () => { n++; return { data: { ok: true }, error: null }; };
+  eq((await call({ user_id: P1 }, "tok-user")).status, 403, "refused"); eq(n, 0, "nobody signed out");
+  delete state.rpcs.admin_revoke_user_sessions;
+});

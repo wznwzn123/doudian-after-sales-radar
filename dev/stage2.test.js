@@ -58,10 +58,12 @@ const STUB = `
    async updateUser(a){window.__auth=(window.__auth||[]).concat([{op:'update',a}]);return window.__updReply||{data:{user:{id:'u1'}},error:null}},
    async signUp(c){window.__auth=(window.__auth||[]).concat([{op:'signUp',c}]);if(window.__authDelay)await new Promise(r=>setTimeout(r,window.__authDelay));return window.__authReply||{data:{session:c.phone?{user:{id:'u9',phone:c.phone.replace('+','')}}:null},error:null}},
    onAuthStateChange(cb){listeners.push(cb);return{data:{subscription:{unsubscribe(){}}}}},
-   async signOut(){window.__signedOut=(window.__signedOut||0)+1;listeners.forEach(cb=>cb('SIGNED_OUT',null));return{error:null}}
+   // like supabase-js: scope "others" signs out the other sessions only, this page stays signed in (no SIGNED_OUT event)
+   async signOut(o){if(o&&o.scope==='others'){window.__signedOutOthers=(window.__signedOutOthers||0)+1;return{error:null}}window.__signedOut=(window.__signedOut||0)+1;listeners.forEach(cb=>cb('SIGNED_OUT',null));return{error:null}}
   },
   async rpc(name,args){
    window.__calls.push({name,args});
+   if(window.__rpcs&&window.__rpcs[name])return window.__rpcs[name](args);
    if(name==='security_register_device')return{data:{ok:true},error:null};
    if(name==='is_admin')return{data:window.__admin===true,error:null};
    if(name==='admin_list_all_users')return{data:window.__users||[],error:null};
@@ -80,7 +82,7 @@ const STUB = `
   channel(name){window.__chans=(window.__chans||0)+1;const c={name,state:'joining',on(type,cfg,cb){window.__rt.push({name,cfg,cb,ch:c});return c},subscribe(cb){c.__cb=cb;window.__subs=(window.__subs||[]).concat([{name,ch:c,cb}]);if(window.__autoJoin!==false&&name==='after-sales-presence'){}return c},async track(p){window.__tracks=(window.__tracks||[]).concat([p])},async untrack(){},presenceState(){return c.__state||{}}};return c},
   removeChannel(c){window.__removedChannels++;c.state='closed';if(c.__cb)c.__cb('CLOSED')},
   storage:{from:()=>({
-   async upload(){return{error:null}},
+   async upload(path,f,o){window.__uploads=(window.__uploads||[]).concat([{path,name:f&&f.name,type:o&&o.contentType}]);return window.__uploadError?{error:{message:window.__uploadError}}:{error:null}},
    async remove(p){window.__removed.push(...p);return{error:null}},
    async createSignedUrl(p){return{data:{signedUrl:'https://files.test/'+p},error:null}}
   })}
@@ -1026,6 +1028,74 @@ async function run(browser, htmlPath) {
     check("6.32 anti-framing: inside another site's iframe the page stays hidden (or navigates away)", hidden || p2.url().startsWith("https://radar.test/"));
     await c2.close();
   }
+  // ---- 6.33 security batch 2 (front end): last active, real platform, logout others, admin kick, reset signs out, upload checks
+  {
+    const U2 = "22222222-0000-4000-8000-0000000000a1";
+    const users = [{ id: "u1", email: "a@x.com", is_admin: true, last_sign_in_at: "2026-10-07T07:48:02Z" }, { id: U2, email: "friend@x.com", is_admin: false, last_sign_in_at: "2026-10-07T07:48:02Z" }];
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users, pre: { __rpcs: null } });
+    await page.waitForTimeout(300);
+    const reg = await page.evaluate("window.__calls.find(c=>c.name==='security_register_device')");
+    check("6.33 platform: real system reported (not hard-coded android)", reg && reg.args.p_platform === (await page.evaluate("devicePlatform()")) && reg.args.p_platform !== "android", JSON.stringify(reg && reg.args.p_platform));
+    const plat = await page.evaluate(() => { const set = (u, tp) => { Object.defineProperty(navigator, "userAgent", { value: u, configurable: true }); Object.defineProperty(navigator, "maxTouchPoints", { value: tp || 0, configurable: true }); return devicePlatform(); };
+      return [set("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) MicroMessenger/8.0"), set("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari", 5), set("Mozilla/5.0 (Linux; Android 14) EdgA/120"), set("Mozilla/5.0 (Windows NT 10.0) Chrome/120"), set("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120")]; });
+    check("6.33 platform: iPhone (WeChat) / iPad -> ios, Android, Windows, Mac", JSON.stringify(plat) === JSON.stringify(["ios", "ios", "android", "windows", "mac"]), JSON.stringify(plat));
+    // last active: SQL not installed -> falls back to last sign-in
+    await page.evaluate("adminPanel('users')"); await page.waitForTimeout(300);
+    let t = await text(page, "#admList");
+    check("6.33 users: column is 最近活跃; without the SQL it falls back to the last sign-in", t.includes("最近活跃") && !t.includes("最后登录") && t.includes(await page.evaluate("fmt('2026-10-07T07:48:02Z')")), t.slice(0, 200));
+    await page.evaluate((U2) => { window.__rpcs = { admin_list_account_bans: () => ({ data: [], error: null }), admin_user_activity: () => ({ data: [{ user_id: U2, last_active: "2026-10-11T16:32:07Z", last_device: "iPhone · 微信" }], error: null }) }; }, U2);
+    await page.evaluate("adminUsers()"); await page.waitForTimeout(300);
+    t = await page.evaluate("document.querySelector('#admList tr:has(td) + tr')?.textContent||[...document.querySelectorAll('#admList tr')].map(r=>r.textContent).join('|')");
+    const all = await text(page, "#admList");
+    check("6.33 users: friend's 最近活跃 = latest activity (iPhone stays logged in), device shown", all.includes(await page.evaluate("fmt('2026-10-11T16:32:07Z')")) && all.includes("iPhone · 微信"), all.slice(0, 300));
+    // account management: 强制下线 for others only; calls the server with the uuid; reset result says devices were signed out
+    await page.evaluate("adminAccounts()"); await page.waitForTimeout(300);
+    const kicks = await page.evaluate("[...document.querySelectorAll('#accList button')].filter(b=>b.textContent==='强制下线').map(b=>b.getAttribute('onclick'))");
+    const ki = ((kicks[0] || "").match(/\d+/) || ["-1"])[0];
+    check("6.33 accounts: 强制下线 only for other accounts, onclick carries just an index", kicks.length === 1 && /^adminKickAccount\(\d+\)$/.test(kicks[0]), JSON.stringify(kicks));
+    check("6.33 accounts: shows 最近活跃 with device", (await text(page, "#accList")).includes("最近活跃") && (await text(page, "#accList")).includes("iPhone · 微信"));
+    await page.evaluate("window.__confirm=false"); await page.evaluate("adminKickAccount(" + ki + ")"); await page.waitForTimeout(150);
+    check("6.33 kick: asks first, cancel sends nothing", !(await page.evaluate("window.__calls.some(c=>c.name==='admin_revoke_user_sessions')")));
+    await page.evaluate("window.__confirm=true"); await page.evaluate("adminKickAccount(" + ki + ")"); await page.waitForTimeout(200);
+    check("6.33 kick: missing SQL -> clear hint", (await text(page, "#toast")).includes("v6_33"));
+    await page.evaluate("window.__rpcs.admin_revoke_user_sessions=(a)=>({data:{ok:true,sessions:2},error:null})"); await page.evaluate("adminKickAccount(" + ki + ")"); await page.waitForTimeout(200);
+    const kc = await page.evaluate("window.__calls.filter(c=>c.name==='admin_revoke_user_sessions').pop()");
+    check("6.33 kick: server called with the user id; result shown", kc.args.p_user_id === U2 && (await text(page, "#toast")).includes("2 个登录退出"), await text(page, "#toast"));
+    await page.evaluate(() => { window.__fnReply = () => ({ data: { ok: true, password: "Ab3$xyzPQR7k", account: "friend@x.com", signed_out: true, sessions: 3 }, error: null }); });
+    await page.evaluate((U2) => adminResetPassword(U2), U2); await page.waitForTimeout(300);
+    check("6.33 reset: says the user's devices were signed out", (await text(page, "#adminBody")).includes("已经退出（3 个）"));
+    await page.evaluate(() => { window.__fnReply = () => ({ data: { ok: true, password: "Ab3$xyzPQR7k", account: "friend@x.com", signed_out: false }, error: null }); });
+    await page.evaluate((U2) => adminResetPassword(U2), U2); await page.waitForTimeout(300);
+    check("6.33 reset: without the SQL, warns old logins last up to 1 hour", (await text(page, "#adminBody")).includes("最多还能用 1 小时"));
+    // login records: 退出其他所有设备
+    await page.evaluate(() => { window.__loginAlerts = { ok: true, devices: [{ id: "aaaaaaaa-0000-4000-8000-000000000001", device: "WEB-me", current: true, name: "Windows · Chrome", first_seen: "2026-10-01T00:00:00Z", last_seen: "2026-10-11T00:00:00Z" }, { id: "aaaaaaaa-0000-4000-8000-000000000002", device: "WEB-ph", current: false, name: "iPhone · 微信", first_seen: "2026-10-02T00:00:00Z", last_seen: "2026-10-11T00:00:00Z" }] }; });
+    await page.evaluate("openLoginRecords()"); await page.waitForTimeout(300);
+    check("6.33 login records: 退出其他所有设备 button", !!(await page.$('#loginRecs button:text-is("退出其他所有设备")')));
+    await page.evaluate("window.__signedOut=0"); await page.click('#loginRecs button:text-is("退出其他所有设备")'); await page.waitForTimeout(250);
+    check("6.33 logout others: SQL missing -> falls back to Auth sign-out of other sessions, current kept", (await text(page, "#toast")).includes("1 小时内生效") && (await page.evaluate("window.__signedOutOthers")) === 1 && !(await page.evaluate("window.__signedOut")) && (await page.$eval("#app", (e) => !e.classList.contains("hidden"))), await text(page, "#toast"));
+    await page.evaluate("window.__rpcs.revoke_other_sessions=()=>({data:{ok:true,sessions:2},error:null})"); await page.evaluate("openLoginRecords()"); await page.waitForTimeout(300);
+    await page.click('#loginRecs button:text-is("退出其他所有设备")'); await page.waitForTimeout(250);
+    check("6.33 logout others: database revoke, count shown, still logged in here", (await text(page, "#toast")).includes("其他 2 个登录退出") && (await page.$eval("#app", (e) => !e.classList.contains("hidden"))), await text(page, "#toast"));
+    check("6.33 no page errors (admin + records)", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.waitForTimeout(300);
+    const r = await page.evaluate(async () => {
+      const mk = (name, type, size) => { const f = new File(["x"], name, { type }); if (size) Object.defineProperty(f, "size", { value: size }); return f; };
+      window.__uploads = [];
+      await uploadEvidenceFiles([mk("clip.mp4", ""), mk("photo.HEIC", ""), mk("a.jpg", "image/jpeg"), mk("virus.exe", "application/x-msdownload"), mk("page.svg", "image/svg+xml"), mk("big.mov", "video/quicktime", 201 * 1024 * 1024), mk("note.txt", "text/plain")], "t1");
+      return { up: window.__uploads, toast: document.querySelector("#toast").textContent, rows: window.__db.evidence_files.filter((x) => x.task_id === "t1").map((x) => x.mime_type) };
+    });
+    check("6.33 upload: empty type filled from the extension (mp4 / HEIC), real types kept", JSON.stringify(r.up.map((u) => u.type)) === JSON.stringify(["video/mp4", "image/heic", "image/jpeg", "text/plain"]), JSON.stringify(r.up));
+    check("6.33 upload: exe, svg and >200MB refused before uploading, each named in the message", r.up.length === 4 && r.toast.includes("上传完成：4 个") && r.toast.includes("没有上传 3 个") && r.toast.includes("virus.exe（不支持这种文件类型）") && r.toast.includes("page.svg") && r.toast.includes("big.mov（超过 200MB）"), r.toast);
+    check("6.33 upload: saved rows carry the same type as the upload", r.rows.includes("video/mp4") && r.rows.includes("image/heic") && !r.rows.includes("application/octet-stream"), JSON.stringify(r.rows));
+    const r2 = await page.evaluate(async () => { window.__uploads = []; window.__uploadError = "mime type not allowed"; await uploadLibraryFiles([new File(["x"], "doc.pdf", { type: "application/pdf" })]); window.__uploadError = null; return document.querySelector("#toast").textContent; });
+    check("6.33 upload: a storage refusal is reported, not silently skipped", r2.includes("资料库上传完成：0 个") && r2.includes("doc.pdf（上传失败）"), r2);
+    check("6.33 upload: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
@@ -1186,7 +1256,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.32.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.33.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
@@ -1196,7 +1266,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('admin')");
   await page.evaluate("openOnlinePanel()"); await page.waitForTimeout(250);
   const ot = await text(page, "#modalbox");
-  check("online panel: count, (我), admin sees emails + 24h active", ot.includes("2") && ot.includes("a@x.com（我）") && ot.includes("old@x.com") && ot.includes("24 小时内登录 1 人"), ot);
+  check("online panel: count, (我), admin sees emails + 24h active", ot.includes("2") && ot.includes("a@x.com（我）") && ot.includes("old@x.com") && ot.includes("24 小时内活跃 1 人"), ot);
   await page.evaluate("setMode('user'); closeModal()");
   // ---- realtime
   const rt = await page.evaluate("window.__rt.map(r=>r.cfg.table+'|'+r.cfg.filter)");

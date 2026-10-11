@@ -231,3 +231,46 @@ Deno.test("change password: if signing out the others fails the password is stil
   eq(r.status, 200, "ok"); eq(r.json.others_signed_out, false, "reported");
   console.error = origError;
 });
+// ---- 6.33（v6_33 SQL 执行后）：作废其他登录用数据库函数；换绑查重用 SQL 函数 + 每天次数限制
+Deno.test("change password (6.33): other logins revoked in the database with the caller's identity; Auth sign-out kept as a backup", async () => {
+  seed(); console.error = () => {};
+  const seen: any[] = [];
+  state.rpcs.revoke_other_sessions = (_a: any, uid: string) => { seen.push(uid); return { data: { ok: true, sessions: 2 }, error: null }; };
+  state.adminSignOutError = { message: "boom" };
+  const r = await call({ action: "change_password", password: "Pw#12345", new_password: "New#Pass9" }, "tok-p");
+  eq(r.status, 200, "ok"); eq(r.json.others_signed_out, true, "revoked by the database function");
+  eq(JSON.stringify(seen), JSON.stringify([P]), "called as the user (not with the secret key)");
+  eq(state.adminSignOuts.length, 1, "Auth sign-out still attempted");
+});
+Deno.test("change password (6.33): wrong current password -> nothing revoked", async () => {
+  seed(); let n = 0; state.rpcs.revoke_other_sessions = () => { n++; return { data: { ok: true }, error: null }; };
+  eq((await call({ action: "change_password", password: "nope", new_password: "New#Pass9" }, "tok-p")).json.code, "wrong_password", "refused");
+  eq(n, 0, "not revoked");
+});
+Deno.test("rebind (6.33): duplicate check uses auth_identity_taken with the secret key", async () => {
+  seed(); const seen: any[] = [];
+  state.rpcs.auth_identity_taken = (a: any, uid: string | null) => { seen.push({ ...a, uid }); return { data: true, error: null }; };
+  const d = await call({ action: "change_phone", phone: "13700000000", password: "Pw#12345" }, "tok-p");
+  eq(d.status, 409, "taken by the SQL answer (no such user in the scan)"); eq(d.json.code, "taken", "code");
+  eq(seen.length, 1, "asked once"); eq(seen[0].p_user, P, "excluding self"); eq(seen[0].p_kind, "phone", "kind"); eq(seen[0].p_value, "+8613700000000", "normalized"); eq(seen[0].uid, null, "secret-key client");
+  state.rpcs.auth_identity_taken = () => ({ data: false, error: null });
+  const ok2 = await call({ action: "change_phone", phone: "13700000000", password: "Pw#12345" }, "tok-p");
+  eq(ok2.status, 200, "free -> changed"); eq(state.authUsers[P].phone, "8613700000000", "phone changed");
+});
+Deno.test("rebind (6.33): at most 10 duplicate checks a day; wrong password does not count", async () => {
+  seed(); let n = 0;
+  state.rpcs.take_quota = (a: any) => { n++; return { data: a.p_bucket === "identity_check" && a.p_limit === 10 && a.p_window_seconds === 86400 && n <= 1, error: null }; };
+  eq((await call({ action: "change_phone", phone: "13700000000", password: "nope" }, "tok-p")).json.code, "wrong_password", "wrong password first");
+  eq(n, 0, "wrong password did not use a check");
+  eq((await call({ action: "change_phone", phone: "13700000000", password: "Pw#12345" }, "tok-p")).status, 200, "1st check ok");
+  const r = await call({ action: "change_phone", phone: "13600000000", password: "Pw#12345" }, "tok-p");
+  eq(r.status, 429, "2nd refused by the (fake) limit"); eq(r.json.code, "too_many_checks", "code"); eq(state.authUsers[P].phone, "8613700000000", "not changed again");
+  const e = await call({ action: "email_change_code", email: "new@qq.com", password: "Em#12345" }, "tok-e");
+  eq(e.json.code, "too_many_checks", "email rebind limited too"); eq(mailbox.sent.length, 0, "no code mailed");
+});
+Deno.test("rebind (6.33): SQL functions not installed yet -> falls back to the old scan, no limit", async () => {
+  seed(); state.authUsers["55555555-5555-5555-5555-555555555555"] = { phone: "8613700000000" };
+  const d = await call({ action: "change_phone", phone: "13700000000", password: "Pw#12345" }, "tok-p");
+  eq(d.json.code, "taken", "scan still finds it");
+  console.error = origError;
+});

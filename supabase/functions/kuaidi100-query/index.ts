@@ -1,9 +1,10 @@
 // 按需查询物流：前端点按钮 -> 本函数 -> 快递100 实时查询 -> 写回 tracking_records.last_match + 事件。
 // 快递100 的 customer / key 只放在 Supabase Edge Function Secrets（KUAIDI100_CUSTOMER / KUAIDI100_KEY），不进前端、不进仓库。
-// 数据库读写都用「调用者自己的登录身份」（受 RLS 限制），所以只能查自己的售后；本函数不需要 service_role / secret key。
+// 数据库读写都用「调用者自己的登录身份」（受 RLS 限制），所以只能查自己的售后。
+// 6.33：每日额度用 secret key 调服务端计数函数 take_quota（只有服务端能调；只用来计数，不用它读写售后数据）。
 // 部署时关闭平台的 JWT 校验（verify_jwt=false），身份在下面用 auth.getUser() 自己校验。
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { CARRIER_CODES, CONFIG_ERRORS, MIN_INTERVAL_MS, PHONE_REQUIRED, QUERY_URL, buildRequest, findSecret, normalizeNo, parseResponse, similarSecretNames, validPhone } from "./lib.ts";
+import { CARRIER_CODES, CONFIG_ERRORS, DAILY_TOTAL_LIMIT, DAILY_USER_LIMIT, MIN_INTERVAL_MS, QUOTA_ALL_USERS, PHONE_REQUIRED, QUERY_URL, buildRequest, findSecret, normalizeNo, parseResponse, similarSecretNames, validPhone } from "./lib.ts";
 
 // 调快递100：网络异常重试一次；返回内容不是 JSON 时记日志（只记状态码和返回内容开头，不含密钥）
 async function callKuaidi100(form: string): Promise<{ j: unknown } | { err: string }> {
@@ -41,12 +42,28 @@ const cors = {
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: cors });
 const fail = (status: number, code: string, message: string, extra: Record<string, unknown> = {}) => reply(status, { ok: false, code, message, ...extra });
 
-function publishableKey(): string {
+function envKey(jsonName: string, legacyName: string): string {
   try {
-    const keys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") || "{}");
+    const keys = JSON.parse(Deno.env.get(jsonName) || "{}");
     if (keys.default) return keys.default;
   } catch { /* fall through */ }
-  return Deno.env.get("SUPABASE_ANON_KEY") || "";
+  return Deno.env.get(legacyName) || "";
+}
+const publishableKey = () => envKey("SUPABASE_PUBLISHABLE_KEYS", "SUPABASE_ANON_KEY");
+
+// 每日额度：先扣本人的，再扣全站的。计数函数还没装（v6_33 SQL 没执行）或出错时不拦截，只记日志（不因为计数故障耽误查件）。
+async function dailyQuota(uid: string): Promise<Response | null> {
+  const secret = envKey("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
+  if (!secret) { console.error("quota skipped: no secret key"); return null; }
+  const svc = createClient(Deno.env.get("SUPABASE_URL")!, secret, { auth: { persistSession: false, autoRefreshToken: false } });
+  const take = async (who: string, bucket: string, limit: number): Promise<boolean | null> => {
+    const r = await svc.rpc("take_quota", { p_user: who, p_bucket: bucket, p_limit: limit, p_window_seconds: 86400 });
+    if (r.error) { console.error("quota check failed", r.error.message); return null; }
+    return r.data === true;
+  };
+  if ((await take(uid, "kuaidi100", DAILY_USER_LIMIT)) === false) return fail(429, "daily_limit", "今天的物流查询次数已经用完（每人每天 " + DAILY_USER_LIMIT + " 次），请明天再查");
+  if ((await take(QUOTA_ALL_USERS, "kuaidi100", DAILY_TOTAL_LIMIT)) === false) return fail(429, "daily_limit_all", "今天全站的物流查询次数已经用完，请明天再查，或联系管理员");
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -104,6 +121,8 @@ Deno.serve(async (req) => {
     const wait = Math.ceil((new Date(recent.data[0].created_at).getTime() + MIN_INTERVAL_MS - Date.now()) / 60000);
     return fail(429, "too_soon", "同一单号 30 分钟内只能查一次，请约 " + Math.max(wait, 1) + " 分钟后再查");
   }
+
+  const q = await dailyQuota(uid); if (q) return q;
 
   const { body: form } = buildRequest({ com, num, phone: phone || undefined, customer, key });
   const up = await callKuaidi100(form);
