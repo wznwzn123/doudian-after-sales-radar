@@ -957,7 +957,7 @@ async function run(browser, htmlPath) {
     check("6.31 Enter key also refused without agreeing", !(await page.evaluate("(window.__auth||[]).length")));
     await page.click('#lgAgreeRow a:text-is("《用户使用协议》")'); await page.waitForTimeout(250);
     m = await text(page, "#modalbox");
-    check("6.31 tapping the link opens the agreement (does not tick the box)", m.includes("第四条") && m.includes("新加坡") && m.includes("快递100") && m.includes("管理员可以查看全站") && !(await page.isChecked("#lgAgree")));
+    check("6.31 tapping the link opens the agreement (does not tick the box)", m.includes("悠然网络科技工作室（江西省丰城市") && m.includes("丰城市）有管辖权") && m.includes("第四条") && m.includes("新加坡") && m.includes("快递100") && m.includes("管理员可以查看全站") && !(await page.isChecked("#lgAgree")));
     await page.click('.legaltabs button:text-is("用户须知")'); await page.waitForTimeout(150);
     check("6.31 switch between the two documents", (await text(page, ".legalbody")).includes("一、售后雷达是什么") && (await page.$eval('.legaltabs button.on', (b) => b.textContent)) === "用户须知");
     await page.click('#modalbox button:text-is("我已阅读并同意")'); await page.waitForTimeout(300);
