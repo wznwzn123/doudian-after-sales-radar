@@ -1071,6 +1071,14 @@ async function run(browser, htmlPath) {
     await page.evaluate(() => { window.__loginAlerts = { ok: true, devices: [{ id: "aaaaaaaa-0000-4000-8000-000000000001", device: "WEB-me", current: true, name: "Windows · Chrome", first_seen: "2026-10-01T00:00:00Z", last_seen: "2026-10-11T00:00:00Z" }, { id: "aaaaaaaa-0000-4000-8000-000000000002", device: "WEB-ph", current: false, name: "iPhone · 微信", first_seen: "2026-10-02T00:00:00Z", last_seen: "2026-10-11T00:00:00Z" }] }; });
     await page.evaluate("openLoginRecords()"); await page.waitForTimeout(300);
     check("6.33 login records: 退出其他所有设备 button", !!(await page.$('#loginRecs button:text-is("退出其他所有设备")')));
+    await page.evaluate(() => { window.__loginAlerts.devices.push({ id: "aaaaaaaa-0000-4000-8000-000000000003", device: "WEBTEST-39", current: false, name: null, platform: "android", status: "blocked", first_seen: "2026-10-08T14:03:02Z", last_seen: "2026-10-08T14:14:08Z" }, { id: "aaaaaaaa-0000-4000-8000-000000000004", device: "WEB-5e041a", current: false, name: null, platform: "android", status: "active", first_seen: "2026-10-08T14:26:20Z", last_seen: "2026-10-08T14:26:57Z" }); });
+    await page.evaluate("openLoginRecords()"); await page.waitForTimeout(300);
+    const recs = await page.evaluate("[...document.querySelectorAll('#loginRecs .file')].map(f=>({t:f.textContent,del:!!f.querySelector('button')}))");
+    check("6.33 login records: unnamed old records read 未命名设备 · Android (not a bare 'android')", recs.filter((r) => r.t.includes("未命名设备 · Android")).length === 2 && !recs.some((r) => /^android/.test(r.t)), JSON.stringify(recs.map((r) => r.t.slice(0, 30))));
+    const blk = recs.find((r) => r.t.includes("已封禁"));
+    check("6.33 login records: a blocked device has no 删除 button and says it cannot log in", blk && !blk.del && blk.t.includes("登录不了"), JSON.stringify(blk));
+    await page.evaluate(() => { window.__loginAlerts.devices = window.__loginAlerts.devices.slice(0, 2); });
+    await page.evaluate("openLoginRecords()"); await page.waitForTimeout(300);
     await page.evaluate("window.__signedOut=0"); await page.click('#loginRecs button:text-is("退出其他所有设备")'); await page.waitForTimeout(250);
     check("6.33 logout others: SQL missing -> falls back to Auth sign-out of other sessions, current kept", (await text(page, "#toast")).includes("1 小时内生效") && (await page.evaluate("window.__signedOutOthers")) === 1 && !(await page.evaluate("window.__signedOut")) && (await page.$eval("#app", (e) => !e.classList.contains("hidden"))), await text(page, "#toast"));
     await page.evaluate("window.__rpcs.revoke_other_sessions=()=>({data:{ok:true,sessions:2},error:null})"); await page.evaluate("openLoginRecords()"); await page.waitForTimeout(300);
@@ -1256,7 +1264,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.33.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.33.1") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
