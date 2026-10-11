@@ -64,6 +64,9 @@ const STUB = `
    if(name==='security_register_device')return{data:{ok:true},error:null};
    if(name==='is_admin')return{data:window.__admin===true,error:null};
    if(name==='admin_list_all_users')return{data:window.__users||[],error:null};
+   if(name==='note_login_device'&&!window.__noAlertFns)return{data:null,error:null};
+   if(name==='my_login_alerts'&&!window.__noAlertFns)return{data:window.__loginAlerts||{ok:true,devices:[]},error:null};
+   if(name==='ack_login_alerts'&&!window.__noAlertFns){window.__acked=(window.__acked||0)+1;return{data:null,error:null}}
    if(name==='my_account_status'&&!window.__noApprovalFns)return{data:{pending:!!window.__pending},error:null};
    if(name==='admin_list_pending_phone_users'&&!window.__noApprovalFns)return{data:window.__pendingUsers||[],error:null};
    if(name==='admin_approve_phone_user'&&!window.__noApprovalFns){window.__pendingUsers=(window.__pendingUsers||[]).filter(u=>u.id!==args.p_user_id);return{data:{ok:true,message:'已通过审核'},error:null}}
@@ -637,6 +640,41 @@ async function run(browser, htmlPath) {
     check("6.22 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+
+  // ---- 6.23 new-device login alert + login records
+  {
+    const devs = { ok: true, devices: [
+      { device: "WEB-aaaa", current: true, name: "Android · Edge", platform: "android", first_seen: "2026-10-01T00:00:00Z", last_seen: "2026-10-11T05:00:00Z", ip: "1.161.59.62", status: "active", is_new: false },
+      { device: "WEB-bbbb", current: false, name: "Windows · Chrome", platform: "android", first_seen: "2026-10-11T04:00:00Z", last_seen: "2026-10-11T04:10:00Z", ip: "8.8.8.8", status: "active", is_new: true } ] };
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __loginAlerts: devs } });
+    await page.waitForTimeout(1300);
+    const note = await page.evaluate("window.__calls.find(c=>c.name==='note_login_device')");
+    check("6.23 after login: device label + UA recorded for this device", note && note.args.p_device_id === (await page.evaluate("getDeviceId()")) && /·/.test(note.args.p_label) && note.args.p_user_agent.length > 10, JSON.stringify(note));
+    const m = await text(page, "#modalbox");
+    check("6.23 new device -> alert lists ONLY the new one, with time + IP", m.includes("账号在新设备登录") && m.includes("Windows · Chrome") && m.includes("8.8.8.8") && !m.includes("1.161.59.62"), m.slice(0, 200));
+    await page.click('#modalbox button:text-is("是我本人")'); await page.waitForTimeout(200);
+    check("6.23 是我本人 -> acknowledged on the server, closed", (await page.evaluate("window.__acked")) === 1 && (await page.evaluate("document.getElementById('modal').classList.contains('hidden')")));
+    await page.evaluate("showLoginAlert(window.__loginAlerts.devices.filter(d=>d.is_new))"); await page.waitForTimeout(100);
+    await page.click('#modalbox button:text-is("不是我，马上改密码")'); await page.waitForTimeout(500);
+    check("6.23 不是我 -> acknowledged + settings opened at 修改密码", (await page.evaluate("window.__acked")) === 2 && !!(await page.$("#cp1")) && (await page.evaluate("document.activeElement&&document.activeElement.id")) === "cp1");
+    await page.click('button:text-is("查看登录记录")'); await page.waitForTimeout(300);
+    const rec = await text(page, "#loginRecs");
+    check("6.23 登录记录 lists all devices, marks 本机", rec.includes("共 2 台设备") && rec.includes("Android · Edge") && rec.includes("本机") && rec.includes("Windows · Chrome"));
+    check("6.23 deviceLabel() works", /^(Android|iPhone|iPad|Windows|Mac|Linux|未知系统) · /.test(await page.evaluate("deviceLabel()")));
+    check("6.23 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+    const r2 = await open(browser, htmlPath, { db: seed() });
+    await r2.page.waitForTimeout(1300);
+    check("6.23 no new device -> no alert", await r2.page.evaluate("document.getElementById('modal').classList.contains('hidden')"));
+    await r2.ctx.close();
+    const r3 = await open(browser, htmlPath, { db: seed(), pre: { __noAlertFns: true } });
+    await r3.page.waitForTimeout(1300);
+    check("6.23 before SQL: app opens normally, no alert", !(await r3.page.evaluate("document.getElementById('app').classList.contains('hidden')")) && (await r3.page.evaluate("document.getElementById('modal').classList.contains('hidden')")));
+    await r3.page.evaluate("openLoginRecords()"); await r3.page.waitForTimeout(300);
+    check("6.23 before SQL: 登录记录 explains it is not opened yet", (await text(r3.page, "#loginRecs")).includes("还没有开通"));
+    check("6.23 before SQL: no page errors", !(r3.page.__errs || []).length, JSON.stringify(r3.page.__errs));
+    await r3.ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
@@ -790,7 +828,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.22.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.23.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
