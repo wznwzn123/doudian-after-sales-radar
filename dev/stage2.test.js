@@ -533,7 +533,7 @@ async function run(browser, htmlPath) {
     const mainland = "请输入正确的中国大陆手机号（13～19 开头的 11 位数字）";
     check("6.16/6.18 phone: parseIdent (mainland segments only, bad input flagged)", JSON.stringify(pi) === JSON.stringify([{ phone: "+8613800138000" }, { phone: "+8613800138000" }, { phone: "+8613800138000" }, { email: "a@x.com" }, { bad: mainland }, null, { bad: mainland }, { bad: mainland }, { bad: mainland }, { bad: "请输入正确的邮箱或手机号" }, { bad: "邮箱格式不正确" }]), JSON.stringify(pi));
     await page.evaluate("window.__authReply={data:null,error:{message:'Phone signups are disabled'}}");
-    await page.evaluate("lgView('register')");
+    await page.evaluate("lgView('register');document.getElementById('lgAgree').checked=true");
     await page.fill("#email", "13800138000"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(100);
     await page.fill("#password2", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(200);
     check("6.16 phone: provider off -> clear Chinese message", (await text(page, "#authmsg")).includes("手机号注册/登录还没有开通"), await text(page, "#authmsg"));
@@ -544,13 +544,13 @@ async function run(browser, htmlPath) {
     check("6.16 phone: register with session -> enters app, header shows phone", !(await page.evaluate("document.getElementById('app').classList.contains('hidden')")) && (await text(page, "#userEmail")) === "手机 13800138000");
     await ctx.close();
     const r2 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
-    await r2.page.evaluate("lgView('login')");
+    await r2.page.evaluate("lgView('login');document.getElementById('lgAgree').checked=true");
     await r2.page.fill("#email", "138-0013-8000"); await r2.page.fill("#password", "Abcdef1!"); await r2.page.click('button:text-is("登录")'); await r2.page.waitForTimeout(600);
     const si = await r2.page.evaluate("window.__auth.filter(a=>a.op==='signIn').pop()");
     check("6.16 phone: login with phone", si && si.c.phone === "+8613800138000" && !si.c.email);
     await r2.ctx.close();
     const r3 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __authReply: { data: null, error: { message: "Invalid login credentials" } } } });
-    await r3.page.evaluate("lgView('login')");
+    await r3.page.evaluate("lgView('login');document.getElementById('lgAgree').checked=true");
     await r3.page.fill("#email", "a@x.com"); await r3.page.fill("#password", "x"); await r3.page.click('button:text-is("登录")'); await r3.page.waitForTimeout(200);
     const si3 = await r3.page.evaluate("window.__auth.filter(a=>a.op==='signIn').pop()");
     check("6.16 phone: email login unchanged + Chinese error", si3 && si3.c.email === "a@x.com" && (await text(r3.page, "#authmsg")) === "邮箱或密码不正确");
@@ -564,7 +564,7 @@ async function run(browser, htmlPath) {
   // ---- 6.20 no double submit on 注册 / 登录
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __authDelay: 400 } });
-    await page.evaluate("lgView('register')");
+    await page.evaluate("lgView('register');document.getElementById('lgAgree').checked=true");
     await page.fill("#email", "13900139000"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(50);
     await page.fill("#password2", "Abcdef1!");
     await page.evaluate("(()=>{register();register();register();return 1})()");
@@ -575,7 +575,7 @@ async function run(browser, htmlPath) {
     await page.evaluate("showLogin('')"); await page.waitForTimeout(100);
     check("6.20 buttons enabled again afterwards", !(await page.evaluate("document.getElementById('regBtn').disabled||document.getElementById('loginBtn').disabled")));
     await page.evaluate("window.__authReply={data:null,error:{message:'Invalid login credentials'}}");
-    await page.evaluate("lgView('login')");
+    await page.evaluate("lgView('login');document.getElementById('lgAgree').checked=true");
     await page.fill("#email", "a@x.com"); await page.fill("#password", "x"); await page.click("#loginBtn"); await page.waitForTimeout(700);
     check("6.20 after a failed login the buttons work again", !(await page.evaluate("document.getElementById('loginBtn').disabled")) && (await text(page, "#authmsg")) === "邮箱或密码不正确");
     check("6.20 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
@@ -854,7 +854,7 @@ async function run(browser, htmlPath) {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(500);
     check("6.27 login: card + particle background canvas", !!(await page.$("#login .lgcard")) && !!(await page.$("#lgbg")) && (await text(page, "#login")).includes("账号登录"));
-    await page.evaluate("lgView('login')");
+    await page.evaluate("lgView('login');document.getElementById('lgAgree').checked=true");
     await page.fill("#email", "138 0013 8000"); await page.dispatchEvent("#email", "input");
     check("6.27 login: phone shows +86 prefix", (await text(page, "#lgpre")) === "+86");
     await page.fill("#email", "a@x.com"); await page.dispatchEvent("#email", "input");
@@ -907,6 +907,7 @@ async function run(browser, htmlPath) {
     // admin entry with an admin account -> straight into the full-page admin console
     await page.click('#lgWelcome .lgbig.light'); await page.waitForTimeout(150);
     check("6.29 admin login page: title, badge, no 去注册", (await text(page, "#lgTitle")) === "管理员登录" && (await vis(page, ".lgadminbadge")) && !(await vis(page, ".lgtoreg")));
+    await page.check("#lgAgree");
     await page.fill("#email", "a@x.com"); await page.fill("#password", "Abcdef1!"); await page.click("#loginBtn"); await page.waitForTimeout(1200);
     const nav = await page.$$eval("#adminApp .admnav button", (b) => b.map((x) => x.dataset.k + (x.classList.contains("on") ? "*" : "")));
     check("6.30 console: grouped nav with all 14 sections, 总览 active, title shown", nav.length === 14 && nav[0] === "overview*" && (await text(page, "#admTitle")) === "总览" && (await text(page, "#adminApp .admnav")).includes("用户与安全"), JSON.stringify(nav));
@@ -922,13 +923,13 @@ async function run(browser, htmlPath) {
     await ctx.close();
     // a normal account through 管理员登录 -> refused, signed out, stays on the admin login page
     const r2 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __admin: false } });
-    await r2.page.evaluate("lgView('admin')");
+    await r2.page.evaluate("lgView('admin');document.getElementById('lgAgree').checked=true");
     await r2.page.fill("#email", "a@x.com"); await r2.page.fill("#password", "Abcdef1!"); await r2.page.click("#loginBtn"); await r2.page.waitForTimeout(1200);
     check("6.29 non-admin via 管理员登录 -> refused with a clear message, app not shown", (await r2.page.evaluate("document.getElementById('app').classList.contains('hidden')")) && (await text(r2.page, "#authmsg")).includes("不是管理员") && (await text(r2.page, "#lgTitle")) === "管理员登录" && !(await vis(r2.page, "#adminApp")));
     await r2.ctx.close();
     // an admin account through the normal 账号登录 -> workbench only, no admin entries
     const r3 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __admin: true } });
-    await r3.page.evaluate("lgView('login')");
+    await r3.page.evaluate("lgView('login');document.getElementById('lgAgree').checked=true");
     await r3.page.fill("#email", "a@x.com"); await r3.page.fill("#password", "Abcdef1!"); await r3.page.click("#loginBtn"); await r3.page.waitForTimeout(1200);
     check("6.29 admin account via 账号登录 -> workbench, no 管理 button, no console", !(await r3.page.evaluate("document.getElementById('app').classList.contains('hidden')")) && !(await vis(r3.page, "#adminBtn")) && !(await vis(r3.page, "#adminApp")) && (await r3.page.evaluate("localStorage.getItem('sar_mode')")) === "user");
     await r3.ctx.close();
@@ -940,14 +941,58 @@ async function run(browser, htmlPath) {
     check("6.29 logout clears the admin entry", afterLogout === "user", afterLogout);
     await r4.ctx.close();
   }
+  // ---- 6.31 用户须知 / 用户使用协议：必须勾选同意才能登录、注册；协议能打开查看
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.click('#login .lgfoot .lglegal a:text-is("用户须知")'); await page.waitForTimeout(250);
+    let m = await text(page, "#modalbox");
+    check("6.31 welcome page: 用户须知 opens and reads (no agree button outside the form)", m.includes("不是抖店（抖音电商）官方产品") && m.includes("1012968575@qq.com") && !(await page.$('#modalbox button:text-is("我已阅读并同意")')));
+    await page.evaluate("closeModal()");
+    await page.evaluate("lgView('login')");
+    check("6.31 agreement box shown on the login page, unticked by default", (await page.isVisible("#lgAgree")) && !(await page.isChecked("#lgAgree")) && (await text(page, "#lgAgreeRow")).includes("《用户须知》") && (await text(page, "#lgAgreeRow")).includes("《用户使用协议》"));
+    await page.fill("#email", "a@x.com"); await page.fill("#password", "Abcdef1!"); await page.click("#loginBtn"); await page.waitForTimeout(300);
+    check("6.31 login without agreeing -> refused, nothing sent", (await text(page, "#authmsg")).includes("请先阅读并勾选同意") && !(await page.evaluate("(window.__auth||[]).length")) && (await page.evaluate("document.getElementById('app').classList.contains('hidden')")));
+    await page.press("#password", "Enter"); await page.waitForTimeout(200);
+    check("6.31 Enter key also refused without agreeing", !(await page.evaluate("(window.__auth||[]).length")));
+    await page.click('#lgAgreeRow a:text-is("《用户使用协议》")'); await page.waitForTimeout(250);
+    m = await text(page, "#modalbox");
+    check("6.31 tapping the link opens the agreement (does not tick the box)", m.includes("第四条") && m.includes("新加坡") && m.includes("快递100") && m.includes("管理员可以查看全站") && !(await page.isChecked("#lgAgree")));
+    await page.click('.legaltabs button:text-is("用户须知")'); await page.waitForTimeout(150);
+    check("6.31 switch between the two documents", (await text(page, ".legalbody")).includes("一、售后雷达是什么") && (await page.$eval('.legaltabs button.on', (b) => b.textContent)) === "用户须知");
+    await page.click('#modalbox button:text-is("我已阅读并同意")'); await page.waitForTimeout(300);
+    check("6.31 我已阅读并同意 -> ticked, viewer closed, warning cleared", (await page.isChecked("#lgAgree")) && (await page.evaluate("document.getElementById('modal').classList.contains('hidden')")) && !(await text(page, "#authmsg")).includes("勾选同意"));
+    await page.click("#loginBtn"); await page.waitForTimeout(800);
+    check("6.31 agreed -> login goes through", (await page.evaluate("(window.__auth||[]).some(a=>a.op==='signIn')")) && !(await page.evaluate("document.getElementById('app').classList.contains('hidden')")));
+    await page.evaluate("openSettings()");
+    check("6.31 settings: both documents can be opened later", (await text(page, "#modalbox")).includes("用户须知与协议"));
+    await page.click('#modalbox button:text-is("用户使用协议")'); await page.waitForTimeout(200);
+    check("6.31 settings -> 用户使用协议 opens", (await text(page, ".legalbody")).includes("第一条　服务内容") && !(await page.$('#modalbox button:text-is("我已阅读并同意")')));
+    check("6.31 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+    const r2 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
+    await r2.page.evaluate("lgView('register')");
+    await r2.page.fill("#email", "13800138000"); await r2.page.fill("#password", "Abcdef1!"); await r2.page.fill("#password2", "Abcdef1!");
+    await r2.page.click("#regBtn"); await r2.page.waitForTimeout(300);
+    check("6.31 register without agreeing -> refused, no sign-up", (await text(r2.page, "#authmsg")).includes("请先阅读并勾选同意") && !(await r2.page.evaluate("(window.__auth||[]).some(a=>a.op==='signUp')")));
+    await r2.page.check("#lgAgree"); await r2.page.click("#regBtn"); await r2.page.waitForTimeout(800);
+    const su = await r2.page.evaluate("(window.__auth||[]).find(a=>a.op==='signUp')");
+    check("6.31 agreed -> sign-up sent with the agreement version recorded", su && su.c.options && su.c.options.data.terms_version === (await r2.page.evaluate("LEGAL_VERSION")) && !!su.c.options.data.terms_agreed_at, JSON.stringify(su && su.c.options));
+    await r2.ctx.close();
+    const r3 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __admin: true } });
+    await r3.page.evaluate("lgView('admin')");
+    await r3.page.fill("#email", "a@x.com"); await r3.page.fill("#password", "Abcdef1!"); await r3.page.click("#loginBtn"); await r3.page.waitForTimeout(300);
+    check("6.31 admin login also needs the agreement", (await text(r3.page, "#authmsg")).includes("请先阅读并勾选同意") && !(await r3.page.evaluate("(window.__auth||[]).length")));
+    await r3.ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
-    await page.evaluate("lgView('login')");
+    await page.evaluate("lgView('login');document.getElementById('lgAgree').checked=true");
     await page.fill("#email", "12345678901"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("登录")'); await page.waitForTimeout(150);
     check("6.18 bad number refused locally, no request", (await text(page, "#authmsg")).includes("中国大陆手机号") && !(await page.evaluate("window.__auth")));
     await page.evaluate("window.__pending=true");
-    await page.evaluate("lgView('register')");
+    await page.evaluate("lgView('register');document.getElementById('lgAgree').checked=true");
     await page.fill("#email", "13800138000"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(100);
     await page.fill("#password2", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(800);
     check("6.18 pending phone account: kept out of the app", await page.evaluate("document.getElementById('app').classList.contains('hidden')") && !(await page.evaluate("document.getElementById('login').classList.contains('hidden')")));
@@ -1099,7 +1144,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.30.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.31.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());

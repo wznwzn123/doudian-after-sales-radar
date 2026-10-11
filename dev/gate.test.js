@@ -95,7 +95,7 @@ const text = (p, sel) => p.evaluate((s) => document.querySelector(s)?.textConten
 
 async function doLogin(page) {
   // 6.29+: the login form sits behind a welcome screen (账号登录 / 管理员登录); older pages have no lgView
-  await page.evaluate(() => { if (typeof lgView === "function") lgView("login"); });
+  await page.evaluate(() => { if (typeof lgView === "function") lgView("login"); const a = document.getElementById("lgAgree"); if (a) a.checked = true; });
   await page.fill("#email", "a@x.com");
   await page.fill("#password", "Passw0rd!x");
   await page.click("#login .primary");
@@ -448,7 +448,7 @@ async function restoreScenarios(browser, htmlPath) {
   await tab("logs"); b = await body();
   check(g, "logs tab", b.includes("device_block") && b.includes("測試") && b.includes("a@x.com"), b);
   await tab("settings"); b = await body();
-  check(g, "settings tab shows version + 3h", b.includes("6.30.0") && b.includes("3 小时"), b);
+  check(g, "settings tab shows version + 3h", b.includes("6.31.0") && b.includes("3 小时"), b);
   await tab("users"); b = await body();
   check(g, "users tab lists ALL users (admin_list_all_users), not just admins", b.includes("a@x.com") && b.includes("b@x.com") && !b.includes("boss@x.com") && b.includes("管理员") && b.includes("全站共 2 个账号"), b);
   // admins tab
