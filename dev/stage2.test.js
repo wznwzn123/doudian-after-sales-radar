@@ -54,6 +54,7 @@ const STUB = `
   auth:{
    getSession:async()=>({data:{session:window.__noSession?null:{user:{id:'u1',email:'a@x.com'}}},error:null}),
    async signInWithPassword(c){window.__auth=(window.__auth||[]).concat([{op:'signIn',c}]);return window.__authReply||{data:{session:{user:{id:'u1',email:c.email||null,phone:c.phone?c.phone.replace('+',''):null}}},error:null}},
+   async refreshSession(){window.__refreshed=(window.__refreshed||0)+1;return window.__refreshReply||{data:{session:null},error:null}},
    async updateUser(a){window.__auth=(window.__auth||[]).concat([{op:'update',a}]);return window.__updReply||{data:{user:{id:'u1'}},error:null}},
    async signUp(c){window.__auth=(window.__auth||[]).concat([{op:'signUp',c}]);if(window.__authDelay)await new Promise(r=>setTimeout(r,window.__authDelay));return window.__authReply||{data:{session:c.phone?{user:{id:'u9',phone:c.phone.replace('+','')}}:null},error:null}},
    onAuthStateChange(cb){listeners.push(cb);return{data:{subscription:{unsubscribe(){}}}}},
@@ -733,6 +734,47 @@ async function run(browser, htmlPath) {
     check("6.24 not deployed: no page errors", !(r3.page.__errs || []).length, JSON.stringify(r3.page.__errs));
     await r3.ctx.close();
   }
+  // ---- 6.25 换绑登录手机号 / 登录邮箱 (server side: dev/login-alert-mail.handler.test.ts)
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.evaluate(`window.__mailReply = (b) => { window.__rb = (window.__rb || []).concat([b]);
+      const ok = (x) => ({ data: Object.assign({ ok: true, status: {} }, x || {}), error: null });
+      const bad = (code, message) => ({ data: null, error: { message: "non-2xx", context: { json: async () => ({ ok: false, code, message }) } } });
+      if (b.action === "change_phone") return b.password === "Right#123" ? ok({ phone: "139****5678" }) : bad("wrong_password", "当前密码不对（还可以再试 4 次）");
+      if (b.action === "email_change_code") return ok({ sent_to: "n****w@qq.com" });
+      if (b.action === "email_change_verify") return b.code === "123456" ? ok({ email: "n****w@qq.com", alert_set: true }) : bad("wrong_code", "验证码不对（还可以再试 4 次）");
+      return ok({ sent: false }); };`);
+    await page.evaluate("openSettings()");
+    let m = await text(page, "#modalbox");
+    check("6.25 settings: 换绑手机号 / 邮箱 card", m.includes("换绑手机号 / 邮箱") && m.includes("换绑邮箱") && m.includes("当前密码"));
+    await page.click('#modalbox button:text-is("换绑手机号")'); await page.waitForTimeout(200);
+    check("6.25 phone form shows current account + no-SMS warning", (await text(page, "#modalbox")).includes("a@x.com") && (await text(page, "#modalbox")).includes("没有短信验证") && !!(await page.$("#rbPhone")) && !!(await page.$("#rbPw")));
+    const rbCalls = () => page.evaluate("(window.__rb||[]).length");
+    await page.fill("#rbPhone", "12345"); await page.fill("#rbPw", "Right#123"); await page.click("#rbGo"); await page.waitForTimeout(100);
+    check("6.25 bad phone -> local error, no call", (await text(page, "#toast")).includes("手机号") && (await rbCalls()) === 0);
+    await page.fill("#rbPhone", "139 1234 5678"); await page.evaluate("window.__confirm=false"); await page.click("#rbGo"); await page.waitForTimeout(100);
+    check("6.25 asks to double-check the number; cancel sends nothing", (await rbCalls()) === 0);
+    await page.evaluate("window.__confirm=true"); await page.fill("#rbPw", "wrong"); await page.click("#rbGo"); await page.waitForTimeout(200);
+    check("6.25 wrong password -> server message, form stays", (await text(page, "#toast")).includes("当前密码不对") && !!(await page.$("#rbPhone")));
+    await page.evaluate(`window.__refreshReply = { data: { session: { user: { id: "u1", email: "a@x.com", phone: "8613912345678" } } }, error: null }`);
+    await page.fill("#rbPw", "Right#123"); await page.click("#rbGo"); await page.waitForTimeout(300);
+    const last = await page.evaluate("window.__rb.at(-1)");
+    check("6.25 change_phone sent with +86 number + password", last.action === "change_phone" && last.phone === "+8613912345678" && last.password === "Right#123", JSON.stringify(last));
+    check("6.25 after change: session refreshed, back to settings, toast", (await page.evaluate("window.__refreshed")) >= 1 && (await text(page, "#toast")).includes("13912345678") && (await text(page, "#modalbox")).includes("工作台设置"));
+    await page.click('#modalbox button:text-is("换绑邮箱")'); await page.waitForTimeout(200);
+    await page.fill("#rbEmail", "New@qq.com"); await page.click("#rbSend"); await page.waitForTimeout(100);
+    check("6.25 email: password required before asking for a code", (await text(page, "#toast")).includes("当前密码") && !(await page.evaluate("window.__rb.some(c=>c.action==='email_change_code')")));
+    await page.fill("#rbPw", "Right#123"); await page.click("#rbSend"); await page.waitForTimeout(200);
+    const ec = await page.evaluate("window.__rb.find(c=>c.action==='email_change_code')");
+    check("6.25 email: code requested for the new email with the password; countdown", ec && ec.email === "New@qq.com" && ec.password === "Right#123" && /秒后可重新获取/.test(await text(page, "#rbSend")));
+    await page.fill("#rbCode", "000000"); await page.click("#rbGo"); await page.waitForTimeout(200);
+    check("6.25 email: wrong code -> message, not changed", (await text(page, "#toast")).includes("验证码不对") && !!(await page.$("#rbCode")));
+    await page.evaluate(`window.__refreshReply = { data: { session: { user: { id: "u1", email: "new@qq.com" } } }, error: null }`);
+    await page.fill("#rbCode", "123456"); await page.click("#rbGo"); await page.waitForTimeout(300);
+    check("6.25 email changed: header shows new login email, toast mentions alert email", (await text(page, "#userEmail")).includes("new@qq.com") && (await text(page, "#toast")).includes("登录邮箱已改为") && (await text(page, "#toast")).includes("提醒"));
+    check("6.25 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
@@ -886,7 +928,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.24.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.25.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());

@@ -53,10 +53,27 @@ export function fmtCN(iso: unknown): string {
   return d.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false }) + "（北京时间）";
 }
 
-export function codeMail(code: string): { subject: string; text: string } {
+export function codeMail(code: string, purpose: "alert" | "login" = "alert"): { subject: string; text: string } {
+  const what = purpose === "login" ? "换绑登录邮箱" : "绑定「新设备登录提醒」邮箱";
   return {
-    subject: "【售后雷达】绑定提醒邮箱的验证码：" + code,
-    text: "你好！\n\n你正在给售后雷达账号绑定「新设备登录提醒」邮箱，验证码是：\n\n    " + code + "\n\n10 分钟内有效。如果不是你本人操作，请忽略这封邮件。\n\n— 售后雷达",
+    subject: "【售后雷达】" + (purpose === "login" ? "换绑登录邮箱" : "绑定提醒邮箱") + "的验证码：" + code,
+    text: "你好！\n\n你正在给售后雷达账号" + what + "，验证码是：\n\n    " + code + "\n\n10 分钟内有效。如果不是你本人操作，请忽略这封邮件。\n\n— 售后雷达",
+  };
+}
+
+// 中国大陆手机号 -> "+8615770572452"；不合法返回 ""（和前端 parseIdent 同一条规则：13～19 开头的 11 位）
+export function normPhone(v: unknown): string {
+  const d = String(v ?? "").replace(/[\s-]/g, "").replace(/^\+?86(?=1\d{10}$)/, "");
+  return /^1[3-9]\d{9}$/.test(d) ? "+86" + d : "";
+}
+
+// 登录手机号 / 登录邮箱被换绑后，发到旧邮箱和提醒邮箱的通知
+export function changedMail(o: { kind: "phone" | "email"; account: string; now: string; at: string; contact: string }): { subject: string; text: string } {
+  const what = o.kind === "phone" ? "登录手机号" : "登录邮箱";
+  return {
+    subject: "【售后雷达】你的账号" + what + "已更改",
+    text: "你好！\n\n你的售后雷达账号 " + o.account + " 的" + what + "刚刚被改为：" + o.now + "\n时间：" + o.at +
+      "\n\n如果是你本人，不用处理。\n如果不是你：请马上发邮件给 " + o.contact + " 联系管理员处理。\n\n— 售后雷达（这封邮件由系统自动发送，请不要直接回复）",
   };
 }
 

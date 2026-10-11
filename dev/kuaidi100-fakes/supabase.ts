@@ -1,5 +1,5 @@
 // Fake @supabase/supabase-js for dev/kuaidi100.handler.test.ts: in-memory tables + RLS-like user filter.
-export const state: any = { db: {}, users: { "tok-u1": "u1", "tok-u2": "u2" }, clients: [], admins: [], authUsers: {}, adminCalls: [], rpcs: {}, pk: {}, deny: {} };
+export const state: any = { db: {}, users: { "tok-u1": "u1", "tok-u2": "u2" }, clients: [], admins: [], authUsers: {}, adminCalls: [], rpcs: {}, pk: {}, deny: {}, passwords: {}, signIns: [], signOuts: [], signInError: null };
 export function createClient(_url: string, _key: string, opts: any) {
   const auth = opts?.global?.headers?.Authorization || "";
   const token = auth.replace(/^Bearer\s+/i, "");
@@ -65,6 +65,15 @@ export function createClient(_url: string, _key: string, opts: any) {
       return { data: null, error: { message: "unexpected rpc " + name } };
     },
     auth: {
+      async signInWithPassword(c: any) {
+        state.signIns.push({ ...c, key: _key });
+        if (state.signInError) return { data: { user: null, session: null }, error: state.signInError };
+        const ph = c.phone ? String(c.phone).replace(/^\+/, "") : null;
+        const id = Object.keys(state.authUsers).find((k) => (c.email && state.authUsers[k].email === c.email) || (ph && state.authUsers[k].phone === ph));
+        if (!id || state.passwords[id] !== c.password) return { data: { user: null, session: null }, error: { message: "Invalid login credentials", code: "invalid_credentials" } };
+        return { data: { user: { id }, session: { access_token: "tmp" } }, error: null };
+      },
+      async signOut(o: any) { state.signOuts.push(o); return { error: null }; },
       async getUser(t: string) { const id = state.users[t]; return id ? { data: { user: { id, ...(state.authUsers[id] || {}) } }, error: null } : { data: { user: null }, error: { message: "bad jwt" } }; },
       admin: {
         async getUserById(id: string) {
@@ -73,7 +82,17 @@ export function createClient(_url: string, _key: string, opts: any) {
         },
         async updateUserById(id: string, attrs: any) {
           if (!secret) return { data: { user: null }, error: { message: "User not allowed" } };
-          state.adminCalls.push({ id, attrs }); if (state.authUsers[id]) state.authUsers[id].password = attrs.password;
+          state.adminCalls.push({ id, attrs });
+          const others = Object.keys(state.authUsers).filter((k) => k !== id);
+          const ph = attrs.phone ? String(attrs.phone).replace(/^\+/, "") : null;
+          if (ph && others.some((k) => state.authUsers[k].phone === ph)) return { data: { user: null }, error: { message: "A user with this phone number has already been registered" } };
+          if (attrs.email && others.some((k) => state.authUsers[k].email === attrs.email)) return { data: { user: null }, error: { message: "A user with this email address has already been registered" } };
+          const u = state.authUsers[id];
+          if (u) {
+            if (attrs.password) u.password = attrs.password;
+            if (ph) { u.phone = ph; u.phone_confirmed_at = new Date().toISOString(); }
+            if (attrs.email) { u.email = attrs.email; u.email_confirmed_at = new Date().toISOString(); }
+          }
           return { data: { user: { id } }, error: null };
         },
       },

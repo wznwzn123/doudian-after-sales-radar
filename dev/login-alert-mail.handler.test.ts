@@ -21,7 +21,8 @@ const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
 function seed() {
   state.users = { "tok-p": P, "tok-pend": PEND, "tok-e": E, "tok-ban": BAN };
   state.authUsers = { [P]: { phone: "8615770572452", email: "" }, [PEND]: { phone: "8613800000000", email: "" }, [E]: { email: "boss@x.com", email_confirmed_at: ago(1e9) }, [BAN]: { phone: "8613900000000", email: "" } };
-  state.db = { login_alert_emails: [], login_alert_mails: [] }; state.clients = []; state.deny = {};
+  state.db = { login_alert_emails: [], login_alert_mails: [], admin_operation_logs: [] }; state.clients = []; state.deny = {};
+  state.passwords = { [P]: "Pw#12345", [E]: "Em#12345", [PEND]: "Pd#12345" }; state.signIns = []; state.signOuts = []; state.signInError = null; state.adminCalls = [];
   state.pk = { login_alert_mails: ["user_id", "device_id"], login_alert_emails: ["user_id"] };
   state.devices = { [P]: [] };
   state.rpcs = {
@@ -132,5 +133,69 @@ Deno.test("decline and remove", async () => {
   await bind("tok-p", P, "me@qq.com"); eq(rowOf(P).prompt_declined_at, null, "binding clears decline");
   const r = await call({ action: "remove" }, "tok-p"); eq(r.json.status.email, "", "removed"); eq(rowOf(P).email, null, "db cleared");
   eq((await call({ action: "nope" }, "tok-p")).json.code, "bad_action", "unknown action");
+});
+
+// ---- 6.25 换绑登录手机号 / 登录邮箱
+Deno.test("change phone: needs the current password (checked with a temporary session that is then signed out locally)", async () => {
+  seed();
+  eq((await call({ action: "change_phone", phone: "12345", password: "Pw#12345" }, "tok-p")).json.code, "bad_phone", "bad phone");
+  eq((await call({ action: "change_phone", phone: "15770572452", password: "Pw#12345" }, "tok-p")).json.code, "same", "same phone");
+  const w = await call({ action: "change_phone", phone: "13912345678", password: "wrong" }, "tok-p");
+  eq(w.json.code, "wrong_password", "wrong pw"); ok(w.json.message.includes("还可以再试 4 次"), w.json.message); eq(state.adminCalls.length, 0, "not changed");
+  eq(state.signIns[0].phone, "+8615770572452", "verified with the current phone"); eq(state.signIns[0].key, "sb_publishable_test", "publishable key, not secret");
+  const r = await call({ action: "change_phone", phone: "139 1234 5678", password: "Pw#12345" }, "tok-p");
+  eq(r.status, 200, "ok"); eq(r.json.phone, "139****5678", "masked"); eq(state.authUsers[P].phone, "8613912345678", "phone changed");
+  eq(state.adminCalls.at(-1).attrs.phone, "+8613912345678", "admin api"); eq(state.adminCalls.at(-1).attrs.phone_confirm, true, "confirmed");
+  eq(state.signOuts.length, 1, "temp session signed out"); eq(state.signOuts[0].scope, "local", "only the temp session");
+  const log = state.db.admin_operation_logs.at(-1); eq(log.action, "change_phone", "logged"); eq(log.user_id, P, "by the user"); ok(log.detail.includes("157****2452") && log.detail.includes("139****5678"), log.detail);
+});
+Deno.test("change phone: number used by another account -> clear message; pending/banned refused; 5 wrong passwords lock", async () => {
+  seed();
+  const d = await call({ action: "change_phone", phone: "13800000000", password: "Pw#12345" }, "tok-p"); eq(d.status, 409, "dup"); ok(d.json.message.includes("已经被其他账号使用"), d.json.message);
+  eq((await call({ action: "change_phone", phone: "13700000000", password: "Pd#12345" }, "tok-pend")).status, 403, "pending");
+  eq((await call({ action: "change_phone", phone: "13700000000", password: "x" }, "tok-ban")).status, 403, "banned");
+  for (let i = 0; i < 5; i++) await call({ action: "change_phone", phone: "13700000000", password: "bad" }, "tok-p");
+  const l = await call({ action: "change_phone", phone: "13700000000", password: "Pw#12345" }, "tok-p"); eq(l.json.code, "pw_locked", "locked even with the right password");
+  rowOf(P).pw_fail_at = ago(31 * 60000); eq((await call({ action: "change_phone", phone: "13700000000", password: "Pw#12345" }, "tok-p")).status, 200, "unlocked after 30 min");
+  eq(rowOf(P).pw_fail_count, 0, "fail counter reset");
+});
+Deno.test("change phone: auth service trouble is not counted as a wrong password", async () => {
+  seed(); state.signInError = { message: "Request rate limit reached", code: "over_request_rate_limit" };
+  const r = await call({ action: "change_phone", phone: "13700000000", password: "Pw#12345" }, "tok-p"); eq(r.json.code, "pw_check_failed", "code");
+  eq(rowOf(P), undefined, "no fail recorded"); eq(state.adminCalls.length, 0, "not changed");
+});
+Deno.test("change login email (phone user): password + code to the NEW email; becomes login email and the alert email", async () => {
+  seed();
+  eq((await call({ action: "email_change_code", email: "new@qq.com", password: "nope" }, "tok-p")).json.code, "wrong_password", "wrong pw"); eq(mailbox.sent.length, 0, "no code before password");
+  const c = await call({ action: "email_change_code", email: "New@QQ.com", password: "Pw#12345" }, "tok-p"); eq(c.status, 200, "sent"); eq(c.json.status.chg_email, "n****w@qq.com", "pending shown (masked)");
+  eq(mailbox.sent[0].to, "new@qq.com", "code to new email"); ok(mailbox.sent[0].subject.includes("换绑登录邮箱"), "subject");
+  const code = mailbox.sent[0].subject.slice(-6);
+  eq((await call({ action: "verify_code", code }, "tok-p")).json.code, "no_code", "alert-binding code path is separate");
+  eq((await call({ action: "email_change_verify", code: code === "000000" ? "111111" : "000000" }, "tok-p")).json.code, "wrong_code", "wrong code");
+  const v = await call({ action: "email_change_verify", code }, "tok-p"); eq(v.status, 200, "ok"); eq(v.json.alert_set, true, "alert email set too");
+  eq(state.authUsers[P].email, "new@qq.com", "login email set"); eq(state.adminCalls.at(-1).attrs.email_confirm, true, "confirmed");
+  eq(rowOf(P).email, "new@qq.com", "alert email"); eq(rowOf(P).chg_code_hash, null, "code cleared");
+  eq(state.db.admin_operation_logs.at(-1).action, "change_email", "logged");
+});
+Deno.test("change login email (email user): old address and alert email are told; taken email refused", async () => {
+  seed(); state.authUsers["55555555-5555-5555-5555-555555555555"] = { email: "taken@qq.com" };
+  state.db.login_alert_emails.push({ user_id: E, email: "alert@qq.com", verified_at: ago(DAY), sent_count: 0 });
+  await call({ action: "email_change_code", email: "taken@qq.com", password: "Em#12345" }, "tok-e");
+  const t = await call({ action: "email_change_verify", code: mailbox.sent.at(-1).subject.slice(-6) }, "tok-e"); eq(t.status, 409, "taken"); ok(t.json.message.includes("已经被其他账号使用"), t.json.message);
+  eq(state.authUsers[E].email, "boss@x.com", "unchanged");
+  rowOf(E).last_sent_at = ago(61000); mailbox.sent = [];
+  await call({ action: "email_change_code", email: "me2@qq.com", password: "Em#12345" }, "tok-e");
+  const v = await call({ action: "email_change_verify", code: mailbox.sent.at(-1).subject.slice(-6) }, "tok-e"); eq(v.status, 200, "ok"); eq(v.json.alert_set, false, "existing alert email kept");
+  eq(rowOf(E).email, "alert@qq.com", "alert email unchanged");
+  const notes = mailbox.sent.filter((m: any) => m.subject.includes("已更改")).map((m: any) => m.to).sort();
+  eq(JSON.stringify(notes), JSON.stringify(["alert@qq.com", "boss@x.com"]), "old login email + alert email notified");
+  ok(mailbox.sent.find((m: any) => m.to === "boss@x.com").text.includes("m****2@qq.com"), "new email mentioned (masked)");
+});
+Deno.test("change login email: SMTP missing -> 503 before any password check; codes share the daily limit", async () => {
+  seed(); env.delete("SMTP_PASS");
+  eq((await call({ action: "email_change_code", email: "x@qq.com", password: "Pw#12345" }, "tok-p")).status, 503, "smtp"); eq(state.signIns.length, 0, "no password check");
+  env.set("SMTP_PASS", "fake-auth-code");
+  state.db.login_alert_emails.push({ user_id: P, last_sent_at: ago(10000), sent_count: 1, sent_window: ago(10000) });
+  eq((await call({ action: "email_change_code", email: "x@qq.com", password: "Pw#12345" }, "tok-p")).json.code, "too_fast", "60s shared");
   console.error = origError;
 });
