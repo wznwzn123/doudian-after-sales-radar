@@ -54,7 +54,7 @@ const STUB = `
   auth:{
    getSession:async()=>({data:{session:window.__noSession?null:{user:{id:'u1',email:'a@x.com'}}},error:null}),
    async signInWithPassword(c){window.__auth=(window.__auth||[]).concat([{op:'signIn',c}]);return window.__authReply||{data:{session:{user:{id:'u1',email:c.email||null,phone:c.phone?c.phone.replace('+',''):null}}},error:null}},
-   async signUp(c){window.__auth=(window.__auth||[]).concat([{op:'signUp',c}]);return window.__authReply||{data:{session:c.phone?{user:{id:'u9',phone:c.phone.replace('+','')}}:null},error:null}},
+   async signUp(c){window.__auth=(window.__auth||[]).concat([{op:'signUp',c}]);if(window.__authDelay)await new Promise(r=>setTimeout(r,window.__authDelay));return window.__authReply||{data:{session:c.phone?{user:{id:'u9',phone:c.phone.replace('+','')}}:null},error:null}},
    onAuthStateChange(cb){listeners.push(cb);return{data:{subscription:{unsubscribe(){}}}}},
    async signOut(){window.__signedOut=(window.__signedOut||0)+1;listeners.forEach(cb=>cb('SIGNED_OUT',null));return{error:null}}
   },
@@ -548,6 +548,25 @@ async function run(browser, htmlPath) {
     await r3.ctx.close();
   }
 
+
+  // ---- 6.20 no double submit on 注册 / 登录
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __authDelay: 400 } });
+    await page.fill("#email", "13900139000"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(50);
+    await page.fill("#password2", "Abcdef1!");
+    await page.evaluate("(()=>{register();register();register();return 1})()");
+    check("6.20 buttons disabled while the request is running", await page.evaluate("document.getElementById('regBtn').disabled&&document.getElementById('loginBtn').disabled"));
+    await page.click("#regBtn", { force: true }); await page.click("#loginBtn", { force: true });
+    await page.waitForTimeout(1200);
+    check("6.20 repeated taps -> only ONE sign-up request, no login request", (await page.evaluate("(window.__auth||[]).filter(a=>a.op==='signUp').length")) === 1 && (await page.evaluate("(window.__auth||[]).filter(a=>a.op==='signIn').length")) === 0, JSON.stringify(await page.evaluate("window.__auth")));
+    await page.evaluate("showLogin('')"); await page.waitForTimeout(100);
+    check("6.20 buttons enabled again afterwards", !(await page.evaluate("document.getElementById('regBtn').disabled||document.getElementById('loginBtn').disabled")));
+    await page.evaluate("window.__authReply={data:null,error:{message:'Invalid login credentials'}}");
+    await page.fill("#email", "a@x.com"); await page.fill("#password", "x"); await page.click("#loginBtn"); await page.waitForTimeout(700);
+    check("6.20 after a failed login the buttons work again", !(await page.evaluate("document.getElementById('loginBtn').disabled")) && (await text(page, "#authmsg")) === "邮箱或密码不正确");
+    check("6.20 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
@@ -701,7 +720,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.19.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.20.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
