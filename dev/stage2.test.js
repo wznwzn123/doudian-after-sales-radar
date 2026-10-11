@@ -502,7 +502,7 @@ async function run(browser, htmlPath) {
     // admin side
     await page.click('#modalbox button:text-is("查看用户来信（管理员）")'); await page.waitForTimeout(500);
     const ab = await text(page, "#adminBody");
-    check("6.16 admin 客服: conversations listed with name / phone + unread", ab.includes("a@x.com") && ab.includes("8613800138000") && ab.includes("1 未读"), ab.slice(0, 300));
+    check("6.16/6.19 admin 客服: conversations listed with name / phone (as 手机 xxx) + unread", ab.includes("a@x.com") && ab.includes("手机 13800138000") && ab.includes("1 未读"), ab.slice(0, 300));
     check("6.16 admin 客服: tab opened directly (not overwritten by 总览)", !(await text(page, "#adminBody")).includes("注册用户"));
     await page.evaluate("adminSupportThread('u2')"); await page.waitForTimeout(300);
     check("6.16 admin 客服: thread shows the user's letter, marks it read", (await text(page, "#admSupList")).includes("我要退款怎么记") && !!(await page.evaluate("window.__db.support_messages.find(m=>m.id==='m3').read_at")));
@@ -577,6 +577,11 @@ async function run(browser, htmlPath) {
     const call = await page.evaluate("window.__calls.filter(c=>c.name==='admin_approve_phone_user').pop()");
     check("6.18 approve calls server function with the user id", call && call.args.p_user_id === "p1");
     check("6.18 approved account disappears from the list", !(await text(page, "#adminBody")).includes("13800138000") && (await text(page, "#adminBody")).includes("13900139000"));
+    await page.evaluate("window.__users=[{id:'u1',email:'a@x.com',is_admin:true,task_count:2},{id:'p9',email:'8613700137000',is_admin:false,task_count:1}]");
+    await page.evaluate("adminGo('users')"); await page.waitForTimeout(300);
+    const ut = await text(page, "#adminBody");
+    check("6.19 users tab: all users incl. phone users shown as 手机 xxx, admin marked", ut.includes("a@x.com") && ut.includes("手机 13700137000") && !ut.includes("8613700137000") && ut.includes("管理员") && ut.includes("全站共 2 个账号"), ut.slice(0, 300));
+    check("6.19 acct(): email kept, +86 trimmed, foreign kept, empty -> —", JSON.stringify(await page.evaluate("[acct('a@x.com'),acct('8613800138000'),acct('447911123456'),acct(''),acct(null)]")) === JSON.stringify(["a@x.com", "手机 13800138000", "手机 +447911123456", "—", "—"]));
     check("6.18 admin tabs: 审核 present, earlier tabs kept", (await page.evaluate("ADMIN_TABS.map(t=>t[1]).join()")) === "总览,用户,管理员,售后,快递,店铺,资料库,举证,设备,账号,日志,设置,客服,审核");
     await ctx.close();
     const r2 = await open(browser, htmlPath, { db: seed(), admin: true, pre: { __noApprovalFns: true } });
@@ -696,7 +701,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.18.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.19.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
