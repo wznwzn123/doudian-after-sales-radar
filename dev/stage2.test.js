@@ -858,7 +858,25 @@ async function run(browser, htmlPath) {
     await page.fill("#email", "138 0013 8000"); await page.dispatchEvent("#email", "input");
     check("6.27 login: phone shows +86 prefix", (await text(page, "#lgpre")) === "+86");
     await page.fill("#email", "a@x.com"); await page.dispatchEvent("#email", "input");
-    check("6.27 login: email shows @ prefix", (await text(page, "#lgpre")) === "@");
+    check("6.27/6.30 login: email shows the mail icon", (await page.getAttribute("#lgpre", "data-t")) === "mail" && !!(await page.$("#lgpre svg")));
+    // 6.30 automatic phone / email recognition
+    await page.fill("#email", "1380013800"); await page.dispatchEvent("#email", "input");
+    check("6.30 phone typed: +86 prefix + how many digits so far", (await text(page, "#lgpre")) === "+86" && (await text(page, "#lgDetect")).includes("10 / 11"));
+    await page.fill("#email", "13800138000"); await page.dispatchEvent("#email", "input");
+    check("6.30 full phone: shown as +86 138 0013 8000", (await text(page, "#lgDetect")).includes("+86 138 0013 8000") && !(await page.$eval("#lgSuggest", (e) => !e.classList.contains("hidden"))));
+    await page.fill("#email", "12345678901"); await page.dispatchEvent("#email", "input");
+    check("6.30 bad phone flagged in red", await page.$eval("#lgDetect", (e) => e.classList.contains("bad")));
+    await page.fill("#email", "yoran"); await page.dispatchEvent("#email", "input");
+    const sug = await page.$$eval("#lgSuggest .lgsug", (b) => b.map((x) => x.textContent));
+    check("6.30 letters typed: mail icon + common domains offered", (await page.getAttribute("#lgpre", "data-t")) === "mail" && sug.includes("yoran@qq.com") && sug.includes("yoran@163.com"), JSON.stringify(sug));
+    await page.fill("#email", "yoran@1"); await page.dispatchEvent("#email", "input");
+    const sug2 = await page.$$eval("#lgSuggest .lgsug", (b) => b.map((x) => x.textContent));
+    check("6.30 domain typed: suggestions narrowed", JSON.stringify(sug2) === JSON.stringify(["yoran@163.com", "yoran@126.com"]), JSON.stringify(sug2));
+    await page.click('#lgSuggest .lgsug:text-is("yoran@163.com")');
+    check("6.30 tap a suggestion: filled in, recognised, suggestions gone, focus on password", (await page.inputValue("#email")) === "yoran@163.com" && (await text(page, "#lgDetect")).includes("已识别为邮箱") && (await page.$eval("#lgSuggest", (e) => e.classList.contains("hidden"))) && (await page.evaluate("document.activeElement.id")) === "password");
+    await page.fill("#email", "<img src=x onerror=window.__xss2=1>"); await page.dispatchEvent("#email", "input"); await page.waitForTimeout(100);
+    check("6.30 suggestions/hint escape what was typed", !(await page.evaluate("window.__xss2")));
+    await page.fill("#email", "a@x.com"); await page.dispatchEvent("#email", "input");
     await page.fill("#password", "Abcdef1!"); await page.click("#login .lgeye");
     check("6.27 login: eye shows the password", (await page.getAttribute("#password", "type")) === "text");
     await page.click("#login .lgeye");
@@ -890,6 +908,11 @@ async function run(browser, htmlPath) {
     await page.click('#lgWelcome .lgbig.light'); await page.waitForTimeout(150);
     check("6.29 admin login page: title, badge, no 去注册", (await text(page, "#lgTitle")) === "管理员登录" && (await vis(page, ".lgadminbadge")) && !(await vis(page, ".lgtoreg")));
     await page.fill("#email", "a@x.com"); await page.fill("#password", "Abcdef1!"); await page.click("#loginBtn"); await page.waitForTimeout(1200);
+    const nav = await page.$$eval("#adminApp .admnav button", (b) => b.map((x) => x.dataset.k + (x.classList.contains("on") ? "*" : "")));
+    check("6.30 console: grouped nav with all 14 sections, 总览 active, title shown", nav.length === 14 && nav[0] === "overview*" && (await text(page, "#admTitle")) === "总览" && (await text(page, "#adminApp .admnav")).includes("用户与安全"), JSON.stringify(nav));
+    await page.click('#adminApp .admnav button[data-k="users"]'); await page.waitForTimeout(300);
+    check("6.30 console: tap a section -> highlighted + title changes", (await text(page, "#admTitle")) === "用户" && (await page.$eval('#adminApp .admnav button[data-k="users"]', (b) => b.classList.contains("on"))));
+    check("6.30 console: tables carry labels for the phone card layout", await page.evaluate("[...document.querySelectorAll('#adminApp .admtable td')].every(td=>td.dataset.label)"));
     check("6.29 admin account via 管理员登录 -> full-page 管理后台", (await vis(page, "#adminApp")) && (await text(page, "#adminApp")).includes("管理后台") && !!(await page.$("#adminApp #adminBody")) && (await page.evaluate("localStorage.getItem('sar_mode')")) === "admin");
     await page.click('#adminApp button:text-is("工作台")'); await page.waitForTimeout(200);
     check("6.29 管理后台 -> 工作台; 管理 button there to come back", !(await vis(page, "#adminApp")) && (await vis(page, "#adminBtn")));
@@ -1076,7 +1099,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.29.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.30.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
