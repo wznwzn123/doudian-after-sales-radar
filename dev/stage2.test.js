@@ -108,7 +108,7 @@ async function open(browser, htmlPath, { db, admin = false, users = [], dark = f
   });
   await ctx.addInitScript(({ db, admin, users, dark, pre }) => {
     window.__db = db; window.__admin = admin; window.__users = users; if (pre) Object.assign(window, pre);
-    try { if (dark) localStorage.setItem("sar_dark", "1"); } catch (e) {}
+    try { if (dark) localStorage.setItem("sar_dark", "1"); if (pre && pre.__sarMode) localStorage.setItem("sar_mode", pre.__sarMode); } catch (e) {}
   }, { db, admin, users, dark, pre });
   await ctx.addInitScript(OBSERVER);
   const page = await ctx.newPage();
@@ -506,7 +506,9 @@ async function run(browser, htmlPath) {
     const ins = (await writes(page)).filter((x) => x.table === "support_messages" && x.op === "insert").pop();
     check("6.16 客服: send inserts as user into own conversation (trimmed)", ins && JSON.stringify(ins.payload) === JSON.stringify({ user_id: "u1", sender: "user", body: "谢谢！" }), JSON.stringify(ins));
     check("6.16 客服: new message shown, input cleared", (await text(page, "#supList")).includes("谢谢！") && (await page.inputValue("#supInput")) === "");
-    // admin side
+    // admin side (6.29: only when logged in through the 管理员登录 entry)
+    check("6.29 normal login: no admin entry in 客服", !(await text(page, "#modalbox")).includes("查看用户来信（管理员）"));
+    await page.evaluate("setMode('admin'); closeModal(); openSupport()"); await page.waitForTimeout(300);
     await page.click('#modalbox button:text-is("查看用户来信（管理员）")'); await page.waitForTimeout(500);
     const ab = await text(page, "#adminBody");
     check("6.16/6.19 admin 客服: conversations listed with name / phone (as 手机 xxx) + unread", ab.includes("a@x.com") && ab.includes("手机 13800138000") && ab.includes("1 未读"), ab.slice(0, 300));
@@ -531,6 +533,7 @@ async function run(browser, htmlPath) {
     const mainland = "请输入正确的中国大陆手机号（13～19 开头的 11 位数字）";
     check("6.16/6.18 phone: parseIdent (mainland segments only, bad input flagged)", JSON.stringify(pi) === JSON.stringify([{ phone: "+8613800138000" }, { phone: "+8613800138000" }, { phone: "+8613800138000" }, { email: "a@x.com" }, { bad: mainland }, null, { bad: mainland }, { bad: mainland }, { bad: mainland }, { bad: "请输入正确的邮箱或手机号" }, { bad: "邮箱格式不正确" }]), JSON.stringify(pi));
     await page.evaluate("window.__authReply={data:null,error:{message:'Phone signups are disabled'}}");
+    await page.evaluate("lgView('register')");
     await page.fill("#email", "13800138000"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(100);
     await page.fill("#password2", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(200);
     check("6.16 phone: provider off -> clear Chinese message", (await text(page, "#authmsg")).includes("手机号注册/登录还没有开通"), await text(page, "#authmsg"));
@@ -541,15 +544,17 @@ async function run(browser, htmlPath) {
     check("6.16 phone: register with session -> enters app, header shows phone", !(await page.evaluate("document.getElementById('app').classList.contains('hidden')")) && (await text(page, "#userEmail")) === "手机 13800138000");
     await ctx.close();
     const r2 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
+    await r2.page.evaluate("lgView('login')");
     await r2.page.fill("#email", "138-0013-8000"); await r2.page.fill("#password", "Abcdef1!"); await r2.page.click('button:text-is("登录")'); await r2.page.waitForTimeout(600);
     const si = await r2.page.evaluate("window.__auth.filter(a=>a.op==='signIn').pop()");
     check("6.16 phone: login with phone", si && si.c.phone === "+8613800138000" && !si.c.email);
     await r2.ctx.close();
     const r3 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __authReply: { data: null, error: { message: "Invalid login credentials" } } } });
+    await r3.page.evaluate("lgView('login')");
     await r3.page.fill("#email", "a@x.com"); await r3.page.fill("#password", "x"); await r3.page.click('button:text-is("登录")'); await r3.page.waitForTimeout(200);
     const si3 = await r3.page.evaluate("window.__auth.filter(a=>a.op==='signIn').pop()");
     check("6.16 phone: email login unchanged + Chinese error", si3 && si3.c.email === "a@x.com" && (await text(r3.page, "#authmsg")) === "邮箱或密码不正确");
-    await r3.page.fill("#email", "13800138000"); await r3.page.click('button:text-is("找回密码")'); await r3.page.waitForTimeout(100);
+    await r3.page.fill("#email", "13800138000"); await r3.page.click('button:text-is("忘记密码？")'); await r3.page.waitForTimeout(100);
     check("6.16/6.21 phone: forgot password for phone -> ask the admin to reset (temp password) + email", (await text(r3.page, "#authmsg")).includes("管理员") && (await text(r3.page, "#authmsg")).includes("临时密码") && (await text(r3.page, "#authmsg")).includes("1012968575@qq.com"));
     check("6.16 phone no page errors", !(r3.page.__errs || []).length, JSON.stringify(r3.page.__errs));
     await r3.ctx.close();
@@ -559,16 +564,18 @@ async function run(browser, htmlPath) {
   // ---- 6.20 no double submit on 注册 / 登录
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __authDelay: 400 } });
+    await page.evaluate("lgView('register')");
     await page.fill("#email", "13900139000"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(50);
     await page.fill("#password2", "Abcdef1!");
     await page.evaluate("(()=>{register();register();register();return 1})()");
     check("6.20 buttons disabled while the request is running", await page.evaluate("document.getElementById('regBtn').disabled&&document.getElementById('loginBtn').disabled"));
-    await page.click("#regBtn", { force: true }); await page.click("#loginBtn", { force: true });
+    await page.evaluate("document.getElementById('regBtn').click(); document.getElementById('loginBtn').click()");
     await page.waitForTimeout(1200);
     check("6.20 repeated taps -> only ONE sign-up request, no login request", (await page.evaluate("(window.__auth||[]).filter(a=>a.op==='signUp').length")) === 1 && (await page.evaluate("(window.__auth||[]).filter(a=>a.op==='signIn').length")) === 0, JSON.stringify(await page.evaluate("window.__auth")));
     await page.evaluate("showLogin('')"); await page.waitForTimeout(100);
     check("6.20 buttons enabled again afterwards", !(await page.evaluate("document.getElementById('regBtn').disabled||document.getElementById('loginBtn').disabled")));
     await page.evaluate("window.__authReply={data:null,error:{message:'Invalid login credentials'}}");
+    await page.evaluate("lgView('login')");
     await page.fill("#email", "a@x.com"); await page.fill("#password", "x"); await page.click("#loginBtn"); await page.waitForTimeout(700);
     check("6.20 after a failed login the buttons work again", !(await page.evaluate("document.getElementById('loginBtn').disabled")) && (await text(page, "#authmsg")) === "邮箱或密码不正确");
     check("6.20 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
@@ -846,7 +853,8 @@ async function run(browser, htmlPath) {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(500);
-    check("6.27 login: card + particle background canvas", !!(await page.$("#login .lgcard")) && !!(await page.$("#lgbg")) && (await text(page, "#login")).includes("账号密码登录"));
+    check("6.27 login: card + particle background canvas", !!(await page.$("#login .lgcard")) && !!(await page.$("#lgbg")) && (await text(page, "#login")).includes("账号登录"));
+    await page.evaluate("lgView('login')");
     await page.fill("#email", "138 0013 8000"); await page.dispatchEvent("#email", "input");
     check("6.27 login: phone shows +86 prefix", (await text(page, "#lgpre")) === "+86");
     await page.fill("#email", "a@x.com"); await page.dispatchEvent("#email", "input");
@@ -863,13 +871,61 @@ async function run(browser, htmlPath) {
     check("6.27 login: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+  // ---- 6.29 欢迎页（账号登录 / 管理员登录）+ 独立注册页 + 管理员入口
+  {
+    const vis = (p, sel) => p.evaluate((s) => { const e = document.querySelector(s); return !!e && !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length); }, sel);
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __admin: true } });
+    await page.setViewportSize({ width: 390, height: 844 });
+    const wt = await text(page, "#lgWelcome");
+    check("6.29 welcome first: 账号登录 / 管理员登录 / 注册新账号, form hidden", (await vis(page, "#lgWelcome")) && !(await vis(page, "#email")) && ["欢迎使用售后雷达", "账号登录", "管理员登录", "注册新账号"].every((x) => wt.includes(x)));
+    await page.click('#lgWelcome button:text-is("注册新账号")'); await page.waitForTimeout(150);
+    check("6.29 register is its own page: title, confirm password, 注册 button, rules, 注册说明", (await text(page, "#lgTitle")) === "注册新账号" && (await vis(page, "#password2")) && (await vis(page, "#regBtn")) && !(await vis(page, "#loginBtn")) && (await vis(page, ".lgcard .lgtips")) && (await text(page, "#regwrap")).includes("大写字母"));
+    await page.click('button:text-is("去登录")'); await page.waitForTimeout(150);
+    check("6.29 register -> 去登录 goes back to the login page", (await text(page, "#lgTitle")) === "账号登录" && !(await vis(page, "#password2")) && (await vis(page, "#loginBtn")) && !(await vis(page, "#regBtn")) && (await vis(page, ".lgtoreg")));
+    await page.click('.lgtoreg button'); await page.waitForTimeout(100);
+    check("6.29 login -> 去注册 -> register page", (await text(page, "#lgTitle")) === "注册新账号");
+    await page.click("#lgCard .lgback"); await page.waitForTimeout(150);
+    check("6.29 back arrow returns to the welcome page", (await vis(page, "#lgWelcome")) && !(await vis(page, "#lgCard")));
+    // admin entry with an admin account -> straight into the full-page admin console
+    await page.click('#lgWelcome .lgbig.light'); await page.waitForTimeout(150);
+    check("6.29 admin login page: title, badge, no 去注册", (await text(page, "#lgTitle")) === "管理员登录" && (await vis(page, ".lgadminbadge")) && !(await vis(page, ".lgtoreg")));
+    await page.fill("#email", "a@x.com"); await page.fill("#password", "Abcdef1!"); await page.click("#loginBtn"); await page.waitForTimeout(1200);
+    check("6.29 admin account via 管理员登录 -> full-page 管理后台", (await vis(page, "#adminApp")) && (await text(page, "#adminApp")).includes("管理后台") && !!(await page.$("#adminApp #adminBody")) && (await page.evaluate("localStorage.getItem('sar_mode')")) === "admin");
+    await page.click('#adminApp button:text-is("工作台")'); await page.waitForTimeout(200);
+    check("6.29 管理后台 -> 工作台; 管理 button there to come back", !(await vis(page, "#adminApp")) && (await vis(page, "#adminBtn")));
+    await page.click("#adminBtn"); await page.waitForTimeout(400);
+    check("6.29 管理 -> back to the full-page console", await vis(page, "#adminApp"));
+    check("6.29 admin entry: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+    // a normal account through 管理员登录 -> refused, signed out, stays on the admin login page
+    const r2 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __admin: false } });
+    await r2.page.evaluate("lgView('admin')");
+    await r2.page.fill("#email", "a@x.com"); await r2.page.fill("#password", "Abcdef1!"); await r2.page.click("#loginBtn"); await r2.page.waitForTimeout(1200);
+    check("6.29 non-admin via 管理员登录 -> refused with a clear message, app not shown", (await r2.page.evaluate("document.getElementById('app').classList.contains('hidden')")) && (await text(r2.page, "#authmsg")).includes("不是管理员") && (await text(r2.page, "#lgTitle")) === "管理员登录" && !(await vis(r2.page, "#adminApp")));
+    await r2.ctx.close();
+    // an admin account through the normal 账号登录 -> workbench only, no admin entries
+    const r3 = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __admin: true } });
+    await r3.page.evaluate("lgView('login')");
+    await r3.page.fill("#email", "a@x.com"); await r3.page.fill("#password", "Abcdef1!"); await r3.page.click("#loginBtn"); await r3.page.waitForTimeout(1200);
+    check("6.29 admin account via 账号登录 -> workbench, no 管理 button, no console", !(await r3.page.evaluate("document.getElementById('app').classList.contains('hidden')")) && !(await vis(r3.page, "#adminBtn")) && !(await vis(r3.page, "#adminApp")) && (await r3.page.evaluate("localStorage.getItem('sar_mode')")) === "user");
+    await r3.ctx.close();
+    // reopening the page after an admin login keeps the admin entry
+    const r4 = await open(browser, htmlPath, { db: seed(), pre: { __admin: true, __sarMode: "admin" } });
+    await r4.page.waitForTimeout(1000);
+    check("6.29 reopen after admin login -> console again", await vis(r4.page, "#adminApp"));
+    const afterLogout = await r4.page.evaluate("(()=>{logout();return localStorage.getItem('sar_mode')})()"); await r4.page.waitForTimeout(800);
+    check("6.29 logout clears the admin entry", afterLogout === "user", afterLogout);
+    await r4.ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
+    await page.evaluate("lgView('login')");
     await page.fill("#email", "12345678901"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("登录")'); await page.waitForTimeout(150);
     check("6.18 bad number refused locally, no request", (await text(page, "#authmsg")).includes("中国大陆手机号") && !(await page.evaluate("window.__auth")));
     await page.evaluate("window.__pending=true");
-    await page.fill("#email", "13800138000"); await page.click('button:text-is("注册")'); await page.waitForTimeout(100);
+    await page.evaluate("lgView('register')");
+    await page.fill("#email", "13800138000"); await page.fill("#password", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(100);
     await page.fill("#password2", "Abcdef1!"); await page.click('button:text-is("注册")'); await page.waitForTimeout(800);
     check("6.18 pending phone account: kept out of the app", await page.evaluate("document.getElementById('app').classList.contains('hidden')") && !(await page.evaluate("document.getElementById('login').classList.contains('hidden')")));
     check("6.18 pending: clear message + contact email, signed out locally", (await text(page, "#authmsg")).includes("等待管理员审核") && (await text(page, "#authmsg")).includes("1012968575@qq.com") && (await page.evaluate("window.__signedOut")) >= 1, await text(page, "#authmsg"));
@@ -1013,17 +1069,25 @@ async function run(browser, htmlPath) {
   // ---- more menu / settings / export / online
   await page.evaluate("more()");
   const mt = await text(page, "#modalbox");
-  check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
+  check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断"].every((x) => mt.includes(x)), mt);
+  check("6.29 more(): normal login (even an admin account) has no 管理后台", !mt.includes("管理后台") && (await page.evaluate("document.getElementById('adminBtn').classList.contains('hidden')")));
+  await page.evaluate("setMode('admin'); more()");
+  check("6.29 more(): admin entry shows 管理后台", (await text(page, "#modalbox")).includes("管理后台"));
+  await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.28.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.29.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
   await page.evaluate("window.__onlineUsers=[{id:'u1'},{id:'u2'}]");
+  await page.evaluate("setMode('user'); openOnlinePanel()"); await page.waitForTimeout(250);
+  check("6.29 online panel: normal login shows no emails", !(await text(page, "#modalbox")).includes("old@x.com"));
+  await page.evaluate("setMode('admin')");
   await page.evaluate("openOnlinePanel()"); await page.waitForTimeout(250);
   const ot = await text(page, "#modalbox");
   check("online panel: count, (我), admin sees emails + 24h active", ot.includes("2") && ot.includes("a@x.com（我）") && ot.includes("old@x.com") && ot.includes("24 小时内登录 1 人"), ot);
+  await page.evaluate("setMode('user'); closeModal()");
   // ---- realtime
   const rt = await page.evaluate("window.__rt.map(r=>r.cfg.table+'|'+r.cfg.filter)");
   check("realtime: subscribed to tasks + evidence_files filtered by user", rt.includes("after_sales_tasks|user_id=eq.u1") && rt.includes("evidence_files|user_id=eq.u1"), JSON.stringify(rt));
