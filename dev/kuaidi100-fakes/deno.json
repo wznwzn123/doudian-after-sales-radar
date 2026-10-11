@@ -1,1 +1,1 @@
-{ "imports": { "npm:@supabase/supabase-js@2": "./supabase.ts" } }
+{ "imports": { "npm:@supabase/supabase-js@2": "./supabase.ts", "npm:nodemailer@6.9.16": "./nodemailer.ts" } }

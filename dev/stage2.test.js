@@ -73,7 +73,7 @@ const STUB = `
    return{data:null,error:{message:'Could not find the function public.'+name+' in the schema cache (unexpected rpc '+name+')'}};
   },
   from:(t)=>builder(t),
-  functions:{async invoke(name,opts){window.__fn=(window.__fn||[]).concat([{name,opts}]);return typeof window.__fnReply==='function'?window.__fnReply(name,opts):{data:null,error:{message:'not stubbed'}}}},
+  functions:{async invoke(name,opts){if(name==='login-alert-mail'){window.__mailCalls=(window.__mailCalls||[]).concat([opts.body]);return typeof window.__mailReply==='function'?window.__mailReply(opts.body):{data:null,error:{message:'not stubbed'}}}window.__fn=(window.__fn||[]).concat([{name,opts}]);return typeof window.__fnReply==='function'?window.__fnReply(name,opts):{data:null,error:{message:'not stubbed'}}}},
   channel(name){window.__chans=(window.__chans||0)+1;const c={name,state:'joining',on(type,cfg,cb){window.__rt.push({name,cfg,cb,ch:c});return c},subscribe(cb){c.__cb=cb;window.__subs=(window.__subs||[]).concat([{name,ch:c,cb}]);if(window.__autoJoin!==false&&name==='after-sales-presence'){}return c},async track(p){window.__tracks=(window.__tracks||[]).concat([p])},async untrack(){},presenceState(){return c.__state||{}}};return c},
   removeChannel(c){window.__removedChannels++;c.state='closed';if(c.__cb)c.__cb('CLOSED')},
   storage:{from:()=>({
@@ -675,6 +675,64 @@ async function run(browser, htmlPath) {
     check("6.23 before SQL: no page errors", !(r3.page.__errs || []).length, JSON.stringify(r3.page.__errs));
     await r3.ctx.close();
   }
+  // ---- 6.24 login alert email (binding + popup for phone accounts); server side is tested in dev/login-alert-mail.handler.test.ts
+  {
+    const mailStub = `window.__mailState = { configured: true, email: "", pending_email: "", declined: false, phone_only: true, account_email: "" };
+      window.__mailReply = (b) => { const s = window.__mailState; const ok = (x) => ({ data: Object.assign({ ok: true, status: Object.assign({}, s) }, x || {}), error: null });
+        const bad = (code, message) => ({ data: null, error: { message: "non-2xx", context: { json: async () => ({ ok: false, code, message }) } } });
+        if (b.action === "notify" || b.action === "status") return ok({ sent: false });
+        if (b.action === "decline") { s.declined = true; return ok(); }
+        if (b.action === "send_code") { s.pending_email = "m*@qq.com"; return ok({ sent_to: "m*@qq.com" }); }
+        if (b.action === "verify_code") { if (b.code !== "123456") return bad("wrong_code", "验证码不对（还可以再试 4 次）"); s.email = "m*@qq.com"; s.pending_email = ""; return ok(); }
+        if (b.action === "remove") { s.email = ""; return ok(); }
+        return bad("bad_action", "未知操作"); };`;
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.evaluate(mailStub); await page.evaluate("mailAfterEnter(false)"); await page.waitForTimeout(1300);
+    const calls = await page.evaluate("window.__mailCalls"), devId = await page.evaluate("getDeviceId()");
+    check("6.24 every login reports this device to the mail-alert function", calls.length >= 2 && calls.every((c) => c.action === "notify" && c.device_id === devId), JSON.stringify(calls));
+    let m = await text(page, "#modalbox");
+    check("6.24 phone account without email -> popup offers email binding", m.includes("绑定邮箱，开启登录提醒") && m.includes("新设备登录") && m.includes("不再提醒"), m.slice(0, 160));
+    await page.click('#modalbox button:text-is("绑定邮箱")'); await page.waitForTimeout(300);
+    m = await text(page, "#mailBody");
+    check("6.24 bind form: email + code", !!(await page.$("#mlEmail")) && !!(await page.$("#mlCode")) && m.includes("每台新设备只提醒一次"));
+    await page.fill("#mlEmail", "bad"); await page.click("#mlSend"); await page.waitForTimeout(100);
+    check("6.24 bad email -> local error, no call", (await text(page, "#toast")).includes("正确的邮箱") && !(await page.evaluate("window.__mailCalls.some(c=>c.action==='send_code')")));
+    await page.fill("#mlEmail", "me@qq.com"); await page.click("#mlSend"); await page.waitForTimeout(200);
+    check("6.24 code requested for the typed email; button counts down", (await page.evaluate("window.__mailCalls.find(c=>c.action==='send_code').email")) === "me@qq.com" && /秒后可重新获取/.test(await text(page, "#mlSend")) && (await page.evaluate("document.getElementById('mlSend').disabled")));
+    await page.fill("#mlCode", "000000"); await page.click("#mlVerify"); await page.waitForTimeout(200);
+    check("6.24 wrong code -> server message shown, still not bound", (await text(page, "#toast")).includes("验证码不对") && !(await text(page, "#mailBody")).includes("已开启"));
+    await page.fill("#mlCode", "123456"); await page.click("#mlVerify"); await page.waitForTimeout(200);
+    m = await text(page, "#mailBody");
+    check("6.24 right code -> bound, shows masked email + 换一个邮箱 / 解除绑定", m.includes("已开启") && m.includes("m*@qq.com") && m.includes("解除绑定") && m.includes("换一个邮箱"), m);
+    await page.evaluate("window.__confirm = true"); await page.click('#mailBody button:text-is("解除绑定")'); await page.waitForTimeout(200);
+    check("6.24 解除绑定 -> back to the bind form", !(await text(page, "#mailBody")).includes("已开启") && !!(await page.$("#mlEmail")));
+    await page.evaluate("closeModal()"); await page.evaluate("openSettings()");
+    check("6.24 settings has 登录邮件提醒", (await text(page, "#modalbox")).includes("登录邮件提醒"));
+    await page.evaluate("closeModal()"); await page.evaluate("showMailPrompt()"); await page.click('#modalbox button:text-is("不需要，不再提醒")'); await page.waitForTimeout(200);
+    check("6.24 不再提醒 -> recorded on the server", await page.evaluate("window.__mailCalls.some(c=>c.action==='decline')") && (await page.evaluate("document.getElementById('modal').classList.contains('hidden')")));
+    await page.evaluate("mailAfterEnter(false)"); await page.waitForTimeout(1300);
+    check("6.24 declined -> no popup next time", await page.evaluate("document.getElementById('modal').classList.contains('hidden')"));
+    check("6.24 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+    const r2 = await open(browser, htmlPath, { db: seed(), pre: { __loginAlerts: { ok: true, devices: [{ device: "WEB-b", current: false, name: "Windows · Chrome", first_seen: "2026-10-11T04:00:00Z", is_new: true }] } } });
+    await r2.page.evaluate(mailStub); await r2.page.evaluate("loginAlertsAfterEnter()"); await r2.page.waitForTimeout(1500);
+    m = await text(r2.page, "#modalbox");
+    check("6.24 new-device alert has priority; binding popup not stacked on top", m.includes("账号在新设备登录") && !m.includes("绑定邮箱，开启登录提醒"));
+    await r2.ctx.close();
+    for (const [name, st] of [["email account", { phone_only: false }], ["SMTP not configured", { configured: false }], ["already bound", { email: "m*@qq.com" }]]) {
+      const r = await open(browser, htmlPath, { db: seed() });
+      await r.page.evaluate(mailStub); await r.page.evaluate("Object.assign(window.__mailState," + JSON.stringify(st) + ")"); await r.page.evaluate("mailAfterEnter(false)"); await r.page.waitForTimeout(1300);
+      check("6.24 " + name + " -> no binding popup", await r.page.evaluate("document.getElementById('modal').classList.contains('hidden')"));
+      await r.ctx.close();
+    }
+    const r3 = await open(browser, htmlPath, { db: seed() });
+    await r3.page.waitForTimeout(1300);
+    check("6.24 function not deployed / SQL not run -> app opens normally, no popup", !(await r3.page.evaluate("document.getElementById('app').classList.contains('hidden')")) && (await r3.page.evaluate("document.getElementById('modal').classList.contains('hidden')")));
+    await r3.page.evaluate("openMailAlert()"); await r3.page.waitForTimeout(300);
+    check("6.24 settings page explains the service is unavailable", (await text(r3.page, "#mailBody")).includes("不可用"));
+    check("6.24 not deployed: no page errors", !(r3.page.__errs || []).length, JSON.stringify(r3.page.__errs));
+    await r3.ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
@@ -828,7 +886,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.23.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.24.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());

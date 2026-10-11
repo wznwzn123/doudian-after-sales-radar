@@ -1,5 +1,5 @@
 -- 售后雷达 Pro 6.23：新设备登录提醒（系统内提醒）+ 登录记录
--- 状态：待用户在 Supabase SQL Editor 执行（分 2 段贴；可重复执行）。
+-- 状态：2026-10-11 只读核对：用户已执行第 1 段；第 2 段（my_login_alerts + 权限）还没执行。可重复执行。
 -- 写之前已用只读查询核对：security_devices 已有 first_seen / last_seen / device_name / user_agent / last_ip 列，
 -- security_register_device() 按 (user_id, device_id) 注册设备并写 first_seen，但不写设备型号和 IP；request_ip() 从请求头取 IP。
 -- 这里不改 security_register_device（设备安全的核心函数），只新增：

@@ -16,7 +16,7 @@
 - 管理员权限必须在服务端校验，不能只在前端隐藏按钮。
 
 ## 当前线上状态
-- 已推送到 main 的最新版是 **Pro 6.23**（`APP_VERSION="6.23.0"`）。6.8：点开售后时自动向快递100 查一次（见下）。
+- 已推送到 main 的最新版是 **Pro 6.24**（`APP_VERSION="6.24.0"`）。6.8：点开售后时自动向快递100 查一次（见下）。
 - **6.10 界面整理**（用户嫌按钮杂乱、界面重叠）：顶栏只留「在线 / 管理 / ☰ 更多」（夜间模式、退出账号一直在「更多」里）；首页「设备注册诊断」只在「更多」里；统计压成一张倒计时卡 + 一排 4 个数字；筛选三个下拉框一行、快捷筛选横向滑动；详情 4 个主按钮 2×2，上传按钮移进「举证材料」卡片，删除放到最底；时间线显示中文事件名（`EVENT_LABELS`）。**重叠的根因**：详情页顶部标题栏半透明（浅色 `#ffffffed`、深色 `#172033ed`），滚动时下面内容透出来，现已改为不透明。没有删除任何功能。
 - **6.11 iOS 风格 + 过渡动画**（用户要求）：整张样式表换成 iOS 26 风格（系统色、分组背景、圆角卡片、胶囊按钮、填充式输入框、毛玻璃顶栏和悬浮标签栏、SVG 图标），所有 class 名不变。弹窗是底部弹出卡片、详情从右侧推入；**关闭动画**用 `ghostOut()`：真实元素立即加 `hidden`（状态和逻辑都不变），复制一个去掉 id/事件、`pointer-events:none` 的副本播放退出动画，约 380ms 后删除。遮罩只动画 `background-color`，卡片本身始终不透明（之前用整体 opacity 淡入时，滑动中途会透出下面页面，看起来像重叠）。列表入场动画只在结果集合变化时播放（`listEnter`）。`prefers-reduced-motion` 时全部关闭。
 - **6.12 打开售后提速**（用户反馈要等一两秒）：数据库没问题（行数很少、`task_id` 都有索引，项目在 ap-southeast-1）。原因是 `openTask` 依次 await 3 个请求后才显示。现在先用内存里的任务立刻渲染（材料/时间线显示「加载中…」），3 个请求 `Promise.all` 并行，回来后只填 `#logistics_box/#files_box/#timeline_box` 和未改动过的 `#f_carrier`；`detailCache` 缓存每条售后，再次打开秒开；`openSeq` 丢弃快速切换时的过期结果；加载完成前 `saveTask` 拒绝保存（否则可能用空承运商覆盖）。模拟每个请求 400ms：页面出现 1212ms→62ms，全部加载 1266ms→409ms。测试桩支持 `window.__latency`。
@@ -31,6 +31,14 @@
 - **6.21 找回密码（手机号用户）**：Edge Function `admin-reset-password`（v1 已部署，`verify_jwt=false`）：调用者 JWT → `auth.getUser()` → `rpc('is_admin')` 服务端确认管理员 → 用自动注入的 `SUPABASE_SECRET_KEYS`（或旧的 service_role）`auth.admin.updateUserById` 设 12 位临时密码（必含大小写/数字/符号、去掉易混字符），只返回给管理员；不能重置自己；写 `admin_operation_logs`（action=reset_password，不记录密码）。线上冒烟：未登录/假 token/publishable key 都是 401。前端：「管理 → 用户」每行「重置密码」（先弹窗提醒核对身份），「工作台设置」新增「修改密码」（`auth.updateUser`）。测试：`dev/admin-reset.handler.test.ts`（7 项，fake 里加了 rpc/auth.admin/secret 绕过 RLS）。已知：重置不会踢掉对方已登录的会话。
 - **6.22 在线人数常显示 0**：realtime_logs 没有错误/拒绝，服务端正常；原因在手机端：锁屏/切后台时浏览器断开 WebSocket，回来后频道可能没重新加入或没重新 `track`，连自己都不算；另外 HTML 初始值就是 0，连接没建好时看起来像「没人在线」。修复：连接中显示「…」、出错显示「—」并 5 秒后重建频道；回到页面 / 网络恢复 / 每 45 秒 `presenceCheck()`：频道不是 joined 就重建，joined 但自己不在 presenceState 里就重新 track；`presenceStart` 先把 `presence` 置空再 removeChannel，避免自己关频道触发的 CLOSED 引起重连循环；退出登录时清掉定时器。在线面板说明「在线 = 此刻打开着页面的账号」。
 - **6.23 新设备登录提醒**（用户选择：系统内提醒、只在新设备登录时）：`supabase/v6_23_login_alerts.sql`（**待用户执行**）新增 `login_alert_acks` 表、`note_login_device()`（本人给自己的设备补型号/UA/IP，用 `request_ip()`）、`my_login_alerts(p_device_id)`（返回本人设备，first_seen 晚于上次确认且不是本机的标 is_new；第一次调用只建基准）、`ack_login_alerts()`；**没改** `security_register_device`。前端：进入系统后 `loginAlertsAfterEnter()`，有新设备弹窗「是我本人 / 不是我，马上改密码」；工作台设置加「登录记录」。注意：设备 ID 存在 localStorage，清浏览器数据会被当成新设备（已知限制）。
+- **6.23 SQL 执行情况（2026-10-11 只读核对）**：用户只执行了**第 1 段**（`login_alert_acks` 表、`note_login_device`、`ack_login_alerts` 已在库里），**第 2 段没执行**（`my_login_alerts` 不存在，且这两个函数对 anon 仍可执行——第 2 段的 revoke/grant 会修正；anon 调用时 `auth.uid()` 为空，实际改不到任何行）。所以新设备弹窗和登录记录现在还用不了。
+- **6.24 新设备登录邮件提醒**（用户问「会发邮件提醒吗」：之前不会，只有系统内提醒；用户要求手机号用户弹窗问是否绑定邮箱作为辅助验证，别人登录时发邮件）。
+  - Supabase 自带邮件只能发给项目团队成员的邮箱，所以**不用 Supabase Auth 的邮件**，而是 Edge Function `login-alert-mail`（v1 已部署，`verify_jwt=false`）自己用 SMTP 发信：nodemailer，**只能 465 端口**（Supabase 禁止 25/587），发信邮箱账号/授权码放在 Edge Function Secrets：`SMTP_USER`、`SMTP_PASS`（必填），`SMTP_HOST`（qq.com/foxmail.com/163.com/126.com 自动推断）、`SMTP_FROM_NAME`（默认「售后雷达」）。**用户还没配置**；没配置时前端不弹窗，设置页说明「发信邮箱还没有配置好」。
+  - 提醒邮箱存在新表 `login_alert_emails`（**不改 auth.users.email**，所以手机号审核 `is_account_pending()` 不受影响，不能借绑邮箱绕过审核）；`login_alert_mails(user_id, device_id)` 主键去重，每台设备只发一次。两张表前端读写不了，只有函数的 secret key 能读写。SQL：`supabase/v6_24_login_alert_email.sql`（**待用户执行**，一段，期望 2 / 3 / 2）。
+  - 函数动作：`status`、`send_code`（6 位码只存 SHA-256 哈希、10 分钟有效、60 秒一次、每天 5 次、错 5 次作废；待审核/被封账号拒绝——防止陌生人注册手机号后拿来给别人发邮件）、`verify_code`、`use_account_email`（邮箱注册的用户可一键用已验证的登录邮箱开启）、`remove`、`decline`（不再弹窗）、`notify`（前端每次进入系统调用；用调用者身份调 `my_login_alerts` 拿本机设备，`first_seen` 在 15 分钟内且晚于绑定时间才算新设备）。
+  - 前端：`loginAlertsAfterEnter()` 之后 `mailAfterEnter()`；手机号账号、发信已配置、没绑定、没点过「不再提醒」时弹「绑定邮箱，开启登录提醒？」（有新设备弹窗时不叠加）；工作台设置加「登录邮件提醒」（`openMailAlert`）。
+  - **限制（已告诉用户）**：提醒由新设备上的网页触发（和设备注册一样），懂技术的人绕过网页直接调接口就不会触发；依赖 v6_23 第 2 段（`my_login_alerts`）。
+  - **顺带发现并修复 6.21 的问题**：本项目 public 下新表默认不给 service_role 读写权限（只有 TRUNCATE/REFERENCES/TRIGGER），`admin_operation_logs` 也没有 insert，所以 6.21「重置密码」的审计记录**一直没写进去**（库里 0 条 reset_password，而 auth 日志有 2 次重置）。v6_24 SQL 补了 `grant insert on admin_operation_logs to service_role`；`admin-reset-password` 已重新部署为 v2，写日志失败会打到函数日志（不影响重置）。
 - **6.9（用户明确要求删除）**：去掉了用户端的「快递盯单」按钮和弹窗（含手动记录物流状态、手动「用快递100查询」、顺丰/中通手机号输入）、「快递监控记录」卡片、首页「盯单中」统计和快速筛选。详情页只保留顶部「物流状态」。承运商改在「新建售后」和详情「售后信息」表单里选（`#tc` / `#f_carrier`），保存时同步 `tracking_records`；改单号会清空旧的物流状态。管理后台里的「盯单」列和统计**没动**。顺丰、中通目前**查不了**（不保存手机号是用户的决定，手动查询入口随弹窗一起删了）。
 - 用户真正想要的是「抖店来了新售后，自动匹配对应的快递单号」。这需要抖店开放平台的应用和店铺授权，项目里**没有**任何抖店接口，现在做不了；已如实告诉用户，**不要做假的自动匹配**。快递100 的「智能单号识别」（根据单号自动判断快递公司）是另一个产品，官方文档还没核实，等用户有快递100 账号后再评估。6.7 是用户自己合并 PR #1 上线的；6.7.1 在售后详情顶部卡片直接显示当前物流状态（`tracking_records.last_match`）。
 - 用户已在手机上确认 6.6 的快递盯单正常（数据库里看到了 `tracking_records` 的写入和 `tracking_updated` 事件）。「录入举证内容」弹窗已在线上验证保存链路：2026-10-10 19:23 UTC 数据库里有 `evidence_manual` 事件、售后 `updated_at` 同步更新、状态未变。之后用户又测了补充说明：数据库里有 1 条售后带【补充 时间】、事件「手动录入举证：补充说明」（19:27 UTC）。**6.6 全部线上验证完成。**6.9.1 起内容没变化时不保存、不记事件，并提示原因。
@@ -73,6 +81,7 @@
 
 ## 测试
 - 测试用真实的 `index.html` 在 Playwright Chromium 里跑，只把 Supabase 客户端换成桩（`dev/gate.test.js` 管登录/设备/账号/管理后台；`dev/stage2.test.js` 带一个内存假数据库，管 6.5 之后的用户端功能）。**这不是对真实数据库的测试**，不能当成线上已验证。
+- Edge Function 测试（Deno + 假 Supabase/假 nodemailer，`dev/kuaidi100-fakes/`）：`dev/kuaidi100.handler.test.ts`、`dev/admin-reset.handler.test.ts`、`dev/login-alert-mail.handler.test.ts`，命令同下。
 - 快递100：`node dev/kuaidi100.test.mjs`；`deno test --no-lock --config dev/kuaidi100-fakes/deno.json --allow-env --allow-read dev/kuaidi100.handler.test.ts`（Deno 可用 `npm i deno` 装到临时目录，`DENO_CERT` 指向代理 CA）。
 - 运行：`NODE_PATH=<含 playwright 的 node_modules> node dev/gate.test.js <新index.html> <旧index.html>`；旧版本用 `git show 667a0d7~1:index.html > old.html`（6.1，用来复现旧漏洞，期望其中 7 项失败）。`node dev/stage2.test.js <index.html>` 期望全部通过。
 - Playwright 的位置因环境而异（见过 `/opt/npm-tools/node_modules` 和 `/opt/node-tools/node_modules`），换环境需要自行查找或安装。

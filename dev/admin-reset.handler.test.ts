@@ -59,3 +59,8 @@ Deno.test("no secret key in the environment -> 503, nothing changed", async () =
   const r = await call({ user_id: P1 }, "tok-admin"); env.set("SUPABASE_SECRET_KEYS", keep);
   eq(r.status, 503, "status"); eq(state.adminCalls.length, 0, "no update");
 });
+Deno.test("audit log write refused (missing grant) -> reset still succeeds, error goes to the function log", async () => {
+  seed(); state.deny = { admin_operation_logs: true }; const logged: string[] = []; const orig = console.error; console.error = (...a: unknown[]) => { logged.push(a.join(" ")); };
+  const r = await call({ user_id: P1 }, "tok-admin"); console.error = orig; state.deny = {};
+  eq(r.status, 200, "status"); eq(state.adminCalls.length, 1, "password changed"); if (!logged.some((l) => l.includes("audit log insert failed"))) throw new Error("not logged");
+});

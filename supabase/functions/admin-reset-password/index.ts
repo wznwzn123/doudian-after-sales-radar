@@ -61,7 +61,9 @@ Deno.serve(async (req) => {
   if (up.error) return fail(500, "update_failed", "重置失败：" + up.error.message);
 
   // 审计：谁在什么时候重置了谁的密码（不记录密码本身）
-  await svc.from("admin_operation_logs").insert({ user_id: adminId, action: "reset_password", detail: "重置了 " + label + " 的密码" });
+  // （需要 v6_24 SQL 里的 grant insert ... to service_role；写失败不影响重置结果，但要在函数日志里看得到）
+  const lg = await svc.from("admin_operation_logs").insert({ user_id: adminId, action: "reset_password", detail: "重置了 " + label + " 的密码" });
+  if (lg.error) console.error("audit log insert failed", lg.error.message);
 
   return reply(200, { ok: true, password, account: label });
 });

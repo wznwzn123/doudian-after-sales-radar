@@ -1,5 +1,5 @@
 // Fake @supabase/supabase-js for dev/kuaidi100.handler.test.ts: in-memory tables + RLS-like user filter.
-export const state: any = { db: {}, users: { "tok-u1": "u1", "tok-u2": "u2" }, clients: [], admins: [], authUsers: {}, adminCalls: [] };
+export const state: any = { db: {}, users: { "tok-u1": "u1", "tok-u2": "u2" }, clients: [], admins: [], authUsers: {}, adminCalls: [], rpcs: {}, pk: {}, deny: {} };
 export function createClient(_url: string, _key: string, opts: any) {
   const auth = opts?.global?.headers?.Authorization || "";
   const token = auth.replace(/^Bearer\s+/i, "");
@@ -12,6 +12,7 @@ export function createClient(_url: string, _key: string, opts: any) {
     const visible = (r: any) => secret || r.user_id === uid; // RLS: user_id = auth.uid(); secret key bypasses RLS
     const match = (r: any) => visible(r) && st.f.every(([k, v]: any) => r[k] === v) && st.gte.every(([k, v]: any) => String(r[k]) >= v) && st.like.every(([k, v]: any) => new RegExp("^" + String(v).split("%").map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$", "s").test(String(r[k] ?? "")));
     const run = async () => {
+      if (state.deny[table]) return { data: null, error: { message: "permission denied for table " + table } };
       if (st.op === "select") {
         let out = rows().filter(match).map((r: any) => ({ ...r }));
         if (st.order) out.sort((a: any, b: any) => String(a[st.order[0]]).localeCompare(String(b[st.order[0]])) * (st.order[1]?.ascending === false ? -1 : 1));
@@ -20,6 +21,8 @@ export function createClient(_url: string, _key: string, opts: any) {
       }
       if (st.op === "insert") {
         if (!secret && st.payload.user_id !== uid) return { data: null, error: { message: "RLS violation" } };
+        const pk = state.pk[table];
+        if (pk && rows().some((r: any) => pk.every((k: string) => r[k] === st.payload[k]))) return { data: null, error: { code: "23505", message: "duplicate key" } };
         rows().push({ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...st.payload });
         return { data: null, error: null };
       }
@@ -27,6 +30,11 @@ export function createClient(_url: string, _key: string, opts: any) {
         const hit = rows().filter(match);
         if (table === "tracking_records" && st.payload.last_match === null) return { data: null, error: { message: "not-null" } };
         hit.forEach((r: any) => Object.assign(r, st.payload));
+        return { data: null, error: null };
+      }
+      if (st.op === "delete") {
+        const keep = rows().filter((r: any) => !match(r));
+        state.db[table] = keep;
         return { data: null, error: null };
       }
     };
@@ -42,6 +50,7 @@ export function createClient(_url: string, _key: string, opts: any) {
         else if (p === "maybeSingle") st.maybe = true;
         else if (p === "insert") { st.op = "insert"; st.payload = a[0]; }
         else if (p === "update") { st.op = "update"; st.payload = a[0]; }
+        else if (p === "delete") st.op = "delete";
         else throw new Error("fake supabase: unsupported " + String(p));
         return b;
       };
@@ -50,12 +59,13 @@ export function createClient(_url: string, _key: string, opts: any) {
   };
   return {
     from,
-    async rpc(name: string) {
+    async rpc(name: string, args?: any) {
+      if (state.rpcs[name]) return state.rpcs[name](args, uid);
       if (name === "is_admin") return { data: !!uid && state.admins.includes(uid), error: null };
       return { data: null, error: { message: "unexpected rpc " + name } };
     },
     auth: {
-      async getUser(t: string) { const id = state.users[t]; return id ? { data: { user: { id } }, error: null } : { data: { user: null }, error: { message: "bad jwt" } }; },
+      async getUser(t: string) { const id = state.users[t]; return id ? { data: { user: { id, ...(state.authUsers[id] || {}) } }, error: null } : { data: { user: null }, error: { message: "bad jwt" } }; },
       admin: {
         async getUserById(id: string) {
           if (!secret) return { data: { user: null }, error: { message: "User not allowed" } };
