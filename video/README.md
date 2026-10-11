@@ -1,16 +1,45 @@
-# 售后雷达 Pro 介绍视频
+# 售后雷达 Pro 宣传视频
 
-成品在 `out/`：竖屏 9:16（抖音尺寸）、横屏 16:9、GIF 预览、封面图。约 38 秒，带字幕和背景音乐。
+## 第 2 版：店主痛点版（Remotion 制作，推荐）
+成品在 `out/`：
 
-**录屏里全部是演示数据**（画面右上角有「演示数据」标记）：用的是真实的 `index.html`，但 Supabase 换成了 `dev/stage2.test.js` 里的测试桩，不连真实数据库。提速图的数字来自 HANDOFF.md 里 Pro 6.12 的实测记录（每个请求模拟 400ms 延迟）。背景音乐由 `music.py` 用代码合成。
+| 文件 | 用途 |
+|---|---|
+| `售后雷达_店主痛点_40秒_完整版.mp4` / `…_15秒_完整版.mp4` | 字幕 + 配乐 + 音效都有，可以直接发 |
+| `售后雷达_店主痛点_40秒_无配乐.mp4` / `…_15秒_无配乐.mp4` | 有字幕和音效、没有音乐：发抖音时在抖音里直接选热门音乐 |
+| `售后雷达_店主痛点_40秒_剪映素材.mp4` / `…_15秒_剪映素材.mp4` | 无字幕、无配乐，只有音效：导入剪映后加 AI 配音和音乐 |
+| `售后雷达_店主痛点_40秒.srt` / `…_15秒.srt` | 字幕文件，剪映里「文本 → 本地字幕」导入 |
+| `旁白稿_剪映配音用.txt` | 每句旁白和它在视频里的时间 |
+| `售后雷达_封面_痛点版.jpg` | 封面 |
 
-## 重新生成
-需要 Node（带 Playwright + Chromium）、ffmpeg、Python 3 + numpy、文泉驿正黑字体。
+1080×1920，60fps。字体是思源黑体（Noto Sans SC，SIL OFL 免费商用）；配乐和音效由 `remotion/audio.py` 用代码合成。
+
+**录屏里全部是演示数据**（画面右上角标着「画面为演示数据」）：用的是真实的 `index.html`，但 Supabase 换成了 `dev/stage2.test.js` 里的测试桩，数据在 `remotion/demo-data.js`。开头的「通知堆成山」和「已自动同意退款」是情景演绎，不是 App 的界面。
+
+### 只用手机：换成抖音的音乐
+发抖音时上传 `…_无配乐.mp4`，在发布页「选择音乐」里挑一首，音量调低一些，别盖过音效。
+
+### 在剪映专业版（电脑）里加 AI 配音和音乐（约 5 分钟）
+1. 剪映专业版 → 开始创作 → 导入 `…_剪映素材.mp4`。
+2. 文本 → 本地字幕 → 导入对应的 `.srt`（字幕会按时间自动对齐）。手机版剪映不一定能导入 SRT，所以这一步建议用电脑。
+3. 选中字幕 → 朗读 → 选一个声音，勾选「应用到全部字幕」。如果哪句读得太长，把那句的朗读稍微加速。
+4. 音频 → 音乐，选一首，音量调到 15～25，避免盖过配音。
+5. 导出 1080p / 60fps。
+
+### 重新生成
+需要 Node 22、ffmpeg、Python 3 + numpy，以及 `/opt/pw-browsers/chromium`。
 
 ```bash
-node video/record_app.js      # 录制网页操作（CDP 截屏流）
-node video/render_scenes.js   # 逐帧渲染片头、提速图、功能要点、片尾（scenes.html）
-video/build.sh                # 字幕 + 转场 + 音乐，导出 out/ 里的 4 个文件
+cd video/remotion
+npm install
+node record_shots.js                                   # 录 4 个镜头 → public/shots/*.mp4 和 src/shots.json
+for v in long short; do for s in 1 0; do node render.mjs $v $s ../build/${v}_subs$s.mp4; done; done
+./finish.sh                                            # 加声音，导出 out/ 里的文件
 ```
 
-改文案：场景文字在 `scenes.html`，录屏字幕在 `app_subs.ass`，演示数据在 `record_app.js`。
+改文案和时间：`remotion/src/timeline.json`（场景、旁白/字幕、镜头推近时间）。改画面：`remotion/src/Video.jsx`。
+
+Remotion 的许可：个人和 3 人以内的团队免费，人数更多的公司需要购买许可（见 remotion.dev/license）。
+
+## 第 1 版：功能介绍版
+`out/售后雷达_竖屏_9x16.mp4` 等 4 个文件，用 `record_app.js`、`render_scenes.js`、`build.sh` 生成（网页动画逐帧截图 + ffmpeg 拼接）。
