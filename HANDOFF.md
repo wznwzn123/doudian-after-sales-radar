@@ -16,7 +16,7 @@
 - 管理员权限必须在服务端校验，不能只在前端隐藏按钮。
 
 ## 当前线上状态
-- 已推送到 main 的最新版是 **Pro 6.26**（`APP_VERSION="6.26.0"`）。6.8：点开售后时自动向快递100 查一次（见下）。
+- 已推送到 main 的最新版是 **Pro 6.27**（`APP_VERSION="6.27.0"`）。6.8：点开售后时自动向快递100 查一次（见下）。
 - **6.10 界面整理**（用户嫌按钮杂乱、界面重叠）：顶栏只留「在线 / 管理 / ☰ 更多」（夜间模式、退出账号一直在「更多」里）；首页「设备注册诊断」只在「更多」里；统计压成一张倒计时卡 + 一排 4 个数字；筛选三个下拉框一行、快捷筛选横向滑动；详情 4 个主按钮 2×2，上传按钮移进「举证材料」卡片，删除放到最底；时间线显示中文事件名（`EVENT_LABELS`）。**重叠的根因**：详情页顶部标题栏半透明（浅色 `#ffffffed`、深色 `#172033ed`），滚动时下面内容透出来，现已改为不透明。没有删除任何功能。
 - **6.11 iOS 风格 + 过渡动画**（用户要求）：整张样式表换成 iOS 26 风格（系统色、分组背景、圆角卡片、胶囊按钮、填充式输入框、毛玻璃顶栏和悬浮标签栏、SVG 图标），所有 class 名不变。弹窗是底部弹出卡片、详情从右侧推入；**关闭动画**用 `ghostOut()`：真实元素立即加 `hidden`（状态和逻辑都不变），复制一个去掉 id/事件、`pointer-events:none` 的副本播放退出动画，约 380ms 后删除。遮罩只动画 `background-color`，卡片本身始终不透明（之前用整体 opacity 淡入时，滑动中途会透出下面页面，看起来像重叠）。列表入场动画只在结果集合变化时播放（`listEnter`）。`prefers-reduced-motion` 时全部关闭。
 - **6.12 打开售后提速**（用户反馈要等一两秒）：数据库没问题（行数很少、`task_id` 都有索引，项目在 ap-southeast-1）。原因是 `openTask` 依次 await 3 个请求后才显示。现在先用内存里的任务立刻渲染（材料/时间线显示「加载中…」），3 个请求 `Promise.all` 并行，回来后只填 `#logistics_box/#files_box/#timeline_box` 和未改动过的 `#f_carrier`；`detailCache` 缓存每条售后，再次打开秒开；`openSeq` 丢弃快速切换时的过期结果；加载完成前 `saveTask` 拒绝保存（否则可能用空承运商覆盖）。模拟每个请求 400ms：页面出现 1212ms→62ms，全部加载 1266ms→409ms。测试桩支持 `window.__latency`。
@@ -48,6 +48,14 @@
   - 手机号用户绑定登录邮箱后 `is_account_pending()` 会因为 email 不再为空而返回 false —— 只有已审核的账号能换绑（函数里先查 `my_account_status`），所以不会被用来绕过审核。
   - 需要的 6 个新列已并进 `supabase/v6_24_login_alert_email.sql`（已执行，见上）。
 - **6.26 提示样式**（用户反馈「已被其他账号占用」的提示弹出来难看）：原因是底部 toast 是胶囊形（border-radius 999px），长文字被挤成多行胶囊、还压在底部弹窗上。改成：①「登录邮件提醒」和「换绑」表单里的错误改为显示在表单下方的红色小框（`formErr(id, r)` / `formOk(id)`，`#mlErr` / `#rbErr`），`code=taken` 时前端换成简短文案 + 一行灰色说明（不依赖服务端文案）；② 全局 `toast()` 超过 24 字自动加 `.long`（圆角方框、左对齐，显示时间随长度延长到最多 6 秒），短提示保持胶囊样式。只改了样式和提示位置，没有改任何业务逻辑。
+- **6.27 用户自己删除陌生设备 + 强制退出**（用户要求：在登录记录里删除陌生设备，删除后那台设备强制退出、重新验证账号）。SQL：`supabase/v6_27_remove_device.sql`（**待用户执行**，分 2 段，期望 3 / 3 / 8）。
+  - 设备 ↔ 登录的对应：前端每次进入系统、每 2 分钟复查、切回前台时调 `my_session_status(本机设备ID)`，把 JWT 里的 `session_id` 记进 `device_sessions`；返回 revoked=true 时前端 `denyAccess(KICKED_MSG)`（scope local 退出、回登录页说明原因），而且在 `deviceCheck()` **之前**调用，免得被删的设备又被重新注册。
+  - `remove_my_device(行id, 本机设备ID)`：只能删自己的、不能删正在用的；写 `revoked_devices`（之后这台设备上**在此之前建立**的登录一律作废，包括没上报过的旧登录，等它第一次上报时作废）、已知 session 记进 `revoked_sessions` 并 **delete from auth.sessions**（refresh_tokens 级联删除 = 服务端作废，无法续期）；删除 `security_devices` 行（**被管理员封禁的设备保留行**，不能借此解封）；写 `admin_operation_logs`（remove_device）。
+  - 服务端强制：限制性 RLS `session_not_revoked`（同 account_not_banned 的 8 处：7 张业务表 + support_messages + storage 证据桶），访问令牌还没过期也读写不了。`my_login_alerts` 只多返回 `id`。
+  - 对方重新输入密码 = 新 session，不受影响，并被当成新设备（账号主人会再收到系统内 + 邮件提醒）——所以前端删除时提示「同时修改密码」，删除后给「修改密码」按钮。
+  - 前端：登录记录每台非本机设备有「删除」；新设备提醒弹窗里也能直接删。设备名来自设备端（可伪造），onclick 里只放校验过的 uuid，名字从内存列表查（有 XSS 测试）。
+  - SQL 用本机 PostgreSQL 16 + 仿 Supabase 的 mock 实测过（`dev/supabase-mock.pg.sql` + `dev/v6_27_remove_device.pgtest.sql`，24 项）：用 postgres 用户 initdb 到 /tmp（socket 路径不能太长），先跑 mock，再跑 v6_27，再跑 pgtest。
+- **6.27 登录页重新设计**（用户给了两张参考图：照片背景 + 毛玻璃登录卡 + 微信扫码；白色粒子波浪 + 欢迎回来）：浅色径向渐变 + canvas 粒子波浪（深色模式自动变暗；登录页隐藏或切到后台时不绘制；减少动态效果时只画静态），毛玻璃卡片「账号密码登录」，账号框前缀（手机号 +86 / 邮箱 @ / 默认人像）、密码显示切换、回车登录、黑色主按钮、「还没有账号？注册」，注册说明折叠在卡片下方。**没做微信扫码**（项目没有微信开放平台登录，不做假的）。所有 id（email/password/password2/regwrap/authmsg/loginBtn/regBtn）和按钮文字不变，登录/注册/找回密码逻辑没动。
 - **6.9（用户明确要求删除）**：去掉了用户端的「快递盯单」按钮和弹窗（含手动记录物流状态、手动「用快递100查询」、顺丰/中通手机号输入）、「快递监控记录」卡片、首页「盯单中」统计和快速筛选。详情页只保留顶部「物流状态」。承运商改在「新建售后」和详情「售后信息」表单里选（`#tc` / `#f_carrier`），保存时同步 `tracking_records`；改单号会清空旧的物流状态。管理后台里的「盯单」列和统计**没动**。顺丰、中通目前**查不了**（不保存手机号是用户的决定，手动查询入口随弹窗一起删了）。
 - 用户真正想要的是「抖店来了新售后，自动匹配对应的快递单号」。这需要抖店开放平台的应用和店铺授权，项目里**没有**任何抖店接口，现在做不了；已如实告诉用户，**不要做假的自动匹配**。快递100 的「智能单号识别」（根据单号自动判断快递公司）是另一个产品，官方文档还没核实，等用户有快递100 账号后再评估。6.7 是用户自己合并 PR #1 上线的；6.7.1 在售后详情顶部卡片直接显示当前物流状态（`tracking_records.last_match`）。
 - 用户已在手机上确认 6.6 的快递盯单正常（数据库里看到了 `tracking_records` 的写入和 `tracking_updated` 事件）。「录入举证内容」弹窗已在线上验证保存链路：2026-10-10 19:23 UTC 数据库里有 `evidence_manual` 事件、售后 `updated_at` 同步更新、状态未变。之后用户又测了补充说明：数据库里有 1 条售后带【补充 时间】、事件「手动录入举证：补充说明」（19:27 UTC）。**6.6 全部线上验证完成。**6.9.1 起内容没变化时不保存、不记事件，并提示原因。
@@ -90,6 +98,7 @@
 
 ## 测试
 - 测试用真实的 `index.html` 在 Playwright Chromium 里跑，只把 Supabase 客户端换成桩（`dev/gate.test.js` 管登录/设备/账号/管理后台；`dev/stage2.test.js` 带一个内存假数据库，管 6.5 之后的用户端功能）。**这不是对真实数据库的测试**，不能当成线上已验证。
+- 数据库 SQL 的本地实测：`dev/supabase-mock.pg.sql` + `dev/v6_27_remove_device.pgtest.sql`（见 6.27）。
 - Edge Function 测试（Deno + 假 Supabase/假 nodemailer，`dev/kuaidi100-fakes/`）：`dev/kuaidi100.handler.test.ts`、`dev/admin-reset.handler.test.ts`、`dev/login-alert-mail.handler.test.ts`，命令同下。
 - 快递100：`node dev/kuaidi100.test.mjs`；`deno test --no-lock --config dev/kuaidi100-fakes/deno.json --allow-env --allow-read dev/kuaidi100.handler.test.ts`（Deno 可用 `npm i deno` 装到临时目录，`DENO_CERT` 指向代理 CA）。
 - 运行：`NODE_PATH=<含 playwright 的 node_modules> node dev/gate.test.js <新index.html> <旧index.html>`；旧版本用 `git show 667a0d7~1:index.html > old.html`（6.1，用来复现旧漏洞，期望其中 7 项失败）。`node dev/stage2.test.js <index.html>` 期望全部通过。

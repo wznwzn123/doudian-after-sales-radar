@@ -68,6 +68,8 @@ const STUB = `
    if(name==='note_login_device'&&!window.__noAlertFns)return{data:null,error:null};
    if(name==='my_login_alerts'&&!window.__noAlertFns)return{data:window.__loginAlerts||{ok:true,devices:[]},error:null};
    if(name==='ack_login_alerts'&&!window.__noAlertFns){window.__acked=(window.__acked||0)+1;return{data:null,error:null}}
+   if(name==='my_session_status'&&!window.__noRemoveFns)return{data:{ok:true,revoked:!!window.__sessionRevoked},error:null};
+   if(name==='remove_my_device'&&!window.__noRemoveFns){window.__removed2=(window.__removed2||[]).concat([args]);const d=(window.__loginAlerts&&window.__loginAlerts.devices)||[];if(window.__loginAlerts)window.__loginAlerts.devices=d.filter(x=>x.id!==args.p_id);return{data:window.__removeReply||{ok:true,sessions:1},error:null}}
    if(name==='my_account_status'&&!window.__noApprovalFns)return{data:{pending:!!window.__pending},error:null};
    if(name==='admin_list_pending_phone_users'&&!window.__noApprovalFns)return{data:window.__pendingUsers||[],error:null};
    if(name==='admin_approve_phone_user'&&!window.__noApprovalFns){window.__pendingUsers=(window.__pendingUsers||[]).filter(u=>u.id!==args.p_user_id);return{data:{ok:true,message:'已通过审核'},error:null}}
@@ -789,6 +791,78 @@ async function run(browser, htmlPath) {
     check("6.25 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+  // ---- 6.27 删除陌生设备（server side: dev/v6_27_remove_device.pgtest.sql on a local PostgreSQL mock）
+  {
+    const ID_B = "20000000-0000-4000-8000-00000000000b", ID_X = "20000000-0000-4000-8000-00000000000e";
+    const devs = () => ({ ok: true, devices: [
+      { id: "20000000-0000-4000-8000-00000000000a", device: "WEB-aaaa", current: true, name: "Android · Edge", first_seen: "2026-10-01T00:00:00Z", last_seen: "2026-10-11T05:00:00Z", status: "active", is_new: false },
+      { id: ID_B, device: "WEB-bbbb", current: false, name: "Windows · Chrome", first_seen: "2026-10-11T04:00:00Z", last_seen: "2026-10-11T04:10:00Z", ip: "8.8.8.8", status: "active", is_new: false },
+      { id: ID_X, device: "WEB-xxxx", current: false, name: "x'),window.__xss=1,('\"><img src=x onerror=window.__xss=2>", first_seen: "2026-10-11T03:00:00Z", status: "active", is_new: false } ] });
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __loginAlerts: devs() } });
+    await page.waitForTimeout(1200);
+    const sc = await page.evaluate("window.__calls.find(c=>c.name==='my_session_status')");
+    check("6.27 every app entry reports this device's login (my_session_status)", sc && sc.args.p_device_id === (await page.evaluate("getDeviceId()")), JSON.stringify(sc));
+    await page.evaluate("openLoginRecords()"); await page.waitForTimeout(300);
+    const btns = await page.$$eval("#loginRecs button", (b) => b.map((x) => ({ t: x.textContent, on: x.getAttribute("onclick") })));
+    check("6.27 删除 button on other devices only (not 本机)", btns.filter((b) => b.t === "删除").length === 2 && btns.every((b) => b.t !== "删除" || /^removeDevice\('[0-9a-f-]{36}'\)$/.test(b.on)), JSON.stringify(btns));
+    check("6.27 forged device name cannot inject script", !(await page.evaluate("window.__xss")) && (await text(page, "#loginRecs")).includes("onerror"));
+    await page.evaluate("window.__confirm=false"); await page.click(`#loginRecs button[onclick="removeDevice('${ID_B}')"]`); await page.waitForTimeout(150);
+    check("6.27 cancel -> nothing removed", !(await page.evaluate("window.__removed2")));
+    await page.evaluate("window.__confirm=true"); await page.click(`#loginRecs button[onclick="removeDevice('${ID_B}')"]`); await page.waitForTimeout(400);
+    const rm = await page.evaluate("window.__removed2");
+    check("6.27 remove_my_device called with the row id + this device's id", rm && rm.length === 1 && rm[0].p_id === ID_B && rm[0].p_current_device === (await page.evaluate("getDeviceId()")), JSON.stringify(rm));
+    const rec = await text(page, "#loginRecs");
+    check("6.27 after removal: list refreshed + note with 修改密码", rec.includes("共 2 台") && !rec.split("按最近使用排序")[1].includes("Windows · Chrome") && rec.includes("已删除「Windows · Chrome」") && rec.includes("强制退出") && rec.includes("修改密码"), rec.slice(0, 200));
+    await page.click('#loginRecs button:text-is("修改密码")'); await page.waitForTimeout(400);
+    check("6.27 修改密码 -> settings at the password field", (await page.evaluate("document.activeElement&&document.activeElement.id")) === "cp1");
+    await page.evaluate(`window.__removeReply = { ok: false, message: "不能删除你正在使用的这台设备" }`); await page.evaluate(`removeDevice('${ID_X}')`); await page.waitForTimeout(200);
+    check("6.27 server refusal shown", (await text(page, "#toast")).includes("不能删除"));
+    check("6.27 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    // the removed device: next recheck finds its login revoked -> logged out locally, login page with the reason
+    await page.evaluate("closeModal(); window.__sessionRevoked = true; window.__auth = []"); await page.evaluate("recheck()"); await page.waitForTimeout(400);
+    check("6.27 removed device: recheck -> back to login with the reason", !(await page.evaluate("document.getElementById('login').classList.contains('hidden')")) && (await text(page, "#authmsg")).includes("已被账号主人") && (await text(page, "#authmsg")).includes("重新输入密码"));
+    await ctx.close();
+    const r2 = await open(browser, htmlPath, { db: seed(), pre: { __sessionRevoked: true } });
+    await r2.page.waitForTimeout(1200);
+    check("6.27 removed device opening the app -> login page, app never shown", (await r2.page.evaluate("document.getElementById('app').classList.contains('hidden')")) && (await text(r2.page, "#authmsg")).includes("强制退出") && !(await r2.page.evaluate("window.__calls.some(c=>c.name==='security_register_device')")));
+    await r2.ctx.close();
+    // delete straight from the new-device alert
+    const a = devs(); a.devices[1].is_new = true;
+    const r3 = await open(browser, htmlPath, { db: seed(), pre: { __loginAlerts: a } });
+    await r3.page.waitForTimeout(1300);
+    await r3.page.click(`#modalbox button[onclick="removeDevice('${ID_B}',true)"]`); await r3.page.waitForTimeout(500);
+    check("6.27 alert popup: 删除 removes it, alert acknowledged, records shown", (await r3.page.evaluate("(window.__removed2||[]).length")) === 1 && (await r3.page.evaluate("window.__acked")) === 1 && (await text(r3.page, "#loginRecs")).includes("已删除"));
+    check("6.27 alert popup: no page errors", !(r3.page.__errs || []).length, JSON.stringify(r3.page.__errs));
+    await r3.ctx.close();
+    const r4 = await open(browser, htmlPath, { db: seed(), pre: { __noRemoveFns: true, __loginAlerts: devs() } });
+    await r4.page.waitForTimeout(1200);
+    check("6.27 before SQL: app opens normally", !(await r4.page.evaluate("document.getElementById('app').classList.contains('hidden')")));
+    await r4.page.evaluate(`removeDevice('${ID_B}')`); await r4.page.waitForTimeout(200);
+    check("6.27 before SQL: delete explains it is not opened yet", (await text(r4.page, "#toast")).includes("还没有开通"));
+    await r4.ctx.close();
+  }
+  // ---- 6.27 登录页新样式（功能不变）
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(500);
+    check("6.27 login: card + particle background canvas", !!(await page.$("#login .lgcard")) && !!(await page.$("#lgbg")) && (await text(page, "#login")).includes("账号密码登录"));
+    await page.fill("#email", "138 0013 8000"); await page.dispatchEvent("#email", "input");
+    check("6.27 login: phone shows +86 prefix", (await text(page, "#lgpre")) === "+86");
+    await page.fill("#email", "a@x.com"); await page.dispatchEvent("#email", "input");
+    check("6.27 login: email shows @ prefix", (await text(page, "#lgpre")) === "@");
+    await page.fill("#password", "Abcdef1!"); await page.click("#login .lgeye");
+    check("6.27 login: eye shows the password", (await page.getAttribute("#password", "type")) === "text");
+    await page.click("#login .lgeye");
+    check("6.27 login: eye hides it again", (await page.getAttribute("#password", "type")) === "password");
+    check("6.27 login: 注册说明 folded by default, still in the page", !(await page.evaluate("document.querySelector('.lgtips').open")) && (await text(page, ".lgtips")).includes("邮箱注册【推荐】"));
+    const fit = await page.evaluate("(()=>{const c=document.querySelector('.lgcard').getBoundingClientRect();return c.left>=0&&c.right<=innerWidth&&document.documentElement.scrollWidth<=innerWidth})()");
+    check("6.27 login: card fits a phone screen, no sideways scroll", fit);
+    await page.press("#password", "Enter"); await page.waitForTimeout(600);
+    check("6.27 login: Enter in the password field logs in", (await page.evaluate("(window.__auth||[]).some(a=>a.op==='signIn')")) || !(await page.evaluate("document.getElementById('app').classList.contains('hidden')")));
+    check("6.27 login: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
@@ -942,7 +1016,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.26.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.27.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());

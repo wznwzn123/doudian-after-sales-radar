@@ -446,7 +446,7 @@ async function restoreScenarios(browser, htmlPath) {
   await tab("logs"); b = await body();
   check(g, "logs tab", b.includes("device_block") && b.includes("測試") && b.includes("a@x.com"), b);
   await tab("settings"); b = await body();
-  check(g, "settings tab shows version + 3h", b.includes("6.26.0") && b.includes("3 小时"), b);
+  check(g, "settings tab shows version + 3h", b.includes("6.27.0") && b.includes("3 小时"), b);
   await tab("users"); b = await body();
   check(g, "users tab lists ALL users (admin_list_all_users), not just admins", b.includes("a@x.com") && b.includes("b@x.com") && !b.includes("boss@x.com") && b.includes("管理员") && b.includes("全站共 2 个账号"), b);
   // admins tab
