@@ -1,5 +1,7 @@
 -- 售后雷达 Pro 6.33：安全审计第 2 批（需要在 SQL Editor 执行；分 2 段，每段末尾有核对查询）+ 管理后台「最近活跃」
--- 状态：待用户执行。可重复执行。
+-- 状态：已于 2026-10-11 由用户在 SQL Editor 执行（第 1 段拆成两次贴，每次末尾都带上对应函数的 revoke/grant），核对 1 / 2 / 4 与 1 / 6 / 2 / 0 / 1；
+--   之后只读复核：6 个函数 security definer + search_path、两个计数/查重函数只有 service_role 能调；每张业务表只剩一条宽松策略且都是 (select auth.uid())；
+--   account_not_banned / account_not_pending / session_not_revoked 限制性策略（public 下 20 条）没动；存储桶 200MB + 14 种类型。可重复执行。
 -- 写之前已用只读查询核对（2026-10-11）：
 --   * 下面新建的 5 个函数名在库里都不存在；revoked_sessions / device_sessions（v6_27）已存在；
 --   * after_sales_tasks 现有数据里没有「store_id 指向别人店铺」的行（0 行），加限制性策略不会让现有售后改不动；
