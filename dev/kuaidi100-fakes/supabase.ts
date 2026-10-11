@@ -1,5 +1,5 @@
 // Fake @supabase/supabase-js for dev/kuaidi100.handler.test.ts: in-memory tables + RLS-like user filter.
-export const state: any = { db: {}, users: { "tok-u1": "u1", "tok-u2": "u2" }, clients: [], admins: [], authUsers: {}, adminCalls: [], rpcs: {}, pk: {}, deny: {}, passwords: {}, signIns: [], signOuts: [], signInError: null };
+export const state: any = { db: {}, users: { "tok-u1": "u1", "tok-u2": "u2" }, clients: [], admins: [], authUsers: {}, adminCalls: [], rpcs: {}, pk: {}, deny: {}, passwords: {}, signIns: [], signOuts: [], signInError: null, updateError: null };
 export function createClient(_url: string, _key: string, opts: any) {
   const auth = opts?.global?.headers?.Authorization || "";
   const token = auth.replace(/^Bearer\s+/i, "");
@@ -80,7 +80,14 @@ export function createClient(_url: string, _key: string, opts: any) {
           if (!secret) return { data: { user: null }, error: { message: "User not allowed" } };
           const u = state.authUsers[id]; return u ? { data: { user: { id, ...u } }, error: null } : { data: { user: null }, error: { message: "User not found" } };
         },
+        async listUsers(p: any) {
+          if (!secret) return { data: { users: [] }, error: { message: "User not allowed" } };
+          const all = Object.keys(state.authUsers).map((id) => ({ id, ...state.authUsers[id] }));
+          const per = p?.perPage || 50, page = p?.page || 1;
+          return { data: { users: all.slice((page - 1) * per, page * per) }, error: null };
+        },
         async updateUserById(id: string, attrs: any) {
+          if (state.updateError) return { data: { user: null }, error: state.updateError };
           if (!secret) return { data: { user: null }, error: { message: "User not allowed" } };
           state.adminCalls.push({ id, attrs });
           const others = Object.keys(state.authUsers).filter((k) => k !== id);

@@ -132,7 +132,20 @@ Deno.serve(async (req) => {
       try { await sendMail(smtp.cfg, t, m.subject, m.text); } catch (e) { console.error("change mail failed", (e as Error).message); }
     }
   };
-  const dupMsg = (msg: string, kind: string) => /already|exists|registered|duplicate|unique/i.test(msg) ? "这个" + kind + "已经被其他账号使用" : "换绑失败：" + msg;
+  // 登录邮箱 / 手机号在 auth.users 里是唯一的。GoTrue 撞到唯一约束时只回 500「Error updating user」（日志里才看得到 users_email_partial_key），
+  // 所以换绑前先自己查一遍有没有被别的账号占用（用户量小，按页扫 admin 列表；最多扫 10 页 × 1000）。
+  const takenByOther = async (kind: "email" | "phone", value: string): Promise<boolean> => {
+    const v = kind === "phone" ? value.replace(/^\+/, "") : value.toLowerCase();
+    for (let page = 1; page <= 10; page++) {
+      const r = await svc.auth.admin.listUsers({ page, perPage: 1000 });
+      if (r.error) { console.error("listUsers failed", r.error.message); return false; }
+      const users = r.data?.users || [];
+      if (users.some((x: any) => x.id !== uid && (kind === "phone" ? String(x.phone || "").replace(/^\+/, "") === v : String(x.email || "").toLowerCase() === v))) return true;
+      if (users.length < 1000) return false;
+    }
+    return false;
+  };
+  const dupMsg = (msg: string, kind: string) => /already|exists|registered|duplicate|unique|error updating user/i.test(msg) ? "这个" + kind + "已经被其他账号使用，请换一个" : "换绑失败：" + msg;
 
   try {
     if (action === "status") return okStatus();
@@ -143,6 +156,7 @@ Deno.serve(async (req) => {
       if (phone.slice(1) === String(me.phone || "").replace(/^\+/, "")) return fail(400, "same", "新手机号和现在的一样");
       const why = await mayBind(); if (why) return fail(403, "forbidden", why);
       const pw = await checkPassword(String(body.password || "")); if (pw) return pw;
+      if (await takenByOther("phone", phone)) return fail(409, "taken", "这个手机号已经被其他账号使用，请换一个");
       const up = await svc.auth.admin.updateUserById(uid, { phone, phone_confirm: true } as any);
       if (up.error) return fail(409, "update_failed", dupMsg(up.error.message, "手机号"));
       const shown = maskPhone(phone);
@@ -158,6 +172,7 @@ Deno.serve(async (req) => {
       if (!smtp.ok) return fail(503, "smtp_missing", smtp.message);
       const lim = sendLimit(); if (lim instanceof Response) return lim;
       const pw = await checkPassword(String(body.password || "")); if (pw) return pw;
+      if (await takenByOther("email", email)) return fail(409, "taken", "这个邮箱已经是另一个账号的登录邮箱了（一个邮箱只能登录一个账号），请换一个。只想收提醒的话，可以在「登录邮件提醒」里绑定，提醒邮箱可以重复。");
       const code = genCode(), now = Date.now();
       await save({ chg_email: email, chg_code_hash: await hashCode(uid, "login:" + code), chg_code_expires: new Date(now + CODE_TTL_MS).toISOString(), chg_tries: 0, last_sent_at: new Date(now).toISOString(), sent_count: lim.count + 1, sent_window: lim.window });
       const m = codeMail(code, "login");
