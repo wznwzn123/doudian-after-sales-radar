@@ -1,5 +1,5 @@
 -- 售后雷达 Pro 6.27：用户在「登录记录」里删除陌生设备 → 那台设备被强制退出，必须重新输入密码登录
--- 状态：待用户在 Supabase SQL Editor 执行（分 2 段贴；可重复执行）。前提：v6_23（my_login_alerts）已执行。
+-- 状态：已于 2026-10-11 由用户在 SQL Editor 分 3 段执行（第 1 段又拆成两段贴），只读核对 3 / 3 / 8：三张表开 RLS 且前端不可读；四个函数 security definer、anon 不可执行；8 条限制性策略；my_login_alerts 已返回 id。可重复执行。
 -- 写之前已用只读查询核对：
 --   * 没有任何外键指向 security_devices，表上没有触发器 —— 删除一行不会连带删别的数据；
 --   * postgres（security definer 函数的属主）对 auth.sessions 有 select/delete 权限；auth.refresh_tokens、auth.mfa_amr_claims 对 sessions 是 on delete cascade，
