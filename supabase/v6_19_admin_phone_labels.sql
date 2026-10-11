@@ -1,5 +1,5 @@
 -- 售后雷达 Pro 6.19：管理后台各列表里，手机号注册的用户显示手机号（原来只读 email，手机号用户是空的）
--- 状态：待用户在 Supabase SQL Editor 执行（每个函数一行，可分段贴；可重复执行）。
+-- 状态：已于 2026-10-11 由用户在 SQL Editor 分 3 段执行并核对（updated = 9）。可重复执行。
 -- 写之前已用 pg_get_functiondef 读出这 9 个函数的现有定义：下面只把 u.email::text 换成
 --   coalesce(nullif(u.email::text,''), u.phone::text)，返回列、权限校验、排序等其余部分完全照抄。
 -- 前端实际调用的列表函数就是这 9 个；admin_list_security_bans / admin_list_security_devices / admin_list_stores 前端没调用，没改。
