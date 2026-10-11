@@ -71,8 +71,8 @@ const STUB = `
   },
   from:(t)=>builder(t),
   functions:{async invoke(name,opts){window.__fn=(window.__fn||[]).concat([{name,opts}]);return typeof window.__fnReply==='function'?window.__fnReply(name,opts):{data:null,error:{message:'not stubbed'}}}},
-  channel(name){const c={name,on(type,cfg,cb){window.__rt.push({name,cfg,cb});return c},subscribe(){return c},async track(){},async untrack(){},presenceState(){return{}}};return c},
-  removeChannel(c){window.__removedChannels++},
+  channel(name){window.__chans=(window.__chans||0)+1;const c={name,state:'joining',on(type,cfg,cb){window.__rt.push({name,cfg,cb,ch:c});return c},subscribe(cb){c.__cb=cb;window.__subs=(window.__subs||[]).concat([{name,ch:c,cb}]);if(window.__autoJoin!==false&&name==='after-sales-presence'){}return c},async track(p){window.__tracks=(window.__tracks||[]).concat([p])},async untrack(){},presenceState(){return c.__state||{}}};return c},
+  removeChannel(c){window.__removedChannels++;c.state='closed';if(c.__cb)c.__cb('CLOSED')},
   storage:{from:()=>({
    async upload(){return{error:null}},
    async remove(p){window.__removed.push(...p);return{error:null}},
@@ -602,6 +602,41 @@ async function run(browser, htmlPath) {
     check("6.21 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+
+  // ---- 6.22 online count: no fake 0; reconnect + re-track
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.waitForTimeout(300);
+    const P = "window.__subs.filter(s=>s.name==='after-sales-presence').pop()";
+    check("6.22 online: '…' while connecting (not 0)", (await text(page, "#online")) === "…");
+    await page.evaluate(`(()=>{const s=${P};s.ch.state='joined';s.cb('SUBSCRIBED')})()`); await page.waitForTimeout(50);
+    check("6.22 online: tracks itself after SUBSCRIBED", (await page.evaluate("(window.__tracks||[]).length")) === 1 && (await page.evaluate("window.__tracks[0].user_id")) === "u1");
+    await page.evaluate(`(()=>{const s=${P};s.ch.__state={u1:[{user_id:'u1'}],u2:[{user_id:'u2'},{user_id:'u2'}]};window.__rt.find(r=>r.ch===s.ch&&r.cfg.event==='sync').cb()})()`);
+    check("6.22 online: sync counts distinct accounts", (await text(page, "#online")) === "2");
+    // phone came back from background: still joined but my presence is gone -> re-track
+    await page.evaluate(`(()=>{const s=${P};s.ch.__state={u2:[{user_id:'u2'}]}})()`);
+    await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); await page.waitForTimeout(50);
+    check("6.22 online: back to page + missing self -> track again", (await page.evaluate("window.__tracks.length")) === 2);
+    // connection error -> '—' then reconnect after 5 s with a new channel
+    const before = await page.evaluate("window.__chans");
+    await page.evaluate(`(()=>{const s=${P};s.ch.state='errored';s.cb('CHANNEL_ERROR')})()`); await page.waitForTimeout(50);
+    check("6.22 online: error -> '—' (not 0)", (await text(page, "#online")) === "—");
+    await page.waitForTimeout(5300);
+    check("6.22 online: reconnects with a new channel after 5 s", (await page.evaluate("window.__chans")) === before + 1 && (await text(page, "#online")) === "…");
+    // channel not joined when the page becomes visible -> restart right away
+    const b2 = await page.evaluate("window.__chans");
+    await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); await page.waitForTimeout(50);
+    check("6.22 online: visible + channel not joined -> restart", (await page.evaluate("window.__chans")) === b2 + 1);
+    const b3 = await page.evaluate("window.__chans");
+    await page.evaluate("presenceStart()"); await page.waitForTimeout(5500);
+    check("6.22 online: our own removeChannel (CLOSED) does not start a reconnect loop", (await page.evaluate("window.__chans")) === b3 + 1);
+    await page.evaluate("openOnlinePanel()"); await page.waitForTimeout(200);
+    check("6.22 online panel explains what 在线 means", (await text(page, "#modalbox")).includes("此刻正打开着售后雷达页面的人"));
+    await page.evaluate("closeModal(); showLogin('')"); await page.waitForTimeout(5500);
+    check("6.22 logout: no reconnect after leaving", (await page.evaluate("window.__chans")) === b3 + 1);
+    check("6.22 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
@@ -755,7 +790,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.21.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.22.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
