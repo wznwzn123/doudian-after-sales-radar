@@ -54,6 +54,7 @@ const STUB = `
   auth:{
    getSession:async()=>({data:{session:window.__noSession?null:{user:{id:'u1',email:'a@x.com'}}},error:null}),
    async signInWithPassword(c){window.__auth=(window.__auth||[]).concat([{op:'signIn',c}]);return window.__authReply||{data:{session:{user:{id:'u1',email:c.email||null,phone:c.phone?c.phone.replace('+',''):null}}},error:null}},
+   async updateUser(a){window.__auth=(window.__auth||[]).concat([{op:'update',a}]);return window.__updReply||{data:{user:{id:'u1'}},error:null}},
    async signUp(c){window.__auth=(window.__auth||[]).concat([{op:'signUp',c}]);if(window.__authDelay)await new Promise(r=>setTimeout(r,window.__authDelay));return window.__authReply||{data:{session:c.phone?{user:{id:'u9',phone:c.phone.replace('+','')}}:null},error:null}},
    onAuthStateChange(cb){listeners.push(cb);return{data:{subscription:{unsubscribe(){}}}}},
    async signOut(){window.__signedOut=(window.__signedOut||0)+1;listeners.forEach(cb=>cb('SIGNED_OUT',null));return{error:null}}
@@ -543,7 +544,7 @@ async function run(browser, htmlPath) {
     const si3 = await r3.page.evaluate("window.__auth.filter(a=>a.op==='signIn').pop()");
     check("6.16 phone: email login unchanged + Chinese error", si3 && si3.c.email === "a@x.com" && (await text(r3.page, "#authmsg")) === "邮箱或密码不正确");
     await r3.page.fill("#email", "13800138000"); await r3.page.click('button:text-is("找回密码")'); await r3.page.waitForTimeout(100);
-    check("6.16 phone: forgot password for phone -> contact developer email", (await text(r3.page, "#authmsg")).includes("1012968575@qq.com"));
+    check("6.16/6.21 phone: forgot password for phone -> ask the admin to reset (temp password) + email", (await text(r3.page, "#authmsg")).includes("管理员") && (await text(r3.page, "#authmsg")).includes("临时密码") && (await text(r3.page, "#authmsg")).includes("1012968575@qq.com"));
     check("6.16 phone no page errors", !(r3.page.__errs || []).length, JSON.stringify(r3.page.__errs));
     await r3.ctx.close();
   }
@@ -565,6 +566,40 @@ async function run(browser, htmlPath) {
     await page.fill("#email", "a@x.com"); await page.fill("#password", "x"); await page.click("#loginBtn"); await page.waitForTimeout(700);
     check("6.20 after a failed login the buttons work again", !(await page.evaluate("document.getElementById('loginBtn').disabled")) && (await text(page, "#authmsg")) === "邮箱或密码不正确");
     check("6.20 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
+
+  // ---- 6.21 admin resets a password (Edge Function stubbed) + change my password
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [{ id: "u1", email: "a@x.com", is_admin: true }, { id: "p1", email: "8615770572452", is_admin: false }] });
+    await page.waitForTimeout(300);
+    await page.evaluate("adminPanel('users')"); await page.waitForTimeout(300);
+    const btns = await page.evaluate("[...document.querySelectorAll('#admList button')].map(b=>b.textContent)");
+    check("6.21 users tab: 重置密码 for others, not for myself", btns.length === 1 && btns[0] === "重置密码" && (await text(page, "#admList")).includes("当前账号"), JSON.stringify(btns));
+    await page.evaluate("window.__confirm=false"); await page.click('#admList button:text-is("重置密码")'); await page.waitForTimeout(150);
+    check("6.21 reset asks first (with identity warning) -> cancel sends nothing", !(await page.evaluate("window.__fn")));
+    await page.evaluate(() => { window.__confirm = true; window.__fnReply = (n, o) => (n === "admin-reset-password" && o.body.user_id === "p1" ? { data: { ok: true, password: "Ab3$xyzPQR7k", account: "手机 15770572452" }, error: null } : { data: null, error: { message: "wrong call" } }); });
+    await page.click('#admList button:text-is("重置密码")'); await page.waitForTimeout(300);
+    const fn = await page.evaluate("window.__fn.pop()");
+    check("6.21 reset calls the server function with the user id only", fn.name === "admin-reset-password" && JSON.stringify(fn.opts.body) === JSON.stringify({ user_id: "p1" }));
+    const shown = await text(page, "#adminBody");
+    check("6.21 temp password shown once with instructions", (await text(page, "#tmpPw")) === "Ab3$xyzPQR7k" && shown.includes("手机 15770572452") && shown.includes("修改密码") && shown.includes("不会记录密码"));
+    await page.evaluate(() => { window.__fnReply = () => ({ data: null, error: { message: "non-2xx", context: { json: async () => ({ ok: false, code: "forbidden", message: "没有管理员权限" }) } } }); });
+    await page.evaluate("adminResetPassword('p1','手机 15770572452')"); await page.waitForTimeout(300);
+    check("6.21 server refusal shown, no password", (await text(page, "#adminBody")).includes("没有管理员权限") && !(await page.$("#tmpPw")));
+    // change my password
+    await page.evaluate("closeModal(); openSettings()"); await page.waitForTimeout(150);
+    await page.fill("#cp1", "abc"); await page.fill("#cp2", "abc"); await page.click("#cpBtn"); await page.waitForTimeout(100);
+    check("6.21 change pw: weak refused locally", (await text(page, "#toast")).includes("密码不符合要求") && !(await page.evaluate("(window.__auth||[]).some(a=>a.op==='update')")));
+    await page.fill("#cp1", "Newpass1!"); await page.fill("#cp2", "Newpass2!"); await page.click("#cpBtn"); await page.waitForTimeout(100);
+    check("6.21 change pw: mismatch refused", (await text(page, "#toast")).includes("不一致"));
+    await page.fill("#cp2", "Newpass1!"); await page.click("#cpBtn"); await page.waitForTimeout(200);
+    const upd = await page.evaluate("(window.__auth||[]).filter(a=>a.op==='update').pop()");
+    check("6.21 change pw: updateUser({password}) + success + fields cleared", upd && upd.a.password === "Newpass1!" && (await text(page, "#toast")).includes("密码已修改") && (await page.inputValue("#cp1")) === "");
+    await page.evaluate("window.__updReply={data:null,error:{message:'New password should be different from the old password.'}}");
+    await page.fill("#cp1", "Newpass1!"); await page.fill("#cp2", "Newpass1!"); await page.click("#cpBtn"); await page.waitForTimeout(200);
+    check("6.21 change pw: same-as-old explained in Chinese", (await text(page, "#toast")).includes("不能和旧密码一样"));
+    check("6.21 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
@@ -720,7 +755,7 @@ async function run(browser, htmlPath) {
   check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断", "管理后台"].every((x) => mt.includes(x)), mt);
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.20.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.21.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());

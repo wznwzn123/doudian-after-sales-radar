@@ -1,0 +1,67 @@
+// 管理员给用户重置密码：生成临时密码，只返回给管理员，由管理员私下告诉用户；用户登录后在「工作台设置 → 修改密码」改掉。
+// 改别人密码必须用 secret（service_role）权限，所以放在服务端；密钥来自 Supabase 自动注入的环境变量，不在前端、不在仓库。
+// 身份：用调用者自己的登录身份 auth.getUser() 校验，再用 is_admin()（服务端 security definer）确认是管理员；不是就拒绝。
+// 部署时 verify_jwt=false（项目用新式 publishable/secret key），身份在下面自己校验。
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { isUuid, strong, tempPassword } from "./lib.ts";
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json",
+};
+const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: cors });
+const fail = (status: number, code: string, message: string) => reply(status, { ok: false, code, message });
+
+function envKey(jsonName: string, legacyName: string): string {
+  try {
+    const keys = JSON.parse(Deno.env.get(jsonName) || "{}");
+    if (keys.default) return keys.default;
+  } catch { /* fall through */ }
+  return Deno.env.get(legacyName) || "";
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") return fail(405, "method", "Method not allowed");
+
+  const auth = req.headers.get("Authorization") || "";
+  if (!/^Bearer\s+\S+/i.test(auth)) return fail(401, "no_session", "请先登录");
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const caller = createClient(url, envKey("SUPABASE_PUBLISHABLE_KEYS", "SUPABASE_ANON_KEY"), {
+    global: { headers: { Authorization: auth } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: u, error: ue } = await caller.auth.getUser(auth.replace(/^Bearer\s+/i, ""));
+  if (ue || !u?.user) return fail(401, "bad_session", "登录已失效，请重新登录");
+  const adminId = u.user.id;
+
+  const adm = await caller.rpc("is_admin");
+  if (adm.error || adm.data !== true) return fail(403, "forbidden", "没有管理员权限");
+
+  let body: any = {};
+  try { body = await req.json(); } catch { /* empty */ }
+  const target = String(body.user_id || "");
+  if (!isUuid(target)) return fail(400, "bad_user", "用户编号不正确");
+  if (target === adminId) return fail(400, "self", "不能在这里重置自己的密码，请到「工作台设置 → 修改密码」");
+
+  const secret = envKey("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
+  if (!secret) return fail(503, "not_configured", "服务端缺少管理密钥，无法重置密码");
+  const svc = createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
+
+  const found = await svc.auth.admin.getUserById(target);
+  if (found.error || !found.data?.user) return fail(404, "not_found", "找不到该账号");
+  const t = found.data.user;
+  const label = t.email || (t.phone ? "手机 " + String(t.phone).replace(/^86(?=1\d{10}$)/, "") : target.slice(0, 8));
+
+  const password = tempPassword();
+  if (!strong(password)) return fail(500, "weak", "临时密码生成失败，请重试");
+  const up = await svc.auth.admin.updateUserById(target, { password });
+  if (up.error) return fail(500, "update_failed", "重置失败：" + up.error.message);
+
+  // 审计：谁在什么时候重置了谁的密码（不记录密码本身）
+  await svc.from("admin_operation_logs").insert({ user_id: adminId, action: "reset_password", detail: "重置了 " + label + " 的密码" });
+
+  return reply(200, { ok: true, password, account: label });
+});

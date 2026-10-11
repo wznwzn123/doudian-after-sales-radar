@@ -1,14 +1,15 @@
 // Fake @supabase/supabase-js for dev/kuaidi100.handler.test.ts: in-memory tables + RLS-like user filter.
-export const state: any = { db: {}, users: { "tok-u1": "u1", "tok-u2": "u2" }, clients: [] };
+export const state: any = { db: {}, users: { "tok-u1": "u1", "tok-u2": "u2" }, clients: [], admins: [], authUsers: {}, adminCalls: [] };
 export function createClient(_url: string, _key: string, opts: any) {
   const auth = opts?.global?.headers?.Authorization || "";
   const token = auth.replace(/^Bearer\s+/i, "");
   const uid = state.users[token] || null;
+  const secret = String(_key).startsWith("sb_secret_");
   state.clients.push({ key: _key, auth });
   const from = (table: string) => {
     const st: any = { op: "select", f: [], gte: [], like: [], payload: null, maybe: false, order: null, limit: 0 };
     const rows = () => (state.db[table] = state.db[table] || []);
-    const visible = (r: any) => r.user_id === uid; // RLS: user_id = auth.uid()
+    const visible = (r: any) => secret || r.user_id === uid; // RLS: user_id = auth.uid(); secret key bypasses RLS
     const match = (r: any) => visible(r) && st.f.every(([k, v]: any) => r[k] === v) && st.gte.every(([k, v]: any) => String(r[k]) >= v) && st.like.every(([k, v]: any) => new RegExp("^" + String(v).split("%").map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$", "s").test(String(r[k] ?? "")));
     const run = async () => {
       if (st.op === "select") {
@@ -18,7 +19,7 @@ export function createClient(_url: string, _key: string, opts: any) {
         return st.maybe ? { data: out[0] || null, error: null } : { data: out, error: null };
       }
       if (st.op === "insert") {
-        if (st.payload.user_id !== uid) return { data: null, error: { message: "RLS violation" } };
+        if (!secret && st.payload.user_id !== uid) return { data: null, error: { message: "RLS violation" } };
         rows().push({ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...st.payload });
         return { data: null, error: null };
       }
@@ -49,6 +50,23 @@ export function createClient(_url: string, _key: string, opts: any) {
   };
   return {
     from,
-    auth: { async getUser(t: string) { const id = state.users[t]; return id ? { data: { user: { id } }, error: null } : { data: { user: null }, error: { message: "bad jwt" } }; } },
+    async rpc(name: string) {
+      if (name === "is_admin") return { data: !!uid && state.admins.includes(uid), error: null };
+      return { data: null, error: { message: "unexpected rpc " + name } };
+    },
+    auth: {
+      async getUser(t: string) { const id = state.users[t]; return id ? { data: { user: { id } }, error: null } : { data: { user: null }, error: { message: "bad jwt" } }; },
+      admin: {
+        async getUserById(id: string) {
+          if (!secret) return { data: { user: null }, error: { message: "User not allowed" } };
+          const u = state.authUsers[id]; return u ? { data: { user: { id, ...u } }, error: null } : { data: { user: null }, error: { message: "User not found" } };
+        },
+        async updateUserById(id: string, attrs: any) {
+          if (!secret) return { data: { user: null }, error: { message: "User not allowed" } };
+          state.adminCalls.push({ id, attrs }); if (state.authUsers[id]) state.authUsers[id].password = attrs.password;
+          return { data: { user: { id } }, error: null };
+        },
+      },
+    },
   };
 }
