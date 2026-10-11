@@ -528,7 +528,7 @@ async function run(browser, htmlPath) {
     await page.waitForTimeout(300);
     check("6.16 phone: login field says 邮箱或手机号", (await page.getAttribute("#email", "placeholder")) === "邮箱或手机号");
     const lt = await text(page, "#login");
-    check("6.17 login tips: email recommended, phone not, contact + studio", lt.includes("邮箱注册【推荐】") && lt.includes("点邮件里发亮的按钮") && lt.includes("1-3 秒") && lt.includes("手机号注册【不推荐】") && lt.includes("忘记密码只能找管理员") && lt.includes("1012968575@qq.com") && lt.includes("悠然网络科技工作室™") && !lt.includes("yrnb0611"));
+    check("6.17 login tips: email recommended, phone not, contact + studio", lt.includes("邮箱注册【推荐】") && lt.includes("点邮件里发亮的按钮") && lt.includes("1-3 秒") && lt.includes("手机号注册【不推荐】") && lt.includes("忘记密码只能找管理员") && lt.includes("1012968575@qq.com") && lt.includes("悠然网络科技工作室") && !lt.includes("yrnb0611"));
     const pi = await page.evaluate(`[parseIdent("138 0013 8000"),parseIdent("+86 138-0013-8000"),parseIdent("8613800138000"),parseIdent("a@x.com"),parseIdent("+447911123456"),parseIdent(""),parseIdent("12345678901"),parseIdent("10000000000"),parseIdent("1380013800"),parseIdent("abc"),parseIdent("a@b")]`);
     const mainland = "请输入正确的中国大陆手机号（13～19 开头的 11 位数字）";
     check("6.16/6.18 phone: parseIdent (mainland segments only, bad input flagged)", JSON.stringify(pi) === JSON.stringify([{ phone: "+8613800138000" }, { phone: "+8613800138000" }, { phone: "+8613800138000" }, { email: "a@x.com" }, { bad: mainland }, null, { bad: mainland }, { bad: mainland }, { bad: mainland }, { bad: "请输入正确的邮箱或手机号" }, { bad: "邮箱格式不正确" }]), JSON.stringify(pi));
