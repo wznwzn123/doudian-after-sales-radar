@@ -22,7 +22,7 @@ function seed() {
   state.users = { "tok-p": P, "tok-pend": PEND, "tok-e": E, "tok-ban": BAN };
   state.authUsers = { [P]: { phone: "8615770572452", email: "" }, [PEND]: { phone: "8613800000000", email: "" }, [E]: { email: "boss@x.com", email_confirmed_at: ago(1e9) }, [BAN]: { phone: "8613900000000", email: "" } };
   state.db = { login_alert_emails: [], login_alert_mails: [], admin_operation_logs: [] }; state.clients = []; state.deny = {};
-  state.passwords = { [P]: "Pw#12345", [E]: "Em#12345", [PEND]: "Pd#12345" }; state.signIns = []; state.signOuts = []; state.signInError = null; state.updateError = null; state.adminCalls = [];
+  state.passwords = { [P]: "Pw#12345", [E]: "Em#12345", [PEND]: "Pd#12345" }; state.signIns = []; state.signOuts = []; state.signInError = null; state.updateError = null; state.adminCalls = []; state.adminSignOuts = []; state.adminSignOutError = null;
   state.pk = { login_alert_mails: ["user_id", "device_id"], login_alert_emails: ["user_id"] };
   state.devices = { [P]: [] };
   state.rpcs = {
@@ -204,5 +204,30 @@ Deno.test("change login email: if the account service still refuses (\"Error upd
   state.updateError = { message: "Error updating user", status: 500 };
   const v = await call({ action: "email_change_verify", code: mailbox.sent.at(-1).subject.slice(-6) }, "tok-p");
   eq(v.status, 409, "status"); ok(v.json.message.includes("已经被其他账号使用"), v.json.message); eq(state.authUsers[P].email, "", "unchanged");
+});
+// ---- 6.32 修改密码：要当前密码，改完把其他设备全部退出，并发邮件通知
+Deno.test("change password: needs the current password; weak / same refused; nothing changed", async () => {
+  seed();
+  eq((await call({ action: "change_password", password: "Pw#12345", new_password: "weak" }, "tok-p")).json.code, "weak", "weak");
+  eq((await call({ action: "change_password", password: "Pw#12345", new_password: "Pw#12345" }, "tok-p")).json.code, "same", "same");
+  const w = await call({ action: "change_password", password: "nope", new_password: "New#Pass9" }, "tok-p");
+  eq(w.json.code, "wrong_password", "wrong current"); eq(state.adminCalls.length, 0, "not changed"); eq(state.adminSignOuts.length, 0, "nobody signed out");
+});
+Deno.test("change password: set via admin API, other sessions signed out with the caller's own token, logged, mails sent", async () => {
+  seed(); state.db.login_alert_emails.push({ user_id: E, email: "alert@qq.com", verified_at: ago(DAY) });
+  const r = await call({ action: "change_password", password: "Em#12345", new_password: "New#Pass9" }, "tok-e");
+  eq(r.status, 200, "ok"); eq(r.json.others_signed_out, true, "others out");
+  eq(state.adminCalls.at(-1).attrs.password, "New#Pass9", "new password set"); eq(state.adminCalls.at(-1).id, E, "own account");
+  eq(state.adminSignOuts.length, 1, "one signOut"); eq(state.adminSignOuts[0].scope, "others", "scope others"); eq(state.adminSignOuts[0].jwt, "tok-e", "with the caller's token");
+  eq(state.db.admin_operation_logs.at(-1).action, "change_password", "logged");
+  ok(!JSON.stringify(state.db.admin_operation_logs).includes("New#Pass9"), "password not in the log");
+  const to = mailbox.sent.filter((m: any) => m.subject.includes("密码已修改")).map((m: any) => m.to).sort();
+  eq(JSON.stringify(to), JSON.stringify(["alert@qq.com", "boss@x.com"]), "login + alert email notified");
+  ok(!mailbox.sent.some((m: any) => m.text.includes("New#Pass9")), "password not mailed");
+});
+Deno.test("change password: if signing out the others fails the password is still changed and the client is told", async () => {
+  seed(); state.adminSignOutError = { message: "boom" };
+  const r = await call({ action: "change_password", password: "Pw#12345", new_password: "New#Pass9" }, "tok-p");
+  eq(r.status, 200, "ok"); eq(r.json.others_signed_out, false, "reported");
   console.error = origError;
 });

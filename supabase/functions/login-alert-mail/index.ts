@@ -5,9 +5,11 @@
 // 6.25 换绑：同一个函数里还有「换绑登录手机号 / 登录邮箱」（change_phone、email_change_code、email_change_verify），
 //   都要先输入当前密码（服务端用临时会话验证后立刻注销这个临时会话）；新邮箱要收验证码；手机号没有短信验证（和注册一样），只做号段检查。
 //   改账号本身的手机号/邮箱必须用 secret key 的 auth.admin.updateUserById，所以只能在服务端做。
+// 6.32 修改密码（change_password）：必须先验证当前密码（同上，30 分钟错 5 次锁定），改完用调用者自己的 JWT 做 admin.signOut(scope=others)，
+//   把其他设备上的登录全部作废（刷新令牌失效），并发邮件通知登录邮箱和提醒邮箱。
 // 部署时 verify_jwt=false（项目用新式 publishable/secret key），身份在下面自己校验。
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { alertMail, changedMail, codeMail, fmtCN, genCode, hashCode, isEmail, maskEmail, maskPhone, normPhone, smtpConfig } from "./lib.ts";
+import { alertMail, changedMail, codeMail, fmtCN, genCode, hashCode, isEmail, maskEmail, maskPhone, normPhone, passwordMail, smtpConfig, strongPassword } from "./lib.ts";
 import { sendMail } from "./mail.ts";
 
 const DEV_EMAIL = "1012968575@qq.com";
@@ -149,6 +151,25 @@ Deno.serve(async (req) => {
 
   try {
     if (action === "status") return okStatus();
+
+    if (action === "change_password") {
+      const np = String(body.new_password || "");
+      if (!strongPassword(np)) return fail(400, "weak", "新密码不符合要求：至少 8 位，包含大写、小写、数字和特殊字符");
+      if (np === String(body.password || "")) return fail(400, "same", "新密码不能和当前密码一样");
+      const pw = await checkPassword(String(body.password || "")); if (pw) return pw;
+      const up = await svc.auth.admin.updateUserById(uid, { password: np } as any);
+      if (up.error) return fail(500, "update_failed", "修改失败，请稍后再试");
+      let others = true;
+      try { const so = await svc.auth.admin.signOut(auth.replace(/^Bearer\s+/i, ""), "others" as any); if (so?.error) { others = false; console.error("signOut others failed", so.error.message); } } catch (e) { others = false; console.error("signOut others failed", (e as Error).message); }
+      const lg = await svc.from("admin_operation_logs").insert({ user_id: uid, action: "change_password", detail: "修改了自己的密码" + (others ? "，其他设备已退出" : "（其他设备退出失败）") });
+      if (lg.error) console.error("change log insert failed", lg.error.message);
+      if (smtp.ok) {
+        const to = [...new Set([me.email ? String(me.email) : "", row?.verified_at ? row?.email : ""].filter(Boolean).map((x) => String(x).toLowerCase()))];
+        const m = passwordMail({ account, at: fmtCN(new Date().toISOString()), contact: DEV_EMAIL });
+        for (const t of to) { try { await sendMail(smtp.cfg, t, m.subject, m.text); } catch (e) { console.error("password mail failed", (e as Error).message); } }
+      }
+      return okStatus({ others_signed_out: others });
+    }
 
     if (action === "change_phone") {
       const phone = normPhone(body.phone);

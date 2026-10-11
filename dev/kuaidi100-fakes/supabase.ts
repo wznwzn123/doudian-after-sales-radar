@@ -80,6 +80,11 @@ export function createClient(_url: string, _key: string, opts: any) {
           if (!secret) return { data: { user: null }, error: { message: "User not allowed" } };
           const u = state.authUsers[id]; return u ? { data: { user: { id, ...u } }, error: null } : { data: { user: null }, error: { message: "User not found" } };
         },
+        async signOut(jwt: string, scope: string) {
+          if (!secret) return { data: null, error: { message: "User not allowed" } };
+          state.adminSignOuts = (state.adminSignOuts || []).concat([{ jwt, scope }]);
+          return { data: null, error: state.adminSignOutError || null };
+        },
         async listUsers(p: any) {
           if (!secret) return { data: { users: [] }, error: { message: "User not allowed" } };
           const all = Object.keys(state.authUsers).map((id) => ({ id, ...state.authUsers[id] }));

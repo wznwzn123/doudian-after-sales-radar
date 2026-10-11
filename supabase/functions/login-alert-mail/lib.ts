@@ -77,11 +77,25 @@ export function changedMail(o: { kind: "phone" | "email"; account: string; now: 
   };
 }
 
+// 密码被修改后发到登录邮箱和提醒邮箱的通知
+export function passwordMail(o: { account: string; at: string; contact: string }): { subject: string; text: string } {
+  return {
+    subject: "【售后雷达】你的账号密码已修改",
+    text: "你好！\n\n你的售后雷达账号 " + o.account + " 的密码刚刚被修改，其他设备上的登录已全部退出。\n时间：" + o.at +
+      "\n\n如果是你本人，不用处理。\n如果不是你：说明有人拿到了你的登录状态，请马上发邮件给 " + o.contact + " 联系管理员处理。\n\n— 售后雷达（这封邮件由系统自动发送，请不要直接回复）",
+  };
+}
+
+// 和前端 strong() 同一条规则
+export function strongPassword(p: string): boolean {
+  return p.length >= 8 && p.length <= 72 && /[A-Z]/.test(p) && /[a-z]/.test(p) && /\d/.test(p) && /[^A-Za-z0-9]/.test(p);
+}
+
 export function alertMail(o: { account: string; device: string; ip: string; at: string; contact: string }): { subject: string; text: string } {
   return {
     subject: "【售后雷达】你的账号在新设备登录",
     text: "你好！\n\n你的售后雷达账号 " + o.account + " 刚刚在一台新设备上登录：\n\n" +
-      "  时间：" + o.at + "\n  设备：" + (o.device || "未知设备") + "\n" + (o.ip ? "  IP：" + o.ip + "\n" : "") +
+      "  时间：" + o.at + "\n  设备：" + (o.device ? o.device.replace(/[\r\n]+/g, " ").slice(0, 60) + "（设备名称由该设备自己上报，仅供参考，请以时间和 IP 判断）" : "未知设备") + "\n" + (o.ip ? "  IP：" + o.ip + "（服务器记录）\n" : "") +
       "\n如果是你本人，不用处理。\n如果不是你：请马上登录售后雷达 →「工作台设置 → 修改密码」，并发邮件给 " + o.contact + " 请管理员封禁陌生设备。\n\n— 售后雷达（这封邮件由系统自动发送，请不要直接回复）",
   };
 }

