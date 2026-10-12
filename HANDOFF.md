@@ -16,7 +16,7 @@
 - 管理员权限必须在服务端校验，不能只在前端隐藏按钮。
 
 ## 当前线上状态
-- 已推送到 main 的最新版是 **Pro 6.33.1**（`APP_VERSION="6.33.1"`）；分支上已有 6.34（等 v6_34 SQL 第 2 段执行后再推 main）。6.8：点开售后时自动向快递100 查一次（见下）。
+- 已推送到 main 的最新版是 **Pro 6.34**（`APP_VERSION="6.34.0"`）。6.8：点开售后时自动向快递100 查一次（见下）。
 - **6.10 界面整理**（用户嫌按钮杂乱、界面重叠）：顶栏只留「在线 / 管理 / ☰ 更多」（夜间模式、退出账号一直在「更多」里）；首页「设备注册诊断」只在「更多」里；统计压成一张倒计时卡 + 一排 4 个数字；筛选三个下拉框一行、快捷筛选横向滑动；详情 4 个主按钮 2×2，上传按钮移进「举证材料」卡片，删除放到最底；时间线显示中文事件名（`EVENT_LABELS`）。**重叠的根因**：详情页顶部标题栏半透明（浅色 `#ffffffed`、深色 `#172033ed`），滚动时下面内容透出来，现已改为不透明。没有删除任何功能。
 - **6.11 iOS 风格 + 过渡动画**（用户要求）：整张样式表换成 iOS 26 风格（系统色、分组背景、圆角卡片、胶囊按钮、填充式输入框、毛玻璃顶栏和悬浮标签栏、SVG 图标），所有 class 名不变。弹窗是底部弹出卡片、详情从右侧推入；**关闭动画**用 `ghostOut()`：真实元素立即加 `hidden`（状态和逻辑都不变），复制一个去掉 id/事件、`pointer-events:none` 的副本播放退出动画，约 380ms 后删除。遮罩只动画 `background-color`，卡片本身始终不透明（之前用整体 opacity 淡入时，滑动中途会透出下面页面，看起来像重叠）。列表入场动画只在结果集合变化时播放（`listEnter`）。`prefers-reduced-motion` 时全部关闭。
 - **6.12 打开售后提速**（用户反馈要等一两秒）：数据库没问题（行数很少、`task_id` 都有索引，项目在 ap-southeast-1）。原因是 `openTask` 依次 await 3 个请求后才显示。现在先用内存里的任务立刻渲染（材料/时间线显示「加载中…」），3 个请求 `Promise.all` 并行，回来后只填 `#logistics_box/#files_box/#timeline_box` 和未改动过的 `#f_carrier`；`detailCache` 缓存每条售后，再次打开秒开；`openSeq` 丢弃快速切换时的过期结果；加载完成前 `saveTask` 拒绝保存（否则可能用空承运商覆盖）。模拟每个请求 400ms：页面出现 1212ms→62ms，全部加载 1266ms→409ms。测试桩支持 `window.__latency`。
@@ -84,7 +84,7 @@
   - 前端：「登录记录」加「退出其他所有设备」（没 SQL 时退回 signOut(others)）；账号管理每个非本人账号加「强制下线」（onclick 只放行号）；重置密码结果说明对方是否已下线；删除设备提示「另外 n 个未识别的登录」；找回密码链接改密码后也调 revoke_other_sessions；上传前检查 200MB 和类型，空类型按扩展名补（HEIC、mp4 等），没传上去的逐个列出（以前 `if(up.error)continue` 悄悄跳过）。
   - 测试：stage2 358/358（新增 6.33 两组；stub 的 signOut 现在区分 scope "others"，和 supabase-js 一致不触发 SIGNED_OUT；`window.__rpcs` 可按名字桩任意 rpc；upload 记录 contentType）；gate 0 失败；Deno：login-alert-mail 27、admin-reset 11、kuaidi100 22；node kuaidi100 lib 25。
   - **6.33.1**（用户发来登录记录截图）：没有设备名的旧记录（6.23 以前的登录、「设备注册诊断」建的 WEBTEST-…）以前只显示小写 `android`，现在显示「未命名设备 · Android」；被管理员封禁的设备不再显示「删除」（删了记录也会保留，反而让人以为没删掉），改为说明「这台设备登录不了，不用处理」；删除时若 kept_blocked，提示记录会保留。
-- **6.34 超级管理员保护 + 在线名单防冒充**（用户：「继续做修復那两个漏洞」）。**SQL `supabase/v6_34_super_admin_presence.sql` 待用户执行（2 段）；前端 6.34 先只推到分支，等第 2 段执行后再推 main**（私有频道没有 realtime 策略时进不去，在线数会显示「—」）。
+- **6.34 超级管理员保护 + 在线名单防冒充**（用户：「继续做修復那两个漏洞」）。**SQL `supabase/v6_34_super_admin_presence.sql` 已于 2026-10-12 由用户执行（第 1 段拆两次贴）并只读核对：1012968575@qq.com is_super = true；8 个函数 anon 不可执行；4 个管理函数都带检查；realtime 两条策略；前端仍不能写 admin_users。外部实测：不登录（publishable key）加入私有频道 after-sales-online 被服务端拒绝（Unauthorized）。之后推 main。**
   - 以前管理员权力一样：任何管理员都能加 / 移除管理员（包括移除主人）、封禁别的管理员的设备、让别的管理员下线、重置别的管理员的密码（= 接管账号）。现在 `admin_users.is_super`（执行时现有唯一管理员 = 主人 1012968575@qq.com 自动成为超级管理员；以后加的管理员默认不是）；`admin_may_target(uid)`：对普通用户 / 自己可以，对别的管理员只有超级管理员可以，谁都不能对超级管理员；`admin_add_user_by_email` / `admin_remove_user` 只有超级管理员能用（不能移除超级管理员），都写日志；`admin_set_device_status`、`admin_revoke_user_sessions` 加了 admin_may_target 检查；`admin_roles()` 给前端显示。admin_set_account_ban 原本就拒绝封禁管理员，没改。
   - Edge Function admin-reset-password v5（已部署并逐字节核对）：重置前问 `admin_may_target`；v6_34 没执行时退回 `admin_list_all_users`，对方是管理员（或查不到）就拒绝 —— 失败时一律拒绝。
   - 在线名单：频道从公开的 `after-sales-presence` 改为私有的 `after-sales-online`（private: true），realtime.messages 加两条策略（只允许 presence、只允许这个 topic、登录且没被封 / 不是待审核 / 登录没被作废）；以前拿网页里的公开 key 不登录也能进频道、看到所有在线用户编号、冒充任意编号在线。名单里的编号再用 `online_verify(ids)` 核实：只留「服务端最近 5 分钟记录到活动」（device_sessions.seen_at / security_devices.last_seen，每 2 分钟复查写入）的账号，自己总算在线；加入频道时顺便调一次 my_session_status 刷新自己的活动。

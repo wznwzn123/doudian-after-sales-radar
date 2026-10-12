@@ -1,5 +1,5 @@
 -- 售后雷达 Pro 6.34：超级管理员保护 + 在线名单防冒充（需要在 SQL Editor 执行；分 2 段，每段末尾有核对查询）
--- 状态：待用户执行。可重复执行。
+-- 状态：已于 2026-10-12 由用户在 SQL Editor 执行（第 1 段拆成两次贴，各带 revoke/grant），只读核对通过；不登录加入 after-sales-online 实测被拒。可重复执行。
 -- 写之前已用只读查询核对（2026-10-12）：
 --   * admin_users 只有 user_id 一列、只有 1 行（1012968575@qq.com，项目主人）；前端对 admin_users 只有 select 权限；
 --   * 以前所有管理员权力一样：任何管理员都能 admin_add_user_by_email（加管理员）、admin_remove_user（移除别的管理员，包括主人）、
