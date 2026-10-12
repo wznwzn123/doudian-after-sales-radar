@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 O=../out; mkdir -p "$O"
 # 1 拼接分段渲染（remotion/render_chunks.sh 输出的 c.*.mp4），找出并重画坏帧 → raw_fixed.mp4
-python3 assemble.py
+[ build/raw_fixed.mp4 -nt build/d.00000.mp4 ] || python3 assemble.py  # 已经修好就不重做
 # 2 后期：快速运动处做帧混合（动态模糊，时间段同 Film.jsx 的 BLUR_WINDOWS）+ 胶片颗粒
 EN=$(python3 -c "import re;s=open('remotion/src/Film.jsx',encoding='utf-8').read();w=eval(re.search(r'BLUR_WINDOWS = (\[.*?\]);',s).group(1));print('+'.join(f'between(t,{a},{b})' for a,b in w))")
 ffmpeg -y -v error -i build/raw_fixed.mp4 -vf "tmix=frames=3:weights='1 2 1':enable='$EN',noise=alls=6:allf=t+u,format=yuv420p" \
