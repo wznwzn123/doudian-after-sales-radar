@@ -90,6 +90,12 @@
   - 在线名单：频道从公开的 `after-sales-presence` 改为私有的 `after-sales-online`（private: true），realtime.messages 加两条策略（只允许 presence、只允许这个 topic、登录且没被封 / 不是待审核 / 登录没被作废）；以前拿网页里的公开 key 不登录也能进频道、看到所有在线用户编号、冒充任意编号在线。名单里的编号再用 `online_verify(ids)` 核实：只留「服务端最近 5 分钟记录到活动」（device_sessions.seen_at / security_devices.last_seen，每 2 分钟复查写入）的账号，自己总算在线；加入频道时顺便调一次 my_session_status 刷新自己的活动。
   - 前端：管理员页显示「超级管理员」徽章，普通管理员看不到添加 / 移除，用户列表和账号管理里对不能操作的管理员不显示「重置密码」「强制下线」（服务端仍然校验）；设备封禁被拒时显示中文原因；管理员页的移除按钮 onclick 只放校验过的 uuid。
   - 测试：`dev/v6_34_super_admin_presence.pgtest.sql` 41/41（含「修之前第二个管理员能移除主人」的复现、realtime 策略：未登录 / 被封 / 登录已作废都进不去、别的 topic 和 broadcast 不行）；stage2 371/371；gate 0 失败（gate 的管理员 id 改成 uuid 格式）；admin-reset Deno 15。
+- **v6_35 即时同步 + 索引**（用户问「还有哪些地方可以优化」，我跑了 Supabase 安全 / 性能检查后建议先做这两项，用户说「開始」）。SQL `supabase/v6_35_realtime_indexes.sql`，待用户执行。
+  - 前端 subscribeRealtime() 一直订阅 after_sales_tasks / evidence_files 的变更，但 supabase_realtime 发布里没有任何表，所以多设备即时同步从来没生效；现在把两张表加进发布（RLS 照样按订阅者检查）。前端不用改。
+  - 补 3 个外键索引（tracking_records.task_id、revoked_sessions.user_id、evidence_library.store_id），admin_users 的唯一约束换成主键。
+  - 检查里其余项目：14 张「开了 RLS 没策略」的表是故意的（只给服务端用）；45 个 security definer 函数都在函数内校验权限；16 个「没用过的索引」是数据太少，暂不删；support_messages 两条 insert 宽松策略（用户 / 管理员各一条）不用合并。
+  - 建议用户自己做：Supabase 后台 Authentication 打开「泄漏密码检查」（HaveIBeenPwned，可能需要付费方案）。
+  - 待用户确认：有没有安卓 App。网页没用到的旧函数（security_check、security_app_check、security_authorize_device、current_device_id、admin_guard、admin_list_security_bans、admin_get_security_detail、admin_security_release_all、admin_list_security_devices、admin_list_stores）可能是给 App 用的，没有 App 才能删。
 - **6.9（用户明确要求删除）**：去掉了用户端的「快递盯单」按钮和弹窗（含手动记录物流状态、手动「用快递100查询」、顺丰/中通手机号输入）、「快递监控记录」卡片、首页「盯单中」统计和快速筛选。详情页只保留顶部「物流状态」。承运商改在「新建售后」和详情「售后信息」表单里选（`#tc` / `#f_carrier`），保存时同步 `tracking_records`；改单号会清空旧的物流状态。管理后台里的「盯单」列和统计**没动**。顺丰、中通目前**查不了**（不保存手机号是用户的决定，手动查询入口随弹窗一起删了）。
 - 用户真正想要的是「抖店来了新售后，自动匹配对应的快递单号」。这需要抖店开放平台的应用和店铺授权，项目里**没有**任何抖店接口，现在做不了；已如实告诉用户，**不要做假的自动匹配**。快递100 的「智能单号识别」（根据单号自动判断快递公司）是另一个产品，官方文档还没核实，等用户有快递100 账号后再评估。6.7 是用户自己合并 PR #1 上线的；6.7.1 在售后详情顶部卡片直接显示当前物流状态（`tracking_records.last_match`）。
 - 用户已在手机上确认 6.6 的快递盯单正常（数据库里看到了 `tracking_records` 的写入和 `tracking_updated` 事件）。「录入举证内容」弹窗已在线上验证保存链路：2026-10-10 19:23 UTC 数据库里有 `evidence_manual` 事件、售后 `updated_at` 同步更新、状态未变。之后用户又测了补充说明：数据库里有 1 条售后带【补充 时间】、事件「手动录入举证：补充说明」（19:27 UTC）。**6.6 全部线上验证完成。**6.9.1 起内容没变化时不保存、不记事件，并提示原因。
