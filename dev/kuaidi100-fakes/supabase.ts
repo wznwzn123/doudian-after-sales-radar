@@ -59,6 +59,19 @@ export function createClient(_url: string, _key: string, opts: any) {
   };
   return {
     from,
+    storage: {
+      from(bucket: string) {
+        return {
+          async remove(paths: string[]) {
+            if (!secret) return { data: null, error: { message: "not allowed" } };
+            if (state.storageRemoveError) return { data: null, error: state.storageRemoveError };
+            state.storageRemoved = (state.storageRemoved || []).concat(paths.map((p) => bucket + ":" + p));
+            if (!state.storageSticky) state.storage = (state.storage || []).filter((p: string) => !paths.includes(p));
+            return { data: paths.map((name) => ({ name })), error: null };
+          },
+        };
+      },
+    },
     async rpc(name: string, args?: any) {
       if (state.rpcs[name]) return state.rpcs[name](args, uid);
       if (name === "is_admin") return { data: !!uid && state.admins.includes(uid), error: null };
@@ -84,6 +97,13 @@ export function createClient(_url: string, _key: string, opts: any) {
           if (!secret) return { data: null, error: { message: "User not allowed" } };
           state.adminSignOuts = (state.adminSignOuts || []).concat([{ jwt, scope }]);
           return { data: null, error: state.adminSignOutError || null };
+        },
+        async deleteUser(id: string) {
+          if (!secret) return { data: null, error: { message: "User not allowed" } };
+          if (state.deleteUserError) return { data: null, error: state.deleteUserError };
+          state.deletedUsers = (state.deletedUsers || []).concat([id]);
+          delete state.authUsers[id];
+          return { data: {}, error: null };
         },
         async listUsers(p: any) {
           if (!secret) return { data: { users: [] }, error: { message: "User not allowed" } };

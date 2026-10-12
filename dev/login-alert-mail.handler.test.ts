@@ -274,3 +274,27 @@ Deno.test("rebind (6.33): SQL functions not installed yet -> falls back to the o
   eq(d.json.code, "taken", "scan still finds it");
   console.error = origError;
 });
+// ---- 6.36 到期邮件提醒开关 + 手机号新账号注册通知运营方
+Deno.test("6.36 deadline_mail: on by default, turning off / on is saved server-side and shown in the status", async () => {
+  seed(); console.error = () => {};
+  const s0 = await call({ action: "status" }, "tok-e");
+  eq(s0.json.status.deadline_mail, true, "on by default"); eq(s0.json.status.deadline_mail_to, maskEmail("boss@x.com"), "goes to the confirmed login email");
+  const off = await call({ action: "deadline_mail", on: false }, "tok-e");
+  eq(off.json.status.deadline_mail, false, "off"); eq(rowOf(E).deadline_mail_off, true, "saved");
+  eq((await call({ action: "deadline_mail", on: true }, "tok-e")).json.status.deadline_mail, true, "on again");
+  eq((await call({ action: "status" }, "tok-p")).json.status.deadline_mail_to, "", "phone account without alert email: nowhere to send");
+});
+Deno.test("6.36 registered: a pending phone account notifies the owner once (masked number); others never", async () => {
+  seed(); state.authUsers[PEND].created_at = "2026-10-12T01:00:00Z";
+  const r = await call({ action: "registered" }, "tok-pend");
+  eq(r.json.notified, true, "notified"); eq(mailbox.sent.length, 1, "one mail"); eq(mailbox.sent[0].to, "1012968575@qq.com", "to the owner");
+  ok(mailbox.sent[0].subject.includes("138****0000") && !mailbox.sent[0].text.includes("13800000000"), "number masked");
+  eq((await call({ action: "registered" }, "tok-pend")).json.notified, false, "only once"); eq(mailbox.sent.length, 1, "still one");
+  eq((await call({ action: "registered" }, "tok-p")).json.notified, false, "approved phone account: no mail");
+  eq((await call({ action: "registered" }, "tok-e")).json.notified, false, "email account: no mail"); eq(mailbox.sent.length, 1, "still one");
+});
+Deno.test("6.36 registered: site-wide daily limit stops a flood of fake sign-ups", async () => {
+  seed(); state.rpcs.take_quota = () => ({ data: false, error: null });
+  eq((await call({ action: "registered" }, "tok-pend")).json.reason, "daily_limit", "limited"); eq(mailbox.sent.length, 0, "no mail");
+  console.error = origError;
+});

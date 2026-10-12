@@ -17,6 +17,7 @@
 
 ## 当前线上状态
 - 已推送到 main 的最新版是 **Pro 6.35**（`APP_VERSION="6.35.0"`）。
+- **Pro 6.36 已在 `ccr-cffb1017-oqykqt` 分支，还没推 main**：要等用户执行 `supabase/v6_37_kick_reminder_reset_delete.sql`（3 段）并只读核对后再推（网页订阅了 revoked_sessions 的变更，这张表没进发布前就上线可能影响即时同步）。4 个 Edge Function 已部署并逐字节核对。
 - **固定规则（用户要求）：每次重大更新都要同步更新《用户须知》《用户使用协议》**，步骤见仓库根目录 `CLAUDE.md`；stage2 里的「6.35 RULE」检查会拦住没更新协议的版本。6.8：点开售后时自动向快递100 查一次（见下）。
 - **6.10 界面整理**（用户嫌按钮杂乱、界面重叠）：顶栏只留「在线 / 管理 / ☰ 更多」（夜间模式、退出账号一直在「更多」里）；首页「设备注册诊断」只在「更多」里；统计压成一张倒计时卡 + 一排 4 个数字；筛选三个下拉框一行、快捷筛选横向滑动；详情 4 个主按钮 2×2，上传按钮移进「举证材料」卡片，删除放到最底；时间线显示中文事件名（`EVENT_LABELS`）。**重叠的根因**：详情页顶部标题栏半透明（浅色 `#ffffffed`、深色 `#172033ed`），滚动时下面内容透出来，现已改为不透明。没有删除任何功能。
 - **6.11 iOS 风格 + 过渡动画**（用户要求）：整张样式表换成 iOS 26 风格（系统色、分组背景、圆角卡片、胶囊按钮、填充式输入框、毛玻璃顶栏和悬浮标签栏、SVG 图标），所有 class 名不变。弹窗是底部弹出卡片、详情从右侧推入；**关闭动画**用 `ghostOut()`：真实元素立即加 `hidden`（状态和逻辑都不变），复制一个去掉 id/事件、`pointer-events:none` 的副本播放退出动画，约 380ms 后删除。遮罩只动画 `background-color`，卡片本身始终不透明（之前用整体 opacity 淡入时，滑动中途会透出下面页面，看起来像重叠）。列表入场动画只在结果集合变化时播放（`listEnter`）。`prefers-reduced-motion` 时全部关闭。
@@ -97,6 +98,16 @@
   - 检查里其余项目：14 张「开了 RLS 没策略」的表是故意的（只给服务端用）；45 个 security definer 函数都在函数内校验权限；16 个「没用过的索引」是数据太少，暂不删；support_messages 两条 insert 宽松策略（用户 / 管理员各一条）不用合并。
   - 建议用户自己做：Supabase 后台 Authentication 打开「泄漏密码检查」（HaveIBeenPwned，可能需要付费方案）。
   - 用户答：目前没有安卓 App，以后考虑做 → 不删除，改为 `supabase/v6_36_disable_legacy_functions.sql` 收回 anon / authenticated 对 10 个网页没用到的旧函数的执行权限（保留定义，做 App 时按需 grant 回来）。已核对：没有策略 / 触发器 / 视图依赖；admin_guard 只被两个 security definer 管理函数内部调用（按属主权限，不受影响，本地实测通过）。待用户执行。
+- **6.36 被踢设备立刻退出 + 到期邮件 + 手机号找回密码 + 注册通知 + PWA + 自助注销**（用户：「按你說的順序做，然后强制下线其他账号的时候不刷新就不会退出登录，而且还可以正常操作上传。然后再加个注销账号。」）
+  - 被踢问题核对：服务端早就拦住了（作废后没有任何写入成功），只是网页要等 2 分钟复查才发现，期间界面看起来还能用、上传报错。修法：v6_37 第 1 段让用户能读自己的 revoked_sessions 并加进 supabase_realtime 发布 → 网页订阅 INSERT 立刻 recheck；复查改 60 秒；toast 里出现 RLS / 权限 / JWT 错误时立即 recheck；上传前先问 sessionRevoked()，上传失败也 recheck。KICKED_MSG 改成通用说法。
+  - 到期邮件：v6_37 第 2 段建 pg_net、`app_secrets`（cron_key，只在数据库）、`task_deadline_mails`（先占位再发，同一售后同一档只发一次）、`deadline_reminders_due()`（剩 ≤60 分钟发「1 小时」档、≤30 分钟发「30 分钟」档；发到已验证提醒邮箱，否则已验证登录邮箱；被封 / 关了就不发），cron `deadline-reminder-mail` 每 5 分钟 net.http_post → Edge Function `deadline-reminder`（校验 x-radar-cron；发失败删占位）。工作台设置新增「到期邮件提醒」开关（login-alert-mail `deadline_mail`）。
+  - 手机号找回密码：Edge Function `phone-password-reset`（不需要登录；`send` 一律回同一句话，不暴露是否注册；IP 10 / 时、手机号 5 / 天、全站 300 / 天；验证码发到已验证的提醒邮箱，10 分钟、错 5 次作废；成功后 service_revoke_all_sessions + 日志 + 通知邮件）。没绑提醒邮箱的仍然只能找管理员。
+  - 注册通知：手机号新账号注册后网页调 login-alert-mail `registered`，只对待审核的手机号账号、每个账号一次（admin_notified_at）、全站每天 30 封，邮件只写打码手机号。
+  - PWA：注册 `sw.js`（只在 https），缓存名跟 APP_VERSION，网络优先、断网用缓存，激活时删旧缓存。
+  - 自助注销：工作台设置「注销账号」→ 输入当前密码 + 「注销」→ Edge Function `delete-account`：管理员拒绝；密码错 5 次锁 30 分钟；先用 Storage 接口删掉 `user_storage_paths()` 列出的全部文件并复查，没删干净就不删账号；发告别邮件；`auth.admin.deleteUser`（大部分表级联）；`delete_user_extras()` 删 5 张不级联的表并写审计日志（审计日志保留）。
+  - 协议更新到 2026-10-12-2（对应 6.36），LEGAL_CHANGES 5 条。
+  - 测试：stage2 402/402，gate 0 失败，Deno：login-alert-mail 30、v636-functions 15、admin-reset 15、kuaidi100 22，pgtest v6_37 24/24。
+  - 另：3 个孤儿文件（约 55MB，文件夹 7d9ea9c2-f0ee-4af1-be5e-330df8e871dc，已删除账号留下的）请用户在 Storage 后台手动删除。
 - **6.35 协议更新到 2026-10-12 + 协议更新提示**（用户：「以后每重大更新一次，用户须知和用户使用协议都要根据当前版本和政策更新」）。
   - 两份协议补上 6.32～v6_36 的真实变化：修改密码要当前密码且其他设备退出；退出其他所有设备、删除设备连未知登录一起退出；管理员强制下线、重置后全部下线、超级管理员分级；最近活跃时间（约每 2 分钟）；在线名单（登录用户看人数、管理员看账号、未登录看不到）；物流查询 100 次 / 人 / 天、全站 1000 次；换绑检查 10 次 / 天；上传 200MB + 类型；多设备同步；使用计数；第八条改为每次重大版本都同步更新、已登录用户会看到更新提示。版本行加「对应系统版本：售后雷达 Pro 6.35」。
   - 前端：`LEGAL_VERSION="2026-10-12"`、`LEGAL_CHANGES`（主要变化列表）；`legalAfterEnter()`：user_metadata.terms_version 不是当前版本 → 等其他弹窗关掉后弹「已更新」（主要变化 + 查看两份全文 + 我已阅读并同意 + 不同意可退出登录），同意后 `auth.updateUser({data:{terms_version, terms_agreed_at}})`；登录时勾选同意的直接记录、不再弹；onAuthStateChange 不处理 USER_UPDATED，所以写 metadata 不会触发重新进入。

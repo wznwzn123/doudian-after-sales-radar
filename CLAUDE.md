@@ -24,5 +24,6 @@
 - 生产数据库的写操作由用户在 Supabase SQL Editor 执行；Claude 只做只读查询核对。新 SQL 放 `supabase/vX_Y_*.sql`，写清状态、核对查询、回滚方法，先在本地 PostgreSQL 模拟测试（`dev/*.pgtest.sql`）。
 - 不要把 secret / service_role 密钥、数据库密码写进前端或仓库，也不要让用户把私密凭据发到聊天里。管理员权限必须在服务端校验。
 - 不要删除现有功能，不要用模拟数据冒充真实数据。
+- `sw.js` 里的 `CACHE` 必须等于 `'after-sales-radar-'+APP_VERSION`（每次改版本都要同步改，stage2「6.36 RULE」会检查），否则用户手机上会一直用旧缓存。
 - 网页里 `onclick` 只能放校验过的 uuid 或数字，不能拼用户输入的文字。加新的外部服务要同时改 CSP。
 - 测试：`dev/stage2.test.js`、`dev/gate.test.js`（Playwright）、`dev/*.handler.test.ts`（Deno）、`dev/*.pgtest.sql`（本地 PostgreSQL），跑法见 `HANDOFF.md`。

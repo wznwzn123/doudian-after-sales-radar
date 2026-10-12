@@ -532,7 +532,7 @@ async function run(browser, htmlPath) {
     await page.waitForTimeout(300);
     check("6.16 phone: login field says 邮箱或手机号", (await page.getAttribute("#email", "placeholder")) === "邮箱或手机号");
     const lt = await text(page, "#login");
-    check("6.17 login tips: email recommended, phone not, contact + studio", lt.includes("邮箱注册【推荐】") && lt.includes("点邮件里发亮的按钮") && lt.includes("1-3 秒") && lt.includes("手机号注册【不推荐】") && lt.includes("忘记密码只能找管理员") && lt.includes("1012968575@qq.com") && lt.includes("悠然网络科技工作室") && !lt.includes("yrnb0611"));
+    check("6.17 login tips: email recommended, phone not, contact + studio", lt.includes("邮箱注册【推荐】") && lt.includes("点邮件里发亮的按钮") && lt.includes("1-3 秒") && lt.includes("手机号注册【不推荐】") && lt.includes("先绑定提醒邮箱才能自己找回") && lt.includes("1012968575@qq.com") && lt.includes("悠然网络科技工作室") && !lt.includes("yrnb0611"));
     const pi = await page.evaluate(`[parseIdent("138 0013 8000"),parseIdent("+86 138-0013-8000"),parseIdent("8613800138000"),parseIdent("a@x.com"),parseIdent("+447911123456"),parseIdent(""),parseIdent("12345678901"),parseIdent("10000000000"),parseIdent("1380013800"),parseIdent("abc"),parseIdent("a@b")]`);
     const mainland = "请输入正确的中国大陆手机号（13～19 开头的 11 位数字）";
     check("6.16/6.18 phone: parseIdent (mainland segments only, bad input flagged)", JSON.stringify(pi) === JSON.stringify([{ phone: "+8613800138000" }, { phone: "+8613800138000" }, { phone: "+8613800138000" }, { email: "a@x.com" }, { bad: mainland }, null, { bad: mainland }, { bad: mainland }, { bad: mainland }, { bad: "请输入正确的邮箱或手机号" }, { bad: "邮箱格式不正确" }]), JSON.stringify(pi));
@@ -559,7 +559,7 @@ async function run(browser, htmlPath) {
     const si3 = await r3.page.evaluate("window.__auth.filter(a=>a.op==='signIn').pop()");
     check("6.16 phone: email login unchanged + Chinese error", si3 && si3.c.email === "a@x.com" && (await text(r3.page, "#authmsg")) === "邮箱或密码不正确");
     await r3.page.fill("#email", "13800138000"); await r3.page.click('button:text-is("忘记密码？")'); await r3.page.waitForTimeout(100);
-    check("6.16/6.21 phone: forgot password for phone -> ask the admin to reset (temp password) + email", (await text(r3.page, "#authmsg")).includes("管理员") && (await text(r3.page, "#authmsg")).includes("临时密码") && (await text(r3.page, "#authmsg")).includes("1012968575@qq.com"));
+    check("6.16/6.21/6.36 phone: forgot password for phone -> reset form via the alert email, admin + contact still offered", (await text(r3.page, "#modalbox")).includes("找回密码") && (await text(r3.page, "#modalbox")).includes("提醒邮箱") && (await text(r3.page, "#modalbox")).includes("管理员") && (await text(r3.page, "#modalbox")).includes("1012968575@qq.com"));
     check("6.16 phone no page errors", !(r3.page.__errs || []).length, JSON.stringify(r3.page.__errs));
     await r3.ctx.close();
   }
@@ -778,7 +778,7 @@ async function run(browser, htmlPath) {
     check("6.25 settings: 换绑手机号 / 邮箱 card", m.includes("换绑手机号 / 邮箱") && m.includes("换绑邮箱") && m.includes("当前密码"));
     await page.click('#modalbox button:text-is("换绑手机号")'); await page.waitForTimeout(200);
     check("6.25 phone form shows current account + no-SMS warning", (await text(page, "#modalbox")).includes("a@x.com") && (await text(page, "#modalbox")).includes("没有短信验证") && !!(await page.$("#rbPhone")) && !!(await page.$("#rbPw")));
-    const rbCalls = () => page.evaluate("(window.__rb||[]).length");
+    const rbCalls = () => page.evaluate("(window.__rb||[]).filter(c=>c.action!=='status').length"); // 6.36: settings also reads the reminder status
     await page.fill("#rbPhone", "12345"); await page.fill("#rbPw", "Right#123"); await page.click("#rbGo"); await page.waitForTimeout(100);
     check("6.25 bad phone -> error in the form, no call", (await text(page, "#rbErr")).includes("手机号") && (await rbCalls()) === 0);
     await page.fill("#rbPhone", "139 1234 5678"); await page.evaluate("window.__confirm=false"); await page.click("#rbGo"); await page.waitForTimeout(100);
@@ -787,7 +787,7 @@ async function run(browser, htmlPath) {
     check("6.25 wrong password -> server message in the form, form stays", (await text(page, "#rbErr")).includes("当前密码不对") && !!(await page.$("#rbPhone")));
     await page.evaluate(`window.__refreshReply = { data: { session: { user: { id: "u1", email: "a@x.com", phone: "8613912345678" } } }, error: null }`);
     await page.fill("#rbPw", "Right#123"); await page.click("#rbGo"); await page.waitForTimeout(300);
-    const last = await page.evaluate("window.__rb.at(-1)");
+    const last = await page.evaluate("window.__rb.filter(c=>c.action!=='status').at(-1)");
     check("6.25 change_phone sent with +86 number + password", last.action === "change_phone" && last.phone === "+8613912345678" && last.password === "Right#123", JSON.stringify(last));
     check("6.25 after change: session refreshed, back to settings, toast", (await page.evaluate("window.__refreshed")) >= 1 && (await text(page, "#toast")).includes("13912345678") && (await text(page, "#modalbox")).includes("工作台设置"));
     await page.click('#modalbox button:text-is("换绑邮箱")'); await page.waitForTimeout(200);
@@ -847,7 +847,7 @@ async function run(browser, htmlPath) {
     check("6.27 no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     // the removed device: next recheck finds its login revoked -> logged out locally, login page with the reason
     await page.evaluate("closeModal(); window.__sessionRevoked = true; window.__auth = []"); await page.evaluate("recheck()"); await page.waitForTimeout(400);
-    check("6.27 removed device: recheck -> back to login with the reason", !(await page.evaluate("document.getElementById('login').classList.contains('hidden')")) && (await text(page, "#authmsg")).includes("已被账号主人") && (await text(page, "#authmsg")).includes("重新输入密码"));
+    check("6.27 removed device: recheck -> back to login with the reason", !(await page.evaluate("document.getElementById('login').classList.contains('hidden')")) && (await text(page, "#authmsg")).includes("登录已失效") && (await text(page, "#authmsg")).includes("删除了这台设备") && (await text(page, "#authmsg")).includes("重新输入密码"));
     await ctx.close();
     const r2 = await open(browser, htmlPath, { db: seed(), pre: { __sessionRevoked: true } });
     await r2.page.waitForTimeout(1200);
@@ -1159,7 +1159,7 @@ async function run(browser, htmlPath) {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __termsVersion: "2026-10-11" } });
     await page.waitForTimeout(2200);
     let t = await text(page, "#modalbox");
-    check("6.35 legal update: a user who agreed to an older version sees the update with the main changes", (await page.$eval("#modal", (e) => !e.classList.contains("hidden"))) && t.includes("已更新") && t.includes("修改密码需要输入当前密码") && t.includes("2026-10-12"), t.slice(0, 120));
+    check("6.35 legal update: a user who agreed to an older version sees the update with the main changes", (await page.$eval("#modal", (e) => !e.classList.contains("hidden"))) && t.includes("已更新") && t.includes(await page.evaluate("LEGAL_CHANGES[0]")) && t.includes(await page.evaluate("LEGAL_VERSION")), t.slice(0, 120));
     await page.click('#modalbox button:text-is("查看使用协议")'); await page.waitForTimeout(150);
     check("6.35 legal update: can open the full text, and agree from there", (await text(page, "#modalbox")).includes("第八条") && !!(await page.$('#modalbox button:text-is("我已阅读并同意")')));
     await page.click('#modalbox button:text-is("我已阅读并同意")'); await page.waitForTimeout(200);
@@ -1181,6 +1181,98 @@ async function run(browser, htmlPath) {
     await page.evaluate("login()"); await page.waitForTimeout(2500);
     const up = await page.evaluate("(window.__auth||[]).filter(a=>a.op==='update').pop()");
     check("6.35 legal update: ticked at login -> recorded without a popup", up && up.a.data.terms_version === (await page.evaluate("LEGAL_VERSION")) && !(await text(page, "#modalbox")).includes("已更新"), JSON.stringify(up));
+    await ctx.close();
+  }
+  // ---- 6.36 kicked device leaves at once; deadline reminders toggle; self-service account deletion; phone password reset; owner notified; PWA
+  {
+    const src = fs.readFileSync(htmlPath, "utf8"), path = require("path");
+    const appV = (src.match(/APP_VERSION="([\d.]+)"/) || [])[1];
+    let sw = ""; try { sw = fs.readFileSync(path.join(path.dirname(htmlPath), "sw.js"), "utf8"); } catch (e) {}
+    check("6.36 RULE: sw.js cache name follows APP_VERSION (old caches are dropped on every release)", sw.includes("const CACHE = 'after-sales-radar-" + appV + "'"), (sw.match(/const CACHE = '[^']*'/) || [""])[0] + " vs " + appV);
+    check("6.36 PWA: index.html registers sw.js", /navigator\.serviceWorker\.register\("\.\/sw\.js"\)/.test(src));
+  }
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.waitForTimeout(400);
+    const live = await page.evaluate(() => window.__rt.filter((r) => r.cfg && r.cfg.table === "revoked_sessions").map((r) => ({ name: r.name, event: r.cfg.event, filter: r.cfg.filter })));
+    check("6.36 kick: listens for its own revoked sessions in realtime", live.length === 1 && live[0].event === "INSERT" && live[0].filter === "user_id=eq.u1", JSON.stringify(live));
+    await page.evaluate(() => { window.__sessionRevoked = true; window.__rt.find((r) => r.cfg && r.cfg.table === "revoked_sessions").cb({ new: {} }); });
+    await page.waitForTimeout(400);
+    check("6.36 kick: pushed revocation -> back to the login page right away with the reason", (await page.$eval("#app", (e) => e.classList.contains("hidden"))) && (await text(page, "#authmsg")).includes("登录已失效"), await text(page, "#authmsg"));
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.waitForTimeout(400);
+    const r = await page.evaluate(async () => { window.__uploads = []; window.__sessionRevoked = true; await uploadEvidenceFiles([new File(["x"], "a.jpg", { type: "image/jpeg" })], "t1"); await new Promise((r) => setTimeout(r, 300)); return { up: window.__uploads.length, app: !document.getElementById("app").classList.contains("hidden") }; });
+    check("6.36 kick: an upload from a revoked login is not even attempted, the page logs out", r.up === 0 && !r.app, JSON.stringify(r));
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.waitForTimeout(400);
+    await page.evaluate(() => { window.__sessionRevoked = true; toast('new row violates row-level security policy for table "after_sales_tasks"'); });
+    await page.waitForTimeout(400);
+    check("6.36 kick: a permission refusal from the server triggers an immediate check", await page.$eval("#app", (e) => e.classList.contains("hidden")));
+    check("6.36 kick: re-check every 60 s (was 2 min)", /recheckTimer=setInterval\(recheck,60000\)/.test(fs.readFileSync(htmlPath, "utf8")));
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => { window.__dl = true; window.__mailReply = (b) => { if (b.action === "deadline_mail") window.__dl = b.on; return { data: { ok: true, status: { configured: true, deadline_mail: window.__dl, deadline_mail_to: "bo****ss@x.com" } }, error: null }; }; });
+    await page.evaluate("openSettings()"); await page.waitForTimeout(300);
+    let t = await text(page, "#modalbox");
+    check("6.36 settings: 到期邮件提醒 card shows where mails go and that it is on", t.includes("到期邮件提醒") && t.includes("bo****ss@x.com") && t.includes("已开启") && (await text(page, "#dlMailBtn")) === "关闭到期提醒", t.slice(0, 160));
+    await page.click("#dlMailBtn"); await page.waitForTimeout(300);
+    check("6.36 settings: turning it off is sent to the server and shown", (await page.evaluate("window.__mailCalls.some(c=>c.action==='deadline_mail'&&c.on===false)")) && (await text(page, "#dlMailBtn")) === "开启到期提醒");
+    await page.evaluate(() => { window.__mailReply = () => ({ data: { ok: true, status: { configured: true, deadline_mail: true, deadline_mail_to: "" } }, error: null }); });
+    await page.evaluate("openSettings()"); await page.waitForTimeout(300);
+    check("6.36 settings: no confirmed email -> explains how to get reminders, button disabled", (await text(page, "#dlMailInfo")).includes("绑定并验证") && (await page.$eval("#dlMailBtn", (b) => b.disabled)));
+    // account deletion
+    check("6.36 settings: 注销账号 card", (await text(page, "#modalbox")).includes("注销账号"));
+    await page.evaluate("openDeleteAccount()"); await page.waitForTimeout(100);
+    await page.click("#delBtn"); await page.waitForTimeout(100);
+    check("6.36 delete: needs the password first", (await text(page, "#delErr")).includes("当前密码") && !(await page.evaluate("(window.__fn||[]).length")));
+    await page.fill("#delPw", "Abcdef1!"); await page.fill("#delConfirm", "删除"); await page.click("#delBtn"); await page.waitForTimeout(100);
+    check("6.36 delete: needs the word 注销", (await text(page, "#delErr")).includes("注销") && !(await page.evaluate("(window.__fn||[]).length")));
+    await page.fill("#delConfirm", "注销");
+    await page.evaluate(() => { window.__fnReply = (n) => (n === "delete-account" ? { data: null, error: { message: "non-2xx", context: { json: async () => ({ ok: false, code: "wrong_password", message: "当前密码不对" }) } } } : { data: null, error: { message: "?" } }); });
+    await page.click("#delBtn"); await page.waitForTimeout(300);
+    check("6.36 delete: server refusal shown in the form, still logged in", (await text(page, "#delErr")).includes("当前密码不对") && !(await page.$eval("#app", (e) => e.classList.contains("hidden"))));
+    await page.evaluate(() => { window.__fnReply = (n, o) => (n === "delete-account" && o.body.password === "Abcdef1!" && o.body.confirm === "注销" ? { data: { ok: true, files: 3 }, error: null } : { data: null, error: { message: "wrong call" } }); });
+    await page.click("#delBtn"); await page.waitForTimeout(500);
+    check("6.36 delete: success -> signed out, login page says the account is gone", (await page.$eval("#app", (e) => e.classList.contains("hidden"))) && (await text(page, "#authmsg")).includes("账号已注销"), await text(page, "#authmsg"));
+    check("6.36 no page errors (settings / delete)", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true });
+    await page.waitForTimeout(400);
+    await page.evaluate("openDeleteAccount()"); await page.waitForTimeout(100);
+    check("6.36 delete: an admin account is told to drop admin rights first", !(await page.$("#delBtn")) && (await text(page, "#toast")).includes("管理员账号不能自助注销"));
+    await ctx.close();
+  }
+  {
+    // phone account forgot password + new phone sign-up notifies the owner
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
+    await page.evaluate("lgView('login')"); await page.fill("#email", "15770572452"); await page.evaluate("forgot()"); await page.waitForTimeout(200);
+    check("6.36 phone reset: 忘记密码 with a phone number opens the reset form (prefilled)", (await text(page, "#modalbox")).includes("找回密码") && (await page.inputValue("#prPhone")) === "15770572452");
+    await page.evaluate(() => { window.__fnReply = (n, o) => (n === "phone-password-reset" && o.body.action === "send" ? { data: { ok: true, message: "如果这个手机号已经注册，并且绑定了提醒邮箱，验证码已经发到那个邮箱" }, error: null } : n === "phone-password-reset" && o.body.action === "reset" ? { data: { ok: true, message: "密码已重置，所有设备上的旧登录都已退出。请用新密码登录。" }, error: null } : { data: null, error: { message: "?" } }); });
+    await page.click("#prSend"); await page.waitForTimeout(200);
+    const sent = await page.evaluate("(window.__fn||[]).filter(f=>f.name==='phone-password-reset').pop()");
+    check("6.36 phone reset: send goes to the server with the normalized phone, neutral answer shown", sent && sent.opts.body.action === "send" && /^\+?86?15770572452$/.test(sent.opts.body.phone) && (await text(page, "#prMsg")).includes("如果这个手机号"), JSON.stringify(sent && sent.opts.body));
+    await page.fill("#prCode", "123456"); await page.fill("#prPw1", "weak"); await page.fill("#prPw2", "weak"); await page.evaluate("phoneResetDo()"); await page.waitForTimeout(100);
+    check("6.36 phone reset: weak password stopped before calling the server", (await text(page, "#prMsg")).includes("8 位") && (await page.evaluate("(window.__fn||[]).filter(f=>f.name==='phone-password-reset').length")) === 1);
+    await page.fill("#prPw1", "New#Pass9"); await page.fill("#prPw2", "New#Pass9"); await page.evaluate("phoneResetDo()"); await page.waitForTimeout(300);
+    const rs = await page.evaluate("(window.__fn||[]).filter(f=>f.name==='phone-password-reset').pop()");
+    check("6.36 phone reset: reset sends code + new password, then back to login with the result", rs.opts.body.action === "reset" && rs.opts.body.code === "123456" && rs.opts.body.new_password === "New#Pass9" && (await text(page, "#authmsg")).includes("密码已重置"));
+    // phone sign-up -> owner notified (pending)
+    await page.evaluate(() => { window.__pending = true; window.__mailReply = () => ({ data: { ok: true, notified: true, status: {} }, error: null }); });
+    await page.evaluate("lgView('register')"); await page.fill("#email", "13912345678"); await page.fill("#password", "Abcdef1!"); await page.fill("#password2", "Abcdef1!"); await page.check("#lgAgree");
+    await page.evaluate("register()"); await page.waitForTimeout(800);
+    check("6.36 phone sign-up: the owner is notified (registered) before the pending screen", await page.evaluate("(window.__mailCalls||[]).some(c=>c.action==='registered')"));
+    check("6.36 no page errors (login side)", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
@@ -1343,7 +1435,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.35.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.36.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());

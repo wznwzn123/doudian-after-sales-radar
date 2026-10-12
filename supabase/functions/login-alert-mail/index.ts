@@ -9,9 +9,11 @@
 //   把其他设备上的登录全部作废（刷新令牌失效），并发邮件通知登录邮箱和提醒邮箱。
 // 6.33（需要 v6_33 SQL；没执行时自动退回旧做法）：修改密码先用调用者身份调 revoke_other_sessions()，其他设备还没过期的访问令牌也立刻读写不了数据；
 //   换绑查重改用 auth_identity_taken()（不再逐页扫描全部用户），并限制每人每天查重 10 次（take_quota），防止拿换绑来试探别人的手机号 / 邮箱有没有注册。
+// 6.36（需要 v6_37 SQL 第 2、3 段）：deadline_mail 开关「到期邮件提醒」（login_alert_emails.deadline_mail_off）；
+//   registered：手机号新账号注册后（待审核）给运营方邮箱发一封通知，每个账号只发一次（admin_notified_at），全站每天最多 30 封。
 // 部署时 verify_jwt=false（项目用新式 publishable/secret key），身份在下面自己校验。
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { alertMail, changedMail, codeMail, fmtCN, genCode, hashCode, isEmail, maskEmail, maskPhone, normPhone, passwordMail, smtpConfig, strongPassword } from "./lib.ts";
+import { alertMail, changedMail, codeMail, fmtCN, genCode, hashCode, isEmail, maskEmail, maskPhone, normPhone, passwordMail, pendingMail, smtpConfig, strongPassword } from "./lib.ts";
 import { sendMail } from "./mail.ts";
 
 const DEV_EMAIL = "1012968575@qq.com";
@@ -80,6 +82,8 @@ Deno.serve(async (req) => {
     phone_only: !me.email,
     account_email: me.email && me.email_confirmed_at ? maskEmail(me.email) : "",
     chg_email: row?.chg_email && row?.chg_code_expires && Date.parse(row.chg_code_expires) > Date.now() ? maskEmail(row.chg_email) : "",
+    deadline_mail: !row?.deadline_mail_off,
+    deadline_mail_to: row?.email && row?.verified_at ? maskEmail(row.email) : me.email && me.email_confirmed_at ? maskEmail(me.email) : "",
   });
   const okStatus = (extra: Record<string, unknown> = {}) => reply(200, { ok: true, ...extra, status: status() });
   const account = me.email ? String(me.email) : "手机 " + maskPhone(me.phone);
@@ -239,6 +243,25 @@ Deno.serve(async (req) => {
       await save({ chg_email: null, chg_code_hash: null, chg_code_expires: null, chg_tries: 0, ...(alertToo ? { email, verified_at: new Date().toISOString(), prompt_declined_at: null } : {}) });
       await afterChange("email", oldEmail, maskEmail(email), "换绑登录邮箱：" + (oldEmail ? maskEmail(oldEmail) : "无") + " → " + maskEmail(email));
       return okStatus({ email: maskEmail(email), alert_set: alertToo });
+    }
+
+    if (action === "deadline_mail") {
+      await save({ deadline_mail_off: body.on === false });
+      return okStatus();
+    }
+
+    if (action === "registered") {
+      // 只给「手机号注册、正在等审核」的账号发，每个账号一次；邮件只写打码后的手机号
+      const st = await caller.rpc("my_account_status");
+      if (st.error || !st.data?.pending || me.email) return okStatus({ notified: false });
+      if (row?.admin_notified_at) return okStatus({ notified: false, reason: "already" });
+      if (!smtp.ok) return okStatus({ notified: false, reason: "smtp_missing" });
+      const q = await svc.rpc("take_quota", { p_user: "00000000-0000-0000-0000-000000000000", p_bucket: "register_notify", p_limit: 30, p_window_seconds: 86400 });
+      if (!q.error && q.data === false) return okStatus({ notified: false, reason: "daily_limit" });
+      await save({ admin_notified_at: new Date().toISOString() });
+      const m = pendingMail({ phone: maskPhone(me.phone), at: fmtCN(me.created_at || new Date().toISOString()) });
+      try { await sendMail(smtp.cfg, DEV_EMAIL, m.subject, m.text); } catch (e) { console.error("pending mail failed", (e as Error).message); return okStatus({ notified: false, reason: "send_failed" }); }
+      return okStatus({ notified: true });
     }
 
     if (action === "decline") {

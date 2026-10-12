@@ -99,3 +99,12 @@ export function alertMail(o: { account: string; device: string; ip: string; at: 
       "\n如果是你本人，不用处理。\n如果不是你：请马上登录售后雷达 →「工作台设置 → 修改密码」，并发邮件给 " + o.contact + " 请管理员封禁陌生设备。\n\n— 售后雷达（这封邮件由系统自动发送，请不要直接回复）",
   };
 }
+
+// 新的手机号账号注册后（等待审核），通知运营方邮箱
+export function pendingMail(o: { phone: string; at: string }): { subject: string; text: string } {
+  return {
+    subject: "【售后雷达】新手机号账号等待审核：" + o.phone,
+    text: "你好！\n\n有一个新的手机号账号注册了售后雷达，正在等待审核：\n\n  手机号：" + o.phone + "\n  注册时间：" + o.at +
+      "\n\n请登录售后雷达 → 管理员登录 → 管理后台「审核」里处理。手机号注册没有短信验证，通过前请先确认对方身份。\n\n— 售后雷达（这封邮件由系统自动发送）",
+  };
+}
