@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>售后雷达 视频场景</title>
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--ink:#111827;--muted:#6b7280;--blue:#007aff;--blue2:#5ac8fa;--red:#ff3b30;--line:#e5e7eb;--gray:#aeb4be}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:540px;height:960px;overflow:hidden;background:var(--bg);color:var(--ink);font-family:"WenQuanYi Zen Hei",sans-serif}
+.scene{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;padding:0 40px}
+.scene.on{display:flex}
+@keyframes up{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes ring{from{transform:scale(.2);opacity:.9}to{transform:scale(1.5);opacity:0}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes blip{0%,100%{opacity:0;transform:scale(.4)}20%,60%{opacity:1;transform:scale(1)}}
+
+/* 片头 */
+#intro{background:radial-gradient(circle at 50% 38%,#e8f2ff 0,#f2f2f7 60%)}
+.radar{position:relative;width:300px;height:300px;margin-bottom:46px}
+.radar .grid{position:absolute;inset:0;border-radius:50%;border:2px solid #cfe1ff;background:repeating-radial-gradient(circle,transparent 0 48px,#dbe8ff 48px 50px)}
+.radar .sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(0,122,255,.0) 0deg,rgba(0,122,255,.0) 290deg,rgba(0,122,255,.35) 360deg);animation:spin 2.4s linear infinite}
+.radar .wave{position:absolute;inset:0;border-radius:50%;border:3px solid var(--blue);opacity:0;animation:ring 2s ease-out .3s infinite}
+.logo{background:linear-gradient(160deg,#4da3ff,#0a64e6);color:#fff;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:64px}
+.radar .logo{position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:30px;box-shadow:0 18px 40px rgba(0,122,255,.35);animation:pop .7s ease-out both}
+.radar .dot{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--red);box-shadow:0 0 0 6px rgba(255,59,48,.2);opacity:0}
+h1{font-size:62px;letter-spacing:2px;animation:up .7s ease-out .5s both}
+h1 span{color:var(--blue)}
+.sub{margin-top:18px;font-size:27px;color:var(--muted);animation:up .7s ease-out .9s both}
+
+/* 数据图 */
+.kicker{font-size:22px;color:var(--blue);font-weight:bold;letter-spacing:2px;animation:up .5s ease-out both}
+h2{font-size:44px;margin-top:12px;text-align:center;line-height:1.3;animation:up .6s ease-out .15s both}
+.chart{width:100%;margin-top:46px;background:var(--card);border-radius:28px;padding:30px 30px 24px;box-shadow:0 8px 30px rgba(0,0,0,.06);animation:up .6s ease-out .3s both}
+.legend{display:flex;gap:22px;font-size:19px;color:var(--muted);margin-bottom:22px}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:8px;vertical-align:-1px}
+.group{margin-bottom:26px}
+.group .name{font-size:22px;font-weight:bold;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:12px;margin:8px 0}
+.track{flex:1;height:30px;position:relative}
+.bar{height:30px;border-radius:0 6px 6px 0;transform-origin:left;animation:grow .9s cubic-bezier(.2,.8,.2,1) both}
+.val{width:110px;font-size:22px;font-weight:bold;text-align:right;color:var(--ink);animation:fade .4s ease-out both}
+.axis{border-left:2px solid var(--line)}
+.foot{margin-top:6px;font-size:16px;color:var(--muted);line-height:1.5}
+.big{margin-top:34px;font-size:30px;text-align:center;animation:pop .6s ease-out 2.8s both}
+.big b{color:var(--blue);font-size:64px;display:block;margin-top:6px}
+
+/* 功能要点 */
+.list{width:100%;margin-top:40px}
+.item{display:flex;align-items:center;gap:20px;background:var(--card);border-radius:24px;padding:22px 24px;margin-bottom:16px;box-shadow:0 6px 22px rgba(0,0,0,.05);animation:up .55s ease-out both}
+.ico{flex:0 0 64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:34px;color:#fff;font-weight:bold}
+.item b{font-size:28px;display:block}
+.item span{font-size:19px;color:var(--muted);display:block;margin-top:6px}
+
+/* 片尾 */
+#outro{background:linear-gradient(160deg,#0a84ff 0%,#0050c8 100%);color:#fff}
+#outro .big-logo{width:150px;height:150px;border-radius:36px;font-size:80px;border:3px solid rgba(255,255,255,.35);box-shadow:0 20px 50px rgba(0,0,0,.3);animation:pop .7s ease-out both}
+#outro h1{margin-top:40px;color:#fff}
+#outro .sub{color:rgba(255,255,255,.85)}
+.url{margin-top:50px;font-size:19px;white-space:nowrap;background:rgba(255,255,255,.16);padding:14px 24px;border-radius:999px;animation:up .6s ease-out 1.3s both}
+.studio{position:absolute;bottom:90px;font-size:20px;opacity:.85;animation:fade .8s ease-out 1.8s both}
+</style></head>
+<body>
+<!-- 片头 4s -->
+<section id="intro" class="scene">
+  <div class="radar"><div class="grid"></div><div class="sweep"></div><div class="wave"></div>
+    <div class="dot" style="left:62px;top:84px;animation:blip 1.6s ease-out .8s both"></div>
+    <div class="dot" style="left:226px;top:196px;animation:blip 1.6s ease-out 1.5s both"></div>
+    <div class="dot" style="left:200px;top:52px;animation:blip 1.6s ease-out 2.2s both"></div>
+    <div class="logo">雷</div></div>
+  <h1>售后雷达 <span>Pro</span></h1>
+  <div class="sub">抖店售后，一个页面管到底</div>
+</section>
+
+<!-- 提速数据 7s：数字来自 HANDOFF.md 里 Pro 6.12 的实测记录 -->
+<section id="speed" class="scene">
+  <div class="kicker">PRO 6.12 提速</div>
+  <h2>点开售后，<br>几乎不用等</h2>
+  <div class="chart">
+    <div class="legend"><span><i style="background:var(--gray)"></i>优化前</span><span><i style="background:var(--blue)"></i>优化后</span></div>
+    <div class="group"><div class="name">页面出现</div>
+      <div class="row"><div class="track axis"><div class="bar" style="width:100%;background:var(--gray);animation-delay:.7s"></div></div><div class="val" style="animation-delay:1.5s">1212ms</div></div>
+      <div class="row"><div class="track axis"><div class="bar" style="width:5.1%;background:var(--blue);animation-delay:1.1s"></div></div><div class="val" style="color:var(--blue);animation-delay:1.9s">62ms</div></div>
+    </div>
+    <div class="group" style="margin-bottom:12px"><div class="name">全部加载完成</div>
+      <div class="row"><div class="track axis"><div class="bar" style="width:100%;background:var(--gray);animation-delay:1.3s"></div></div><div class="val" style="animation-delay:2.1s">1266ms</div></div>
+      <div class="row"><div class="track axis"><div class="bar" style="width:32.3%;background:var(--blue);animation-delay:1.7s"></div></div><div class="val" style="color:var(--blue);animation-delay:2.5s">409ms</div></div>
+    </div>
+    <div class="foot">测试条件：每个请求模拟 400ms 网络延迟；三个请求由依次等待改为并行，并先用已有数据显示页面。</div>
+  </div>
+  <div class="big">页面出现快了<b>约 20 倍</b></div>
+</section>
+
+<!-- 功能要点 7s -->
+<section id="features" class="scene">
+  <div class="kicker">核心功能</div>
+  <h2>该盯的，它都帮你盯着</h2>
+  <div class="list">
+    <div class="item" style="animation-delay:.4s"><div class="ico" style="background:#ff3b30">⏱</div><div><b>3 小时倒计时</b><span>拒绝协商、举证截止，最紧急的排最前</span></div></div>
+    <div class="item" style="animation-delay:.9s"><div class="ico" style="background:#007aff">🚚</div><div><b>快递100 查物流</b><span>点开售后自动查，签收状态一眼看到</span></div></div>
+    <div class="item" style="animation-delay:1.4s"><div class="ico" style="background:#34c759">📁</div><div><b>举证材料上云</b><span>视频、截图、资料库，换手机也不丢</span></div></div>
+    <div class="item" style="animation-delay:1.9s"><div class="ico" style="background:#ff9500">🔔</div><div><b>新设备登录提醒</b><span>别人登录你的账号，邮件第一时间通知</span></div></div>
+    <div class="item" style="animation-delay:2.4s"><div class="ico" style="background:#5856d6">🌙</div><div><b>多店铺 · 夜间模式</b><span>几家店一起管，深夜处理也不刺眼</span></div></div>
+  </div>
+</section>
+
+<!-- 片尾 4s -->
+<section id="outro" class="scene">
+  <div class="logo big-logo">雷</div>
+  <h1 style="animation-delay:.4s">售后雷达 Pro</h1>
+  <div class="sub" style="animation-delay:.8s">手机浏览器打开就能用</div>
+  <div class="url">wznwzn123.github.io/doudian-after-sales-radar</div>
+  <div class="studio">悠然网络科技工作室™</div>
+</section>
+<script>
+const id=new URLSearchParams(location.search).get("scene")||"intro";
+document.getElementById(id).classList.add("on");
+// 渲染脚本逐帧调用：暂停所有动画并跳到 t 秒
+window.seek=(t)=>{for(const a of document.getAnimations()){a.pause();a.currentTime=t*1000}};
+</script>
+</body></html>

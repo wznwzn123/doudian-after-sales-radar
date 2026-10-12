@@ -1,0 +1,219 @@
+{
+ "fps": 60,
+ "versions": {
+  "long": {
+   "title": "售后雷达_店主痛点_40秒",
+   "scenes": [
+    {
+     "type": "hook",
+     "start": 0,
+     "end": 4.4
+    },
+    {
+     "type": "pain",
+     "start": 4.4,
+     "end": 10.2
+    },
+    {
+     "type": "reveal",
+     "start": 10.2,
+     "end": 13.0
+    },
+    {
+     "type": "shot",
+     "shot": "home",
+     "start": 13.0,
+     "end": 17.4,
+     "zoomAt": 0.6,
+     "zoom": 1.55,
+     "kicker": "最急的一单",
+     "head": "倒计时置顶",
+     "accent": "red"
+    },
+    {
+     "type": "shot",
+     "shot": "filter",
+     "start": 17.4,
+     "end": 22.0,
+     "zoomAt": 2.4,
+     "zoom": 1.32,
+     "kicker": "高风险售后",
+     "head": "一键筛出来",
+     "accent": "red"
+    },
+    {
+     "type": "shot",
+     "shot": "detail",
+     "start": 22.0,
+     "end": 27.0,
+     "zoomAt": 1.2,
+     "zoom": 1.45,
+     "kicker": "签收没签收",
+     "head": "点开自动查",
+     "accent": "blue"
+    },
+    {
+     "type": "shot",
+     "shot": "evidence",
+     "start": 27.0,
+     "end": 31.6,
+     "zoomAt": 1.7,
+     "zoom": 1.45,
+     "kicker": "举证材料",
+     "head": "存云端不丢",
+     "accent": "green"
+    },
+    {
+     "type": "cta",
+     "start": 31.6,
+     "end": 38.0
+    }
+   ],
+   "voice": [
+    [
+     0.3,
+     3.9,
+     "售后又超时了？平台直接判退款。"
+    ],
+    [
+     4.6,
+     9.9,
+     "几家店几十单售后，倒计时全靠记，截图翻半天找不到。"
+    ],
+    [
+     10.4,
+     12.8,
+     "试试售后雷达。"
+    ],
+    [
+     13.2,
+     17.2,
+     "最急的那一单，倒计时就在首页最上面。"
+    ],
+    [
+     17.6,
+     21.8,
+     "高风险售后一键筛出来，先处理要紧的。"
+    ],
+    [
+     22.2,
+     26.8,
+     "点开售后自动查物流，签没签收一眼看到。"
+    ],
+    [
+     27.2,
+     31.4,
+     "发货视频、签收截图存在云端，换手机也不丢。"
+    ],
+    [
+     31.8,
+     37.6,
+     "超时之前，它先提醒你。售后雷达，手机浏览器打开就能用。"
+    ]
+   ]
+  },
+  "short": {
+   "title": "售后雷达_店主痛点_15秒",
+   "scenes": [
+    {
+     "type": "hook",
+     "start": 0,
+     "end": 3.0,
+     "fast": true
+    },
+    {
+     "type": "reveal",
+     "start": 3.0,
+     "end": 4.6,
+     "fast": true
+    },
+    {
+     "type": "shot",
+     "shot": "home",
+     "start": 4.6,
+     "end": 7.4,
+     "zoomAt": 0.4,
+     "zoom": 1.55,
+     "kicker": "最急的一单",
+     "head": "倒计时置顶",
+     "accent": "red"
+    },
+    {
+     "type": "shot",
+     "shot": "detail",
+     "start": 7.4,
+     "end": 10.4,
+     "zoomAt": 1.1,
+     "zoom": 1.45,
+     "kicker": "签收没签收",
+     "head": "点开自动查",
+     "accent": "blue"
+    },
+    {
+     "type": "shot",
+     "shot": "evidence",
+     "start": 10.4,
+     "end": 12.6,
+     "skip": 0.9,
+     "zoomAt": 0.5,
+     "zoom": 1.45,
+     "kicker": "举证材料",
+     "head": "存云端不丢",
+     "accent": "green"
+    },
+    {
+     "type": "cta",
+     "start": 12.6,
+     "end": 15.0,
+     "fast": true
+    }
+   ],
+   "voice": [
+    [
+     0.2,
+     2.8,
+     "售后又超时，又被判退款？"
+    ],
+    [
+     3.1,
+     4.5,
+     "试试售后雷达。"
+    ],
+    [
+     4.7,
+     7.3,
+     "倒计时置顶提醒，"
+    ],
+    [
+     7.5,
+     10.3,
+     "物流点开自动查，"
+    ],
+    [
+     10.5,
+     12.5,
+     "举证材料存云端。"
+    ],
+    [
+     12.7,
+     14.9,
+     "超时之前，它先提醒你。"
+    ]
+   ]
+  }
+ },
+ "fx": {
+  "hookTick": {
+   "normal": 0.6,
+   "fast": 0.4
+  },
+  "hookFrom": 3,
+  "painFirst": 0.5,
+  "painGap": 0.55,
+  "overlap": 0.4,
+  "taps": {
+   "filter": 1.9,
+   "detail": 0.3
+  }
+ }
+}
