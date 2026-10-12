@@ -46,7 +46,9 @@ window.__seek = (frame, dt) => { for (const a of document.getAnimations()) { let
   await page.addStyleTag({ content: TAP_CSS }); await page.evaluate(HELPERS);
   await page.clock.pauseAt(new Date((await page.evaluate(() => Date.now())) + 200));
   const cdp = await ctx.newCDPSession(page);
-  const shotPng = async (clip) => Buffer.from((await cdp.send("Page.captureScreenshot", { format: "png", ...(clip ? { clip: { ...clip, scale: DPR } } : {}) })).data, "base64");
+  // clip 用的是文档坐标，要加上当前滚动位置（getBoundingClientRect 给的是视口坐标）
+  const shotPng = async (clip) => { if (clip) { const s = await page.evaluate(() => [scrollX, scrollY]); clip = { ...clip, x: clip.x + s[0], y: clip.y + s[1] }; }
+    return Buffer.from((await cdp.send("Page.captureScreenshot", { format: "png", ...(clip ? { clip: { ...clip, scale: DPR } } : {}) })).data, "base64"); };
   const step = async (ms) => { await page.clock.runFor(ms); };
   const settle = async (ms) => { await page.evaluate(() => __reset()); for (let f = 0; f * DT < ms; f++) { await step(DT); await page.evaluate(([f, dt]) => __seek(f, dt), [f, DT]); } await page.evaluate(() => __reset()); };
   const rectOf = (sel, closest) => page.evaluate(([s, c]) => { let e = document.querySelector(s); if (!e) return null; if (c) e = e.closest(c); const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }, [sel, closest || null]);
