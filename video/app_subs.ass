@@ -1,0 +1,20 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Sub,WenQuanYi Zen Hei,66,&H00FFFFFF,&H00FFFFFF,&H00000000,&H99000000,1,0,0,0,100,100,0,0,3,26,0,2,50,50,290,1
+Style: Badge,WenQuanYi Zen Hei,44,&H00FFFFFF,&H00FFFFFF,&H003B30FF,&H003B30FF,1,0,0,0,100,100,0,0,3,10,0,9,40,40,190,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 1,0:00:00.00,0:00:18.30,Badge,,0,0,0,,演示数据
+Dialogue: 0,0:00:00.40,0:00:02.90,Sub,,0,0,0,,{\fad(200,150)}最紧急的倒计时、退款合计一眼看清
+Dialogue: 0,0:00:03.00,0:00:05.60,Sub,,0,0,0,,{\fad(200,150)}几家店的售后，集中在一个列表
+Dialogue: 0,0:00:05.70,0:00:07.70,Sub,,0,0,0,,{\fad(200,150)}一键筛出高风险售后
+Dialogue: 0,0:00:07.80,0:00:11.00,Sub,,0,0,0,,{\fad(200,150)}倒计时、金额、物流状态都在详情顶部
+Dialogue: 0,0:00:11.10,0:00:13.40,Sub,,0,0,0,,{\fad(200,150)}举证、协商、仲裁，按钮都在手边
+Dialogue: 0,0:00:14.40,0:00:18.10,Sub,,0,0,0,,{\fad(200,150)}夜间模式，深夜处理也不刺眼
