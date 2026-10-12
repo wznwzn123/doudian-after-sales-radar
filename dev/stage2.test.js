@@ -52,10 +52,10 @@ const STUB = `
  }
  const sb={
   auth:{
-   getSession:async()=>({data:{session:window.__noSession?null:{user:{id:'u1',email:'a@x.com'}}},error:null}),
-   async signInWithPassword(c){window.__auth=(window.__auth||[]).concat([{op:'signIn',c}]);return window.__authReply||{data:{session:{user:{id:'u1',email:c.email||null,phone:c.phone?c.phone.replace('+',''):null}}},error:null}},
+   getSession:async()=>({data:{session:window.__noSession?null:{user:{id:'u1',email:'a@x.com',user_metadata:{terms_version:window.__termsVersion!==undefined?window.__termsVersion:LEGAL_VERSION}}}},error:null}),
+   async signInWithPassword(c){window.__auth=(window.__auth||[]).concat([{op:'signIn',c}]);return window.__authReply||{data:{session:{user:{id:'u1',email:c.email||null,phone:c.phone?c.phone.replace('+',''):null,user_metadata:{terms_version:window.__termsVersion!==undefined?window.__termsVersion:LEGAL_VERSION}}}},error:null}},
    async refreshSession(){window.__refreshed=(window.__refreshed||0)+1;return window.__refreshReply||{data:{session:null},error:null}},
-   async updateUser(a){window.__auth=(window.__auth||[]).concat([{op:'update',a}]);return window.__updReply||{data:{user:{id:'u1'}},error:null}},
+   async updateUser(a){window.__auth=(window.__auth||[]).concat([{op:'update',a}]);return window.__updReply||{data:{user:{id:'u1',email:'a@x.com',user_metadata:Object.assign({},a&&a.data)}},error:null}},
    async signUp(c){window.__auth=(window.__auth||[]).concat([{op:'signUp',c}]);if(window.__authDelay)await new Promise(r=>setTimeout(r,window.__authDelay));return window.__authReply||{data:{session:c.phone?{user:{id:'u9',phone:c.phone.replace('+','')}}:null},error:null}},
    onAuthStateChange(cb){listeners.push(cb);return{data:{subscription:{unsubscribe(){}}}}},
    // like supabase-js: scope "others" signs out the other sessions only, this page stays signed in (no SIGNED_OUT event)
@@ -1144,6 +1144,45 @@ async function run(browser, htmlPath) {
     check("6.34 tiers: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+  // ---- 6.35 legal documents follow every major release; logged-in users see what changed and agree once
+  {
+    const src = fs.readFileSync(htmlPath, "utf8");
+    const app = (src.match(/APP_VERSION="(\d+)\.(\d+)\.\d+"/) || []).slice(1, 3).join(".");
+    const legalV = (src.match(/const LEGAL_VERSION="([0-9-]+)"/) || [])[1];
+    const path = require("path"), root = path.resolve(path.dirname(htmlPath));
+    const mdOk = ["用户须知.md", "用户使用协议.md"].map((n) => { try { const t = fs.readFileSync(path.join(root, "legal", n), "utf8"); return t.includes("版本：" + legalV) && t.includes("对应系统版本：售后雷达 Pro " + app); } catch (e) { return null; } });
+    const tpl = ["notice", "terms"].every((k) => { const m = src.match(new RegExp('<template id="legal-' + k + '">([\\s\\S]*?)</template>')); return m && m[1].includes("版本：" + legalV) && m[1].includes("对应系统版本：售后雷达 Pro " + app); });
+    check("6.35 RULE: both legal docs are updated for this release (版本 = LEGAL_VERSION, 对应系统版本 = Pro " + app + ") — on a major release update legal/*.md, run dev/build-legal.py, bump LEGAL_VERSION and LEGAL_CHANGES", mdOk.every((x) => x !== false) && tpl, JSON.stringify({ app, legalV, mdOk, tpl }));
+    check("6.35 RULE: LEGAL_CHANGES lists what changed", /const LEGAL_CHANGES=\[("[^"]+",?){2,}\]/.test(src));
+  }
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __termsVersion: "2026-10-11" } });
+    await page.waitForTimeout(2200);
+    let t = await text(page, "#modalbox");
+    check("6.35 legal update: a user who agreed to an older version sees the update with the main changes", (await page.$eval("#modal", (e) => !e.classList.contains("hidden"))) && t.includes("已更新") && t.includes("修改密码需要输入当前密码") && t.includes("2026-10-12"), t.slice(0, 120));
+    await page.click('#modalbox button:text-is("查看使用协议")'); await page.waitForTimeout(150);
+    check("6.35 legal update: can open the full text, and agree from there", (await text(page, "#modalbox")).includes("第八条") && !!(await page.$('#modalbox button:text-is("我已阅读并同意")')));
+    await page.click('#modalbox button:text-is("我已阅读并同意")'); await page.waitForTimeout(200);
+    const up = await page.evaluate("(window.__auth||[]).filter(a=>a.op==='update').pop()");
+    check("6.35 legal update: agreeing records the version in the account (user_metadata)", up && up.a.data.terms_version === (await page.evaluate("LEGAL_VERSION")) && !!up.a.data.terms_agreed_at && (await page.$eval("#modal", (e) => e.classList.contains("hidden"))));
+    check("6.35 legal update: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed() });
+    await page.waitForTimeout(2200);
+    check("6.35 legal update: already on the current version -> no prompt, nothing written", (await page.$eval("#modal", (e) => e.classList.contains("hidden"))) && !(await page.evaluate("(window.__auth||[]).some(a=>a.op==='update')")));
+    await ctx.close();
+  }
+  {
+    // logging in with the box ticked = agreeing to the current version: recorded silently, no second prompt
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true, __termsVersion: "2026-10-11" } });
+    await page.evaluate("lgView('login')"); await page.fill("#email", "a@x.com"); await page.fill("#password", "Abcdef1!"); await page.check("#lgAgree");
+    await page.evaluate("login()"); await page.waitForTimeout(2500);
+    const up = await page.evaluate("(window.__auth||[]).filter(a=>a.op==='update').pop()");
+    check("6.35 legal update: ticked at login -> recorded without a popup", up && up.a.data.terms_version === (await page.evaluate("LEGAL_VERSION")) && !(await text(page, "#modalbox")).includes("已更新"), JSON.stringify(up));
+    await ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
@@ -1304,7 +1343,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.34.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.35.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
