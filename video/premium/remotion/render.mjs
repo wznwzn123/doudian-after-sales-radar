@@ -14,7 +14,7 @@ if (stills) {
 } else {
   let last = -1;
   const frameRange = range ? range.split("-").map(Number) : null;
-  await renderMedia({ composition, serveUrl, codec: "h264", crf: 14, x264Preset: "slow", pixelFormat: "yuv420p", muted: true, outputLocation: out, concurrency: 4, frameRange, ...opts, timeoutInMilliseconds: 120000,
+  await renderMedia({ composition, serveUrl, codec: "h264", crf: 12, x264Preset: "veryfast", pixelFormat: "yuv420p", muted: true, outputLocation: out, concurrency: Number(process.env.CONC || 4), frameRange, ...opts, timeoutInMilliseconds: 120000,
     onProgress: ({ progress }) => { const p = Math.floor(progress * 20); if (p !== last) { last = p; console.log(`${new Date().toISOString().slice(11, 19)} ${p * 5}%`); } } });
   console.log("wrote", out);
 }

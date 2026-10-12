@@ -1,6 +1,5 @@
 import React from "react";
 import { AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig, random } from "remotion";
-import { CameraMotionBlur } from "@remotion/motion-blur";
 import plan from "./plan.json";
 import shotsMeta from "./shots.json";
 import { W, H, B, GRAD, GRAD_RED, FONT, E, prog, useT, ShiftCtx, keyframes, fontCss, useFonts, Kinetic, Title, Background, Particles, Finish, Flash, AppIcon, Phone, popP, Icon } from "./lib";
@@ -58,10 +57,10 @@ const Chaos = () => {
           const z = c.z0 + (lt + 1.1) * v;
           if (z > 700) return null;
           const a = Math.min(prog(z, -4200, -3000), 1 - prog(z, 250, 650));
-          const blur = Math.min(14, Math.abs(z + 200) / 150);
+          const blur = Math.min(10, Math.abs(z + 200) / 180);
           const [ico, store, msg, time, cols] = c.n;
           return (
-            <div key={i} style={{ position: "absolute", left: W / 2 - 330 + c.x, top: H / 2 - 70 + c.y, width: 660, opacity: a, filter: `blur(${blur}px)`,
+            <div key={i} style={{ position: "absolute", left: W / 2 - 330 + c.x, top: H / 2 - 70 + c.y, width: 660, opacity: a, filter: blur > 0.6 ? `blur(${blur}px)` : undefined,
               transform: `translateZ(${z}px) rotateY(${c.ry}deg) rotateZ(${c.rz}deg)`, background: "rgba(22,16,46,.82)", border: "1.5px solid rgba(255,255,255,.14)", borderRadius: 36, padding: "26px 30px", display: "flex", gap: 24, alignItems: "center",
               boxShadow: "0 30px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12)", fontFamily: FONT }}>
               <div style={{ flex: "0 0 80px", height: 80, borderRadius: 24, background: `linear-gradient(135deg,${cols})`, color: "#fff", fontSize: 40, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{ico}</div>
@@ -278,7 +277,8 @@ const End = () => {
 };
 
 // ================= 总装 =================
-const BLUR_WINDOWS = [[9.45, 9.95], [17.9, 19.45], [23.7, 24.55], [28.7, 29.55], [34.7, 35.55], [39.7, 40.7], [41.25, 42.5], [44.8, 45.6]];
+// 动态模糊在后期按这些时间段做帧混合（见 finish.sh）
+export const BLUR_WINDOWS = [[9.45, 9.95], [17.9, 19.45], [23.7, 24.55], [28.7, 29.55], [34.7, 35.55], [39.7, 40.7], [41.25, 42.5], [44.8, 45.6]];
 const SCENES = [[Intro, "intro"], [Chaos, "chaos"], [Zero, "zero"], [Brand, "brand"], [Product, "home", S.stores[1] + 0.6], [Bento, "bento"], [Promise_, "promise"], [End, "end"]];
 const Content = () => {
   const { fps } = useVideoConfig();
@@ -294,7 +294,7 @@ const Content = () => {
       })}
       <Flash t={t} at={plan.cues.drop} peak={0.7} decay={0.5} />
       <Flash t={t} at={plan.cues.drop2} peak={0.6} decay={0.5} />
-      <Finish frame={frame} />
+      <Finish />
     </AbsoluteFill>
   );
 };
@@ -304,11 +304,10 @@ export const Film = () => {
   useFonts();
   const frame = useCurrentFrame(), { fps } = useVideoConfig();
   const t = frame / fps;
-  const blur = BLUR_WINDOWS.some(([a, b]) => t >= a && t <= b);
   return (
     <AbsoluteFill>
       <style>{fontCss}</style>
-      {blur ? <CameraMotionBlur shutterAngle={200} samples={6}><Content /></CameraMotionBlur> : <Content />}
+      <Content />
     </AbsoluteFill>
   );
 };

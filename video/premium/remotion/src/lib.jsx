@@ -52,7 +52,7 @@ export const Kinetic = ({ t, text, at, out = 1e9, size = 96, weight = 900, color
         const g = grad && i >= grad[0] && i < grad[1];
         const n = grad ? grad[1] - grad[0] : 1;
         return (
-          <span key={i} style={{ display: "inline-block", opacity: p * (1 - q), transform: `translateY(${(1 - p) * 0.55 - q * 0.35}em) scale(${1 + (1 - p) * 0.06})`, filter: `blur(${(1 - p) * 14 + q * 10}px)`,
+          <span key={i} style={{ display: "inline-block", opacity: p * (1 - q), transform: `translateY(${(1 - p) * 0.55 - q * 0.35}em) scale(${1 + (1 - p) * 0.06})`, filter: (1 - p) * 14 + q * 10 > 0.3 ? `blur(${(1 - p) * 14 + q * 10}px)` : undefined,
             ...(g ? { backgroundImage: gradCss, backgroundSize: `${n}em 100%`, backgroundPosition: `${-(i - grad[0])}em 0`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" } : {}) }}>{c === " " ? " " : c}</span>
         );
       })}
@@ -105,7 +105,7 @@ export const Background = ({ t }) => {
       {ORBS.map((o, k) => {
         const [r, g, b] = mix(ca[k], cb[k], p);
         const x = o.x * W + Math.sin(t * o.sx + k) * 140, y = o.y * H + Math.cos(t * o.sy + k * 2) * 160;
-        return <div key={k} style={{ position: "absolute", left: x - o.r, top: y - o.r, width: o.r * 2, height: o.r * 2, borderRadius: "50%", opacity: inten, mixBlendMode: "screen",
+        return <div key={k} style={{ position: "absolute", left: x - o.r, top: y - o.r, width: o.r * 2, height: o.r * 2, borderRadius: "50%", opacity: inten,
           background: `radial-gradient(closest-side, rgba(${r},${g},${b},.95) 0%, rgba(${r},${g},${b},.55) 35%, rgba(${r},${g},${b},.18) 65%, rgba(${r},${g},${b},0) 100%)` }} />;
       })}
       {/* 中央压暗一点，让文字和手机更跳 */}
@@ -123,19 +123,13 @@ export const Particles = ({ t, opacity = 1 }) => (
     })}
   </AbsoluteFill>
 );
-// 胶片颗粒 + 暗角
-export const Finish = ({ frame }) => (
-  <AbsoluteFill style={{ pointerEvents: "none" }}>
-    <AbsoluteFill style={{ background: "radial-gradient(ellipse 75% 60% at 50% 48%, transparent 55%, rgba(0,0,0,.55) 100%)" }} />
-    <svg width={W} height={H} style={{ position: "absolute", inset: 0, opacity: 0.06, mixBlendMode: "overlay" }}>
-      <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed={Math.floor(frame / 2) % 97} stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter>
-      <rect width={W} height={H} filter="url(#grain)" />
-    </svg>
-  </AbsoluteFill>
+// 暗角（胶片颗粒在后期用 ffmpeg 加，浏览器里算太慢）
+export const Finish = () => (
+  <AbsoluteFill style={{ pointerEvents: "none", background: "radial-gradient(ellipse 75% 60% at 50% 48%, transparent 55%, rgba(0,0,0,.55) 100%)" }} />
 );
 export const Flash = ({ t, at, color = "#fff", peak = 0.85, decay = 0.35 }) => {
   const a = t < at ? 0 : peak * Math.exp(-(t - at) / (decay / 3));
-  return a > 0.003 ? <AbsoluteFill style={{ background: color, opacity: a, mixBlendMode: "screen" }} /> : null;
+  return a > 0.003 ? <AbsoluteFill style={{ background: color, opacity: a }} /> : null;
 };
 
 // ---------- App 图标（按 dev/app-icon.html 重建，可做动画） ----------
