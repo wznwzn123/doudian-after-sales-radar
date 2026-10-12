@@ -4,8 +4,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 O=../out; mkdir -p "$O"
-# 1 拼接两段渲染
-printf "file '%s'\nfile '%s'\n" "$PWD/build/part1.mp4" "$PWD/build/part2.mp4" > build/parts.txt
+# 1 拼接分段渲染（part1 = 0–29.98 秒；p2.*.mp4 = 后半段的 6 小段）
+{ echo "file '$PWD/build/part1.mp4'"; for f in "$PWD"/build/p2.[0-9][0-9][0-9][0-9][0-9].mp4; do echo "file '$f'"; done; } > build/parts.txt
 ffmpeg -y -v error -f concat -safe 0 -i build/parts.txt -c copy build/raw.mp4
 # 2 后期：快速运动处做帧混合（动态模糊，时间段同 Film.jsx 的 BLUR_WINDOWS）+ 胶片颗粒
 EN=$(python3 -c "import re;s=open('remotion/src/Film.jsx',encoding='utf-8').read();w=eval(re.search(r'BLUR_WINDOWS = (\[.*?\]);',s).group(1));print('+'.join(f'between(t,{a},{b})' for a,b in w))")
