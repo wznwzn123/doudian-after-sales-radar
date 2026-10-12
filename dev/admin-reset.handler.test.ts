@@ -16,6 +16,9 @@ function seed() {
   state.admins = [ADMIN];
   state.authUsers = { [P1]: { phone: "8615770572452", email: null }, [ADMIN]: { email: "boss@x.com" } };
   state.adminCalls = []; state.db = { admin_operation_logs: [] }; state.clients = [];
+  // 6.34: v6_34 installed -> the server says whether the caller may act on the target (here: no admin can be targeted)
+  state.rpcs.admin_may_target = (a: any) => ({ data: !state.admins.includes(a.p_user), error: null });
+  delete state.rpcs.admin_list_all_users;
 }
 const call = async (body: unknown, token: string | null) => {
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -83,4 +86,29 @@ Deno.test("6.33: a refused reset (normal user) never signs anyone out", async ()
   seed(); let n = 0; state.rpcs.admin_revoke_user_sessions = () => { n++; return { data: { ok: true }, error: null }; };
   eq((await call({ user_id: P1 }, "tok-user")).status, 403, "refused"); eq(n, 0, "nobody signed out");
   delete state.rpcs.admin_revoke_user_sessions;
+});
+// 6.34 超级管理员保护：重置别的管理员的密码要服务端 admin_may_target 允许
+const ADMIN2 = "44444444-4444-4444-4444-444444444444";
+Deno.test("6.34: resetting another admin's password is refused unless the server allows it; nothing changed", async () => {
+  seed(); state.admins = [ADMIN, ADMIN2]; state.authUsers[ADMIN2] = { email: "second@x.com" };
+  const r = await call({ user_id: ADMIN2 }, "tok-admin");
+  eq(r.status, 403, "status"); eq(r.json.code, "admin_target", "code"); eq(state.adminCalls.length, 0, "password not changed");
+});
+Deno.test("6.34: a super admin may reset a normal admin (server says yes)", async () => {
+  seed(); state.admins = [ADMIN, ADMIN2]; state.authUsers[ADMIN2] = { email: "second@x.com" };
+  const seen: any[] = []; state.rpcs.admin_may_target = (a: any, uid: string) => { seen.push({ ...a, uid }); return { data: true, error: null }; };
+  const r = await call({ user_id: ADMIN2 }, "tok-admin");
+  eq(r.status, 200, "ok"); eq(state.adminCalls.length, 1, "changed"); eq(seen[0].p_user, ADMIN2, "asked about the target"); eq(seen[0].uid, ADMIN, "as the caller");
+});
+Deno.test("6.34: v6_34 not installed -> falls back to the user list: admins refused, normal users still fine", async () => {
+  seed(); state.admins = [ADMIN, ADMIN2]; state.authUsers[ADMIN2] = { email: "second@x.com" };
+  delete state.rpcs.admin_may_target;
+  state.rpcs.admin_list_all_users = () => ({ data: [{ id: ADMIN, is_admin: true }, { id: ADMIN2, is_admin: true }, { id: P1, is_admin: false }], error: null });
+  eq((await call({ user_id: ADMIN2 }, "tok-admin")).json.code, "admin_target", "admin refused");
+  const ok = await call({ user_id: P1 }, "tok-admin"); eq(ok.status, 200, "normal user reset"); eq(state.adminCalls.length, 1, "only the normal user changed");
+});
+Deno.test("6.34: neither check available -> refuse (fail closed)", async () => {
+  seed(); delete state.rpcs.admin_may_target;
+  const r = await call({ user_id: P1 }, "tok-admin");
+  eq(r.status, 403, "refused"); eq(state.adminCalls.length, 0, "not changed");
 });

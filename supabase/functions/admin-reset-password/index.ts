@@ -3,6 +3,8 @@
 // 身份：用调用者自己的登录身份 auth.getUser() 校验，再用 is_admin()（服务端 security definer）确认是管理员；不是就拒绝。
 // 6.33：重置后用管理员自己的身份调 admin_revoke_user_sessions()（v6_33 SQL，服务端再校验一次管理员），让对方所有设备立刻退出登录；
 //   函数还没装时只是不退出（和以前一样），重置照样成功。
+// 6.34：重置别的管理员的密码 = 接管对方账号，所以先问服务端 admin_may_target()（v6_34 SQL）：只有超级管理员能重置普通管理员，谁都不能重置超级管理员。
+//   v6_34 还没执行时保守处理：用 admin_list_all_users 查对方是不是管理员，是就拒绝（查不到也拒绝）。
 // 部署时 verify_jwt=false（项目用新式 publishable/secret key），身份在下面自己校验。
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isUuid, strong, tempPassword } from "./lib.ts";
@@ -47,6 +49,13 @@ Deno.serve(async (req) => {
   const target = String(body.user_id || "");
   if (!isUuid(target)) return fail(400, "bad_user", "用户编号不正确");
   if (target === adminId) return fail(400, "self", "不能在这里重置自己的密码，请到「工作台设置 → 修改密码」");
+
+  const mt = await caller.rpc("admin_may_target", { p_user: target });
+  if (mt.error) {
+    const all = await caller.rpc("admin_list_all_users");
+    const row = !all.error && Array.isArray(all.data) ? all.data.find((x: any) => x.id === target) : null;
+    if (all.error || !row || row.is_admin) return fail(403, "admin_target", "不能重置管理员的密码");
+  } else if (mt.data !== true) return fail(403, "admin_target", "不能重置其他管理员的密码（只有超级管理员可以，且不能重置超级管理员）");
 
   const secret = envKey("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
   if (!secret) return fail(503, "not_configured", "服务端缺少管理密钥，无法重置密码");

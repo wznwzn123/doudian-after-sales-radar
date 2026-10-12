@@ -417,7 +417,7 @@ async function restoreScenarios(browser, htmlPath) {
       { id: "t2", order_id: "ORD222", store_name: "店B", email: "c@x.com", status: "待举证", risk: "普通", tracking_no: "YT002", created_at: "2026-10-02T00:00:00Z" }],
     admin_list_all_evidence: [{ id: "e1", file_name: "pic.jpg", email: "b@x.com", mime_type: "image/jpeg", size_bytes: 2048, created_at: "2026-10-01T00:00:00Z" }],
     admin_list_tracking: [{ id: "k1", tracking_no: "SF001", email: "b@x.com", order_id: "ORD111", monitoring: true }, { id: "k2", tracking_no: "YT002", email: "c@x.com", order_id: "ORD222", monitoring: false }],
-    admin_list_users: [{ id: "u1", email: "a@x.com", task_count: 2 }, { id: "u3", email: "boss@x.com", task_count: 0 }],
+    admin_list_users: [{ id: "u1", email: "a@x.com", task_count: 2 }, { id: "33333333-0000-4000-8000-000000000003", email: "boss@x.com", task_count: 0 }],
     admin_list_all_stores: [{ store_id: "s1", owner_email: "b@x.com", store_name: "店A", platform: "抖店", status: "active", task_count: 3 }],
     admin_list_library: [{ id: "l1", file_name: "合同.pdf", email: "b@x.com", store_name: "店A", platform: "通用", usage_count: 2 }],
     admin_list_logs: [{ id: "g1", user_id: "u1", email: "a@x.com", action: "device_block", detail: "WEB-1 / 測試", created_at: "2026-10-03T00:00:00Z" }],
@@ -449,7 +449,7 @@ async function restoreScenarios(browser, htmlPath) {
   await tab("logs"); b = await body();
   check(g, "logs tab", b.includes("device_block") && b.includes("測試") && b.includes("a@x.com"), b);
   await tab("settings"); b = await body();
-  check(g, "settings tab shows version + 3h", b.includes("6.33.1") && b.includes("3 小时"), b);
+  check(g, "settings tab shows version + 3h", b.includes("6.34.0") && b.includes("3 小时"), b);
   await tab("users"); b = await body();
   check(g, "users tab lists ALL users (admin_list_all_users), not just admins", b.includes("a@x.com") && b.includes("b@x.com") && !b.includes("boss@x.com") && b.includes("管理员") && b.includes("全站共 2 个账号"), b);
   // admins tab
@@ -461,7 +461,7 @@ async function restoreScenarios(browser, htmlPath) {
   check(g, "add admin sends {p_email}", c.length === 1 && c[0].args.p_email === "new@x.com", JSON.stringify(c));
   await page.click('#admList button:text-is("移除")'); await settle(page);
   c = await calls(page, "admin_remove_user");
-  check(g, "remove admin sends {p_user_id}", c.length === 1 && c[0].args.p_user_id === "u3", JSON.stringify(c));
+  check(g, "remove admin sends {p_user_id}", c.length === 1 && c[0].args.p_user_id === "33333333-0000-4000-8000-000000000003", JSON.stringify(c));
   const nBefore = (await calls(page, "admin_remove_user")).length;
   await page.evaluate("adminRemoveUser('u1')");
   check(g, "cannot remove self (no RPC sent)", (await calls(page, "admin_remove_user")).length === nBefore);

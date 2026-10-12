@@ -79,7 +79,7 @@ const STUB = `
   },
   from:(t)=>builder(t),
   functions:{async invoke(name,opts){if(name==='login-alert-mail'){window.__mailCalls=(window.__mailCalls||[]).concat([opts.body]);return typeof window.__mailReply==='function'?window.__mailReply(opts.body):{data:null,error:{message:'not stubbed'}}}window.__fn=(window.__fn||[]).concat([{name,opts}]);return typeof window.__fnReply==='function'?window.__fnReply(name,opts):{data:null,error:{message:'not stubbed'}}}},
-  channel(name){window.__chans=(window.__chans||0)+1;const c={name,state:'joining',on(type,cfg,cb){window.__rt.push({name,cfg,cb,ch:c});return c},subscribe(cb){c.__cb=cb;window.__subs=(window.__subs||[]).concat([{name,ch:c,cb}]);if(window.__autoJoin!==false&&name==='after-sales-presence'){}return c},async track(p){window.__tracks=(window.__tracks||[]).concat([p])},async untrack(){},presenceState(){return c.__state||{}}};return c},
+  channel(name,opts){window.__chans=(window.__chans||0)+1;const c={name,opts,state:'joining',on(type,cfg,cb){window.__rt.push({name,cfg,cb,ch:c});return c},subscribe(cb){c.__cb=cb;window.__subs=(window.__subs||[]).concat([{name,ch:c,cb}]);if(window.__autoJoin!==false&&name==='after-sales-presence'){}return c},async track(p){window.__tracks=(window.__tracks||[]).concat([p])},async untrack(){},presenceState(){return c.__state||{}}};return c},
   removeChannel(c){window.__removedChannels++;c.state='closed';if(c.__cb)c.__cb('CLOSED')},
   storage:{from:()=>({
    async upload(path,f,o){window.__uploads=(window.__uploads||[]).concat([{path,name:f&&f.name,type:o&&o.contentType}]);return window.__uploadError?{error:{message:window.__uploadError}}:{error:null}},
@@ -631,12 +631,21 @@ async function run(browser, htmlPath) {
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed() });
     await page.waitForTimeout(300);
-    const P = "window.__subs.filter(s=>s.name==='after-sales-presence').pop()";
+    const P = "window.__subs.filter(s=>s.name==='after-sales-online').pop()";
+    const U2 = "22222222-0000-4000-8000-0000000000a1", FAKE = "99999999-0000-4000-8000-0000000000ff";
     check("6.22 online: '…' while connecting (not 0)", (await text(page, "#online")) === "…");
     await page.evaluate(`(()=>{const s=${P};s.ch.state='joined';s.cb('SUBSCRIBED')})()`); await page.waitForTimeout(50);
     check("6.22 online: tracks itself after SUBSCRIBED", (await page.evaluate("(window.__tracks||[]).length")) === 1 && (await page.evaluate("window.__tracks[0].user_id")) === "u1");
-    await page.evaluate(`(()=>{const s=${P};s.ch.__state={u1:[{user_id:'u1'}],u2:[{user_id:'u2'},{user_id:'u2'}]};window.__rt.find(r=>r.ch===s.ch&&r.cfg.event==='sync').cb()})()`);
-    check("6.22 online: sync counts distinct accounts", (await text(page, "#online")) === "2");
+    check("6.34 online: private channel after-sales-online (only logged-in users can join)", await page.evaluate(`(()=>{const s=${P};return !!(s&&s.ch.opts&&s.ch.opts.config&&s.ch.opts.config.private===true)})()`));
+    check("6.34 online: refreshes its own server activity when joining", (await page.evaluate("window.__calls.filter(c=>c.name==='my_session_status').length")) >= 1);
+    await page.evaluate(`(()=>{const s=${P};s.ch.__state={u1:[{user_id:'u1'}],a:[{user_id:'${U2}'},{user_id:'${U2}'}]};window.__rt.find(r=>r.ch===s.ch&&r.cfg.event==='sync').cb()})()`); await page.waitForTimeout(400);
+    check("6.22 online: sync counts distinct accounts (no verify function yet -> unverified list)", (await text(page, "#online")) === "2");
+    // 6.34: someone tracks a made-up id / a non-id -> only accounts the server saw recently count; I always count
+    await page.evaluate((U2) => { window.__rpcs = { online_verify: (a) => { window.__verifyArgs = a; return { data: a.p_ids.filter((x) => x === U2), error: null }; } }; }, U2);
+    await page.evaluate(`(()=>{const s=${P};s.ch.__state={u1:[{user_id:'u1'}],a:[{user_id:'${U2}'}],f:[{user_id:'${FAKE}'}],g:[{user_id:'<img src=x>'}]};window.__rt.find(r=>r.ch===s.ch&&r.cfg.event==='sync').cb()})()`); await page.waitForTimeout(400);
+    check("6.34 online: spoofed / unverified ids are not counted, self is", (await text(page, "#online")) === "2" && JSON.stringify(await page.evaluate("window.__onlineUsers.map(u=>u.id).sort()")) === JSON.stringify(["${U2}".replace("${U2}", U2), "u1"].sort()), await page.evaluate("JSON.stringify(window.__onlineUsers)"));
+    check("6.34 online: only well-formed ids are sent for verification", JSON.stringify((await page.evaluate("window.__verifyArgs.p_ids")).sort()) === JSON.stringify([U2, FAKE].sort()));
+    await page.evaluate("window.__rpcs=null");
     // phone came back from background: still joined but my presence is gone -> re-track
     await page.evaluate(`(()=>{const s=${P};s.ch.__state={u2:[{user_id:'u2'}]}})()`);
     await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); await page.waitForTimeout(50);
@@ -1104,6 +1113,37 @@ async function run(browser, htmlPath) {
     check("6.33 upload: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+  // ---- 6.34 super admin: buttons that the server would refuse are not shown (the server still checks)
+  {
+    const O = "u1", A2 = "33333333-0000-4000-8000-0000000000a2", U = "44444444-0000-4000-8000-0000000000b0";
+    const users = [{ id: O, email: "a@x.com", is_admin: true }, { id: A2, email: "second@x.com", is_admin: true }, { id: U, email: "user@x.com", is_admin: false }];
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users });
+    await page.waitForTimeout(300);
+    // v6_34 not installed: nothing hidden (server decides), admins page says tiers are not enabled
+    await page.evaluate("adminPanel('users')"); await page.waitForTimeout(300);
+    check("6.34 users (no SQL yet): reset offered for the other admin and the user", (await page.evaluate("[...document.querySelectorAll('#admList button')].filter(b=>b.textContent==='重置密码').length")) === 2);
+    // owner = super
+    await page.evaluate((A2) => { window.__rpcs = { admin_roles: () => ({ data: [{ user_id: "u1", is_super: true }, { user_id: A2, is_super: false }], error: null }), admin_list_users: () => ({ data: [{ id: "u1", email: "a@x.com" }, { id: A2, email: "second@x.com" }], error: null }), admin_list_account_bans: () => ({ data: [], error: null }) }; }, A2);
+    await page.evaluate("adminUsers()"); await page.waitForTimeout(300);
+    check("6.34 users (super): may reset the normal admin and the user", (await page.evaluate("[...document.querySelectorAll('#admList button')].filter(b=>b.textContent==='重置密码').length")) === 2);
+    await page.evaluate("adminAdmins()"); await page.waitForTimeout(300);
+    let t = await text(page, "#adminBody");
+    check("6.34 admins (super): badge, add form, remove for the normal admin only", t.includes("超级管理员") && t.includes("你是超级管理员") && !!(await page.$("#admNewEmail")) && (await page.evaluate("[...document.querySelectorAll('#admList button')].filter(b=>b.textContent==='移除').length")) === 1, t.slice(0, 200));
+    // a normal admin: nothing against other admins, no add/remove
+    await page.evaluate((A2) => { window.__rpcs.admin_roles = () => ({ data: [{ user_id: A2, is_super: true }, { user_id: "u1", is_super: false }], error: null }); }, A2);
+    await page.evaluate("adminUsers()"); await page.waitForTimeout(300);
+    const rowTxt = await page.evaluate((A2) => [...document.querySelectorAll("#admList tr")].map((r) => ({ t: r.textContent, b: [...r.querySelectorAll("button")].map((x) => x.textContent) })), A2);
+    const sup = rowTxt.find((r) => r.t.includes("second@x.com")), usr = rowTxt.find((r) => r.t.includes("user@x.com"));
+    check("6.34 users (normal admin): no reset for the super admin, still for normal users", sup && !sup.b.includes("重置密码") && sup.t.includes("超级管理员") && usr && usr.b.includes("重置密码"), JSON.stringify(rowTxt));
+    await page.evaluate("adminAdmins()"); await page.waitForTimeout(300);
+    t = await text(page, "#adminBody");
+    check("6.34 admins (normal admin): no add form, no remove buttons, explains why", !(await page.$("#admNewEmail")) && !(await page.evaluate("[...document.querySelectorAll('#admList button')].some(b=>b.textContent==='移除')")) && t.includes("你是普通管理员") && t.includes("服务端校验"), t.slice(0, 200));
+    await page.evaluate("adminAccounts()"); await page.waitForTimeout(300);
+    const kick = await page.evaluate(() => [...document.querySelectorAll("#accList .card")].map((c) => ({ t: c.textContent, k: [...c.querySelectorAll("button")].some((b) => b.textContent === "强制下线") })));
+    check("6.34 accounts (normal admin): 强制下线 for the user, not for the super admin", kick.find((c) => c.t.includes("user@x.com")).k && !kick.find((c) => c.t.includes("second@x.com")).k, JSON.stringify(kick.map((c) => [c.t.slice(0, 20), c.k])));
+    check("6.34 tiers: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    await ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
@@ -1264,7 +1304,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.33.1") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.34.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
