@@ -55,8 +55,9 @@ const Chaos = () => {
       <AbsoluteFill style={{ perspective: 1000, perspectiveOrigin: "50% 52%" }}>
         {CARDS.map((c, i) => {
           const z = c.z0 + (lt + 1.1) * v;
-          if (z > 700) return null;
-          const a = Math.min(prog(z, -4200, -3000), 1 - prog(z, 250, 650));
+          // 离镜头太近（放大太多）的模糊图层，在无显卡环境下会整层画不出来，所以提前淡出
+          if (z > 420) return null;
+          const a = Math.min(prog(z, -4200, -3000), 1 - prog(z, 150, 420));
           const blur = Math.min(10, Math.abs(z + 200) / 180);
           const [ico, store, msg, time, cols] = c.n;
           return (
@@ -277,8 +278,6 @@ const End = () => {
 };
 
 // ================= 总装 =================
-// 动态模糊在后期按这些时间段做帧混合（见 finish.sh）
-export const BLUR_WINDOWS = [[9.45, 9.95], [17.9, 19.45], [23.7, 24.55], [28.7, 29.55], [34.7, 35.55], [39.7, 40.7], [41.25, 42.5], [44.8, 45.6]];
 const SCENES = [[Intro, "intro"], [Chaos, "chaos"], [Zero, "zero"], [Brand, "brand"], [Product, "home", S.stores[1] + 0.6], [Bento, "bento"], [Promise_, "promise"], [End, "end"]];
 const Content = () => {
   const { fps } = useVideoConfig();
