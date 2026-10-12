@@ -1,6 +1,9 @@
-# 拼接分段渲染，检查坏帧，只重画坏帧附近几帧，反复检查直到干净，再输出 build/raw_fixed.mp4。
-# 坏帧的三种样子（无显卡环境渲染 3D 手机时偶发）：屏幕上一块块黑、整片露出机身背后的灰色金属层、和前后帧对不上。
-# 修不好就以非零状态退出，不让有瑕疵的成片继续往下走。
+# 用“两次渲染逐帧比对”找坏帧并修好，输出 build/raw_fixed.mp4。
+# 背景：无显卡的云端机器上，Chromium 偶尔会漏画某个图层的一块（手机、卡片、背景都可能），而且是随机的；
+# 正常画面每次渲染都一模一样。所以：
+#   1. 整片渲染两次（c.*.mp4 和 d.*.mp4），逐帧比对；
+#   2. 两次不一样的帧，再单独重画，直到某个版本和之前任一版本一致（两票一致就是正确画面）；
+#   3. 用一致的版本拼成整片。
 # 用法：python3 assemble.py
 import glob, json, os, subprocess, sys
 import numpy as np
@@ -8,9 +11,16 @@ import numpy as np
 here = os.path.dirname(os.path.abspath(__file__))
 B = os.path.join(here, "build")
 W, H, FPS, TOTAL = 1080, 1920, 60, 3600
-SW, SH = 108, 192
-LO, HI = int(18.6 * FPS), int(45.3 * FPS)          # 有手机的产品段
-CUTS = [24.0, 29.0, 35.0, 40.0, 41.3]               # 镜头切换处，前后帧本来就对不上
+SW, SH = 216, 384          # 比对用的小图（够细，能看出一小块缺失）
+CELL = 12                  # 分块比对：任一块平均差超过 THR 就算不一致
+THR = 6.0
+
+
+def concat(prefix, out):
+    lst = os.path.join(B, f"{prefix}_parts.txt")
+    with open(lst, "w") as f:
+        for c in sorted(glob.glob(os.path.join(B, f"{prefix}.[0-9][0-9][0-9][0-9][0-9].mp4"))): f.write(f"file '{c}'\n")
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", out], check=True)
 
 
 def decode(src, small=True):
@@ -19,83 +29,69 @@ def decode(src, small=True):
     return np.frombuffer(p.stdout, np.uint8).reshape((-1, SH, SW) if small else (-1, H, W, 3)).astype(np.float32 if small else np.uint8)
 
 
-def region(a, n):
-    return a[n, 70:170, 14:42] if n / FPS >= 41.3 else a[n, 70:170, 30:80]  # 41.3 秒后右边有台深色手机，只看左边那台
-
-
-def find_bad(a):
-    bright = np.array([(region(a, n) > 170).mean() for n in range(TOTAL)])
-    bad = set()
-    for n in range(LO, HI):
-        r = region(a, n)
-        if (r < 22).mean() > 0.06: bad.add(n)                                   # 黑块
-        win = [j for j in range(n - 8, n + 9) if j != n and LO <= j < HI]
-        m = np.median(bright[win])
-        if m > 0.15 and bright[n] < 0.6 * m: bad.add(n)                        # 屏幕亮度突然暴跌（露出灰色背板）
-        near_cut = any(abs(n / FPS - c) < 3 / FPS for c in CUTS)
-        if not near_cut and 0 < n < TOTAL - 1:                                  # 和前后帧都对不上，而前后帧彼此一致
-            ph = a[n, 50:185, 5:103]; pv = a[n - 1, 50:185, 5:103]; nx = a[n + 1, 50:185, 5:103]
-            d = np.abs(ph - (pv + nx) / 2).mean(); base = np.abs(pv - nx).mean()
-            if d > 6 and d > 4 * base: bad.add(n)
-    return sorted(bad)
+def differ(x, y):
+    d = np.abs(x - y).reshape(SH // CELL, CELL, SW // CELL, CELL).mean(axis=(1, 3))
+    return d.max() > THR
 
 
 def ranges_for(frames):
     out = []
     for n in sorted(frames):
-        a, b = max(0, n - 1), min(TOTAL - 1, n + 1)
-        if out and a <= out[-1][1] + 1: out[-1][1] = max(out[-1][1], b)
-        else: out.append([a, b])
+        if out and n <= out[-1][1] + 2: out[-1][1] = n
+        else: out.append([n, n])
     return out
 
 
-# 1 拼接
-chunks = sorted(glob.glob(os.path.join(B, "c.[0-9][0-9][0-9][0-9][0-9].mp4")))
-with open(os.path.join(B, "parts.txt"), "w") as f:
-    for c in chunks: f.write(f"file '{c}'\n")
-raw = os.path.join(B, "raw.mp4")
-subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", os.path.join(B, "parts.txt"), "-c", "copy", raw], check=True)
-small = decode(raw)
-if len(small) != TOTAL: sys.exit(f"帧数不对：{len(small)}")
-small = small.copy()
-bad = find_bad(small)
-print("坏帧", len(bad), bad[:40])
+A, D = os.path.join(B, "raw.mp4"), os.path.join(B, "raw2.mp4")
+concat("c", A); concat("d", D)
+a, d = decode(A), decode(D)
+if len(a) != TOTAL or len(d) != TOTAL: sys.exit(f"帧数不对：{len(a)} / {len(d)}")
+cand = [n for n in range(TOTAL) if differ(a[n], d[n])]
+print("两次渲染不一致的帧", len(cand), cand[:60])
 
-# 2 只重画坏帧附近；把重画结果放回去后整段重新检查，直到没有坏帧
-patches = {}  # 帧号 -> (文件, 文件内序号)
-todo = bad
-for it in range(1, 8):
+# 每个不一致的帧收集多个版本，直到有两个版本一致
+versions = {n: [("A", n, a[n]), ("D", n, d[n])] for n in cand}
+chosen = {}  # 帧号 -> ("A"|"D"|补丁文件, 序号)
+todo = list(cand)
+for it in range(1, 9):
     if not todo: break
     rs = ranges_for(todo)
-    d = os.path.join(B, f"patch{it}"); os.makedirs(d, exist_ok=True)
-    rf = os.path.join(d, "ranges.json"); json.dump(rs, open(rf, "w"))
-    subprocess.run(["node", "patch.mjs", rf, d], cwd=os.path.join(here, "remotion"), check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    for a, b in rs:
-        f = os.path.join(d, f"r_{a}_{b}.mp4"); s = decode(f)
-        if len(s) != b - a + 1: sys.exit(f"{f} 帧数不对")
-        for k, n in enumerate(range(a, b + 1)):
-            patches[n] = (f, k); small[n] = s[k]
-    todo = find_bad(small)
-    print(f"第 {it} 轮：重画 {sum(b - a + 1 for a, b in rs)} 帧，整段复查后还有 {len(todo)} 帧坏 {todo[:20]}")
-if todo: sys.exit(f"重画多轮后仍有坏帧：{todo}")
+    pd = os.path.join(B, f"vote{it}"); os.makedirs(pd, exist_ok=True)
+    rf = os.path.join(pd, "ranges.json"); json.dump(rs, open(rf, "w"))
+    subprocess.run(["node", "patch.mjs", rf, pd], cwd=os.path.join(here, "remotion"), check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    nxt = []
+    for r0, r1 in rs:
+        f = os.path.join(pd, f"r_{r0}_{r1}.mp4"); s = decode(f)
+        if len(s) != r1 - r0 + 1: sys.exit(f"{f} 帧数不对")
+        for k, n in enumerate(range(r0, r1 + 1)):
+            if n not in versions or n in chosen: continue
+            new = (f, k, s[k])
+            match = next((v for v in versions[n] if not differ(v[2], new[2])), None)
+            if match: chosen[n] = (match[0], match[1])
+            else: versions[n].append(new); nxt.append(n)
+    todo = nxt
+    print(f"第 {it} 轮投票：还有 {len(todo)} 帧没有两个一致的版本")
+if todo: sys.exit(f"多轮后仍无法确定：{todo}")
 
-# 3 输出修好的整片
+# 输出：默认用第一次渲染（A），投票结果是别的版本的帧换掉
+patch = {n: v for n, v in chosen.items() if v[0] != "A"}
+print("需要替换的帧", len(patch))
 cache = {}
 enc = subprocess.Popen(["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
                         "-c:v", "libx264", "-preset", "veryfast", "-crf", "10", "-pix_fmt", "yuv420p", os.path.join(B, "raw_fixed.mp4")], stdin=subprocess.PIPE)
-dec = subprocess.Popen(["ffmpeg", "-v", "error", "-i", raw, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE, bufsize=10 ** 8)
+dA = subprocess.Popen(["ffmpeg", "-v", "error", "-i", A, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE, bufsize=10 ** 8)
+dD = subprocess.Popen(["ffmpeg", "-v", "error", "-i", D, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE, bufsize=10 ** 8)
 nb = W * H * 3
 for n in range(TOTAL):
-    fr = dec.stdout.read(nb)
-    if n in patches:
-        f, k = patches[n]
-        if f not in cache: cache = {f: decode(f, small=False)}
-        fr = cache[f][k].tobytes()
-    enc.stdin.write(fr)
-enc.stdin.close(); enc.wait(); dec.wait()
-
-# 4 最后整片再查一遍
-final = decode(os.path.join(B, "raw_fixed.mp4"))
-left = find_bad(final) if len(final) == TOTAL else ["帧数不对"]
-print("修好后整片帧数", len(final), "坏帧", len(left), left[:20])
-sys.exit(1 if left else 0)
+    fa = dA.stdout.read(nb); fd = dD.stdout.read(nb)
+    if n in patch:
+        src, k = patch[n]
+        if src == "D": fa = fd
+        else:
+            if src not in cache: cache = {src: decode(src, small=False)}
+            fa = cache[src][k].tobytes()
+    enc.stdin.write(fa)
+enc.stdin.close(); enc.wait(); dA.wait(); dD.wait()
+fin = decode(os.path.join(B, "raw_fixed.mp4"))
+print("整片帧数", len(fin))
+sys.exit(0 if len(fin) == TOTAL else 1)
