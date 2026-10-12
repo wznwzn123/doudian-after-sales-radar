@@ -8,7 +8,7 @@ run() {
   local a=$1 b=$2 out="$PRE.$(printf %05d $1).mp4"
   for try in 1 2 3; do
     [ -s "$out" ] && return 0
-    CONC=1 timeout 1200 node render.mjs "$out.tmp.mp4" "" "$a-$b" > "$out.log" 2>&1 && mv "$out.tmp.mp4" "$out" && echo "ok $a-$b" && return 0
+    CONC=${CONC:-1} timeout 2400 node render.mjs "$out.tmp.mp4" "" "$a-$b" > "$out.log" 2>&1 && mv "$out.tmp.mp4" "$out" && echo "ok $a-$b" && return 0
     echo "retry $a-$b ($try)"; pkill -f "render.mjs $out.tmp.mp4" 2>/dev/null
   done
   echo "FAILED $a-$b"

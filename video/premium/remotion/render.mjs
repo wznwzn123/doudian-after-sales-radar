@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const [out = "../build/film.mp4", stills, range] = process.argv.slice(2);
-const opts = { browserExecutable: process.env.BROWSER || path.join(here, "chromium-full-raster.sh"), chromeMode: "chrome-for-testing" };
+const opts = { browserExecutable: process.env.BROWSER || path.join(here, "chromium-cpu.sh"), chromeMode: "chrome-for-testing" };
 const serveUrl = await bundle({ entryPoint: path.join(here, "src/index.js"), publicDir: path.join(here, "public") });
 const composition = await selectComposition({ serveUrl, id: "film", ...opts });
 if (stills) {
