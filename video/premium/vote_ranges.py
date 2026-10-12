@@ -8,7 +8,7 @@ import numpy as np
 here = os.path.dirname(os.path.abspath(__file__))
 B = os.path.join(here, "build")
 W, H, FPS, TOTAL = 1080, 1920, 60, 3600
-SW, SH, CELL, THR = 216, 384, 12, 6.0
+SW, SH, CELL, THR = 216, 384, 8, 3.0
 segs = [tuple(map(int, s.split("-"))) for s in sys.argv[1:]]
 
 

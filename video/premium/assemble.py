@@ -11,9 +11,9 @@ import numpy as np
 here = os.path.dirname(os.path.abspath(__file__))
 B = os.path.join(here, "build")
 W, H, FPS, TOTAL = 1080, 1920, 60, 3600
-SW, SH = 216, 384          # 比对用的小图（够细，能看出一小块缺失）
-CELL = 12                  # 分块比对：任一块平均差超过 THR 就算不一致
-THR = 6.0
+SW, SH = 216, 384          # 比对用的小图
+CELL = 8                   # 分块比对：任一块平均差超过 THR 就算不一致（细到能抓到一小块变暗）
+THR = 3.0
 
 
 def concat(prefix, out):
