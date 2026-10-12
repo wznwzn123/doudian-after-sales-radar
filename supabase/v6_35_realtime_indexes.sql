@@ -1,5 +1,5 @@
 -- 售后雷达 Pro 6.35：打开「多设备即时同步」+ 补索引（需要在 SQL Editor 执行，一段）
--- 状态：待用户执行。可重复执行。
+-- 状态：已于 2026-10-12 由用户执行，只读核对 2 / 3 / 1（两张表进了 supabase_realtime 发布、3 个索引、admin_users 主键）。可重复执行。
 -- 写之前已用只读查询核对（2026-10-12）：
 --   * 前端 subscribeRealtime() 订阅了 after_sales_tasks、evidence_files 的 postgres_changes（按 user_id 过滤），收到后 0.4 秒合并刷新、正在输入时不重开详情；
 --     但 supabase_realtime 发布里一张表都没有（pg_publication_tables 为空），所以这个功能一直没生效 —— 另一台设备改了售后，这台要手动刷新才看得到。

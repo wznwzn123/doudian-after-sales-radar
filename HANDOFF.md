@@ -90,7 +90,7 @@
   - 在线名单：频道从公开的 `after-sales-presence` 改为私有的 `after-sales-online`（private: true），realtime.messages 加两条策略（只允许 presence、只允许这个 topic、登录且没被封 / 不是待审核 / 登录没被作废）；以前拿网页里的公开 key 不登录也能进频道、看到所有在线用户编号、冒充任意编号在线。名单里的编号再用 `online_verify(ids)` 核实：只留「服务端最近 5 分钟记录到活动」（device_sessions.seen_at / security_devices.last_seen，每 2 分钟复查写入）的账号，自己总算在线；加入频道时顺便调一次 my_session_status 刷新自己的活动。
   - 前端：管理员页显示「超级管理员」徽章，普通管理员看不到添加 / 移除，用户列表和账号管理里对不能操作的管理员不显示「重置密码」「强制下线」（服务端仍然校验）；设备封禁被拒时显示中文原因；管理员页的移除按钮 onclick 只放校验过的 uuid。
   - 测试：`dev/v6_34_super_admin_presence.pgtest.sql` 41/41（含「修之前第二个管理员能移除主人」的复现、realtime 策略：未登录 / 被封 / 登录已作废都进不去、别的 topic 和 broadcast 不行）；stage2 371/371；gate 0 失败（gate 的管理员 id 改成 uuid 格式）；admin-reset Deno 15。
-- **v6_35 即时同步 + 索引**（用户问「还有哪些地方可以优化」，我跑了 Supabase 安全 / 性能检查后建议先做这两项，用户说「開始」）。SQL `supabase/v6_35_realtime_indexes.sql`，待用户执行。
+- **v6_35 即时同步 + 索引**（用户问「还有哪些地方可以优化」，我跑了 Supabase 安全 / 性能检查后建议先做这两项，用户说「開始」）。SQL `supabase/v6_35_realtime_indexes.sql`，已由用户执行并只读核对（2 / 3 / 1）。
   - 前端 subscribeRealtime() 一直订阅 after_sales_tasks / evidence_files 的变更，但 supabase_realtime 发布里没有任何表，所以多设备即时同步从来没生效；现在把两张表加进发布（RLS 照样按订阅者检查）。前端不用改。
   - 补 3 个外键索引（tracking_records.task_id、revoked_sessions.user_id、evidence_library.store_id），admin_users 的唯一约束换成主键。
   - 检查里其余项目：14 张「开了 RLS 没策略」的表是故意的（只给服务端用）；45 个 security definer 函数都在函数内校验权限；16 个「没用过的索引」是数据太少，暂不删；support_messages 两条 insert 宽松策略（用户 / 管理员各一条）不用合并。
