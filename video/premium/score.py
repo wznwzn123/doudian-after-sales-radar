@@ -334,13 +334,12 @@ music += reverb(send, rt=2.6, damp=7000) * 0.55
 music += pingpong(plucks, BEAT * 0.75, fb=0.35, n=4) * 0.5
 sfx_mix = sfx + reverb(sfx, rt=1.8, damp=8000) * 0.3
 
-def master(x, peak=0.9):
+def master(x, g):
+    """同一个增益 g 处理各个版本，保证无配乐版里的音效和完整版一样响。"""
     x = x[:, :int(DUR * SR)].copy()
     x = fft_filter(x, 28, 18000)
     fo = int(0.8 * SR); x[:, -fo:] *= np.linspace(1, 0, fo) ** 2
-    x = x / (np.max(np.abs(x)) + 1e-9) * 1.4
-    x = np.tanh(x) / np.tanh(1.4)  # 软削波，让鼓更紧
-    return x / (np.max(np.abs(x)) + 1e-9) * peak
+    return np.tanh(x * g) / np.tanh(1.4) * 0.9  # 软削波，让鼓更紧
 
 def write(name, x):
     pcm = (np.clip(x, -1, 1).T * 32767).astype(np.int16)
@@ -349,7 +348,8 @@ def write(name, x):
     print("wrote", name)
 
 os.makedirs(outdir, exist_ok=True)
-m_only, s_only = music, sfx_mix
-write("mix.wav", master(m_only * 0.85 + s_only * 0.9))
-write("music.wav", master(m_only))
-write("sfx.wav", master(s_only, 0.5))
+mix_pre = music * 0.85 + sfx_mix * 0.9
+g = 1.4 / (np.max(np.abs(fft_filter(mix_pre[:, :int(DUR * SR)], 28, 18000))) + 1e-9)
+write("mix.wav", master(mix_pre, g))
+write("music.wav", master(music * 0.85, g))
+write("sfx.wav", master(sfx_mix * 0.9, g))
