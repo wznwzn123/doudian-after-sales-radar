@@ -1,5 +1,23 @@
 # 售后雷达 Pro 宣传视频
 
+## 第 3 版：1 分钟精品宣传片（推荐）
+成品在 `out/`：`售后雷达_宣传片_60秒.mp4`（配乐 + 音效）、`售后雷达_宣传片_60秒_无配乐.mp4`（只有音效，发抖音时可自选音乐）、`售后雷达_宣传片_封面.jpg`。
+
+1080×1920，60fps，约 60 秒，四幕：痛点（倒计时归零）→ 品牌登场（App 图标绘制）→ 产品功能（3D 手机 + 界面卡片浮出）→ 收尾。没有旁白，靠画面文字和配乐。
+
+- 画面用最新版 `index.html`（Pro 6.33）录制，Supabase 换成 `dev/stage2.test.js` 的测试桩，数据在 `premium/demo-data.js`，**全部是演示数据**；痛点段的通知和倒计时是情景演绎。
+- 品牌色和图标按 `dev/app-icon.html` 重建。字体：思源黑体（Noto Sans SC，SIL OFL）。
+- 配乐和音效由 `premium/score.py` 用代码合成（含立体声混响、侧链），无版权问题。
+
+重新生成：
+```bash
+cd video/premium
+node record.js                         # 录镜头和浮出卡片截图（需要 .app-main.html / .stage2-main.js，见 record.js 顶部）
+cd remotion && npm install && node render.mjs ../build/film.mp4 && cd ..
+python3 score.py build && ./finish.sh
+```
+改文案和节奏：`premium/remotion/src/plan.json`（时间点）和 `src/Film.jsx`（各场景）。
+
 ## 第 2 版：店主痛点版（Remotion 制作，推荐）
 成品在 `out/`：
 
