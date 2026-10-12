@@ -164,7 +164,7 @@ export const AppIcon = ({ size, ring = 1, blip = 1, dot = 1, tile = 1, sweep = -
 export const SCREEN = { w: shotsMeta.width * shotsMeta.dpr, h: shotsMeta.height * shotsMeta.dpr, dpr: shotsMeta.dpr };
 export const K = 0.47, BEZEL = 17, SB = 150;
 export const PW = SCREEN.w * K + BEZEL * 2, PH = (SCREEN.h + SB) * K + BEZEL * 2;
-const RAD = 96;
+const RAD = 96, TH = 6; // TH：机身厚度层数
 // 页面坐标（CSS px）→ 手机内坐标
 export const toPhone = (r) => ({ left: BEZEL + r.x * SCREEN.dpr * K, top: BEZEL + SB * K + r.y * SCREEN.dpr * K, w: r.w * SCREEN.dpr * K, h: r.h * SCREEN.dpr * K });
 
@@ -191,52 +191,54 @@ export const Phone = ({ pose, shots, pops = [], dim = 0, dark = false, cx = W / 
   const t0 = useContext(ShiftCtx) / fps;
   const { x = 0, y = 0, rx = 0, ry = 0, rz = 0, s = 1, o = 1 } = pose;
   const glare = 0.5 + ry / 60 + rx / 90;
+  const PL = cx - PW / 2, PT = cy - PH / 2;
+  const T = `translate3d(${x}px,${y}px,0) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${s})`;
+  // box：该层在手机里的位置；transform-origin 设在手机中心，保证和整台手机一起转
+  const layer = (key, style, extra = "", box = { left: 0, top: 0, w: PW, h: PH }, children = null) => (
+    <div key={key} style={{ position: "absolute", left: PL + box.left, top: PT + box.top, width: box.w, height: box.h, transformOrigin: `${PW / 2 - box.left}px ${PH / 2 - box.top}px`, transform: `${T} ${extra}`, ...style }}>{children}</div>
+  );
   return (
     <AbsoluteFill style={{ opacity: o }}>
       {/* 背后光晕与地面阴影（2D） */}
       <div style={{ position: "absolute", left: cx + x - 520 * s, top: cy + y - 700 * s, width: 1040 * s, height: 1400 * s, borderRadius: "50%", background: `radial-gradient(closest-side, ${glowColor}, transparent)`, opacity: 0.9 }} />
       <div style={{ position: "absolute", left: cx + x - 300 * s, top: cy + y + PH * s * 0.5 - 30 * s, width: 600 * s, height: 90 * s, borderRadius: "50%", background: "radial-gradient(closest-side, rgba(0,0,0,.55), transparent)", filter: `blur(${10 * s}px)` }} />
+      {/* 不用 preserve-3d 嵌套：每一层各自带上整台手机的变换（数学上等价），
+          嵌套的 3D 渲染上下文在无显卡环境下会随机漏画整层 */}
       <AbsoluteFill style={{ perspective: 2600, perspectiveOrigin: `${cx}px ${cy - 200}px` }}>
-        <div style={{ position: "absolute", left: cx - PW / 2, top: cy - PH / 2, width: PW, height: PH, transformStyle: "preserve-3d", transform: `translate3d(${x}px,${y}px,0) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${s})` }}>
-          {/* 机身厚度：叠几层金属边 */}
-          {[...Array(9)].map((_, i) => (
-            <div key={i} style={{ position: "absolute", inset: 0, borderRadius: RAD, transform: `translateZ(${-2 - i * 2.2}px)`, background: i === 8 ? "#0b0c10" : `linear-gradient(${120 + ry * 2}deg, #5d6272 0%, #23252d 35%, #15161b 60%, #7b8194 100%)` }} />
-          ))}
-          <div style={{ position: "absolute", inset: 0, borderRadius: RAD, padding: 4, background: `linear-gradient(${135 + ry * 3}deg, #9aa0b4 0%, #3a3d48 22%, #1a1b21 50%, #4a4e5c 78%, #b9bfd2 100%)`, boxShadow: "0 0 0 1px rgba(255,255,255,.08)" }}>
-            <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: RAD - 4, background: "#050507", padding: BEZEL - 4 }}>
-              <div style={{ position: "relative", width: SCREEN.w * K, height: (SCREEN.h + SB) * K, borderRadius: RAD - BEZEL, overflow: "hidden", background: dark ? "#000" : "#f2f2f7" }}>
-                <StatusBar dark={dark} />
-                <div style={{ position: "absolute", left: 0, top: SB * K, width: SCREEN.w * K, height: SCREEN.h * K, overflow: "hidden" }}>
-                  {shots.map((sh) => (
-                    <Sequence key={sh.name + sh.start} from={Math.round((sh.start - t0) * fps)} durationInFrames={Math.max(1, Math.round((sh.end - sh.start) * fps))} layout="none">
-                      <ShotVideo name={sh.name} skip={sh.skip} />
-                    </Sequence>
-                  ))}
-                </div>
-                <div style={{ position: "absolute", inset: 0, background: "#05051a", opacity: dim * 0.5 }} />
-                {/* 玻璃反光 */}
-                <div style={{ position: "absolute", inset: 0, background: `linear-gradient(115deg, rgba(255,255,255,0) ${glare * 100 - 22}%, rgba(255,255,255,.10) ${glare * 100 - 8}%, rgba(255,255,255,0) ${glare * 100 + 6}%)` }} />
+        {[...Array(TH)].map((_, k) => { const i = TH - 1 - k; return layer(`th${i}`, { borderRadius: RAD, background: i === TH - 1 ? "#0b0c10" : `linear-gradient(${120 + ry * 2}deg, #5d6272 0%, #23252d 35%, #15161b 60%, #7b8194 100%)` }, `translateZ(${-2 - i * (18 / (TH - 1))}px)`); })}
+        {layer("keyL", { borderRadius: 3, background: "linear-gradient(90deg,#6b7080,#2b2e37)" }, "translateZ(-8px)", { left: -5, top: 300, w: 6, h: 110 })}
+        {layer("keyR", { borderRadius: 3, background: "linear-gradient(90deg,#2b2e37,#6b7080)" }, "translateZ(-8px)", { left: PW - 1, top: 360, w: 6, h: 170 })}
+        {layer("body", { borderRadius: RAD, padding: 4, background: `linear-gradient(${135 + ry * 3}deg, #9aa0b4 0%, #3a3d48 22%, #1a1b21 50%, #4a4e5c 78%, #b9bfd2 100%)`, boxShadow: "0 0 0 1px rgba(255,255,255,.08)" }, "", undefined,
+          <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: RAD - 4, background: "#050507", padding: BEZEL - 4 }}>
+            <div style={{ position: "relative", width: SCREEN.w * K, height: (SCREEN.h + SB) * K, borderRadius: RAD - BEZEL, overflow: "hidden", background: dark ? "#000" : "#f2f2f7" }}>
+              <StatusBar dark={dark} />
+              <div style={{ position: "absolute", left: 0, top: SB * K, width: SCREEN.w * K, height: SCREEN.h * K, overflow: "hidden" }}>
+                {shots.map((sh) => (
+                  <Sequence key={sh.name + sh.start} from={Math.round((sh.start - t0) * fps)} durationInFrames={Math.max(1, Math.round((sh.end - sh.start) * fps))} layout="none">
+                    <ShotVideo name={sh.name} skip={sh.skip} />
+                  </Sequence>
+                ))}
               </div>
+              <div style={{ position: "absolute", inset: 0, background: "#05051a", opacity: dim * 0.5 }} />
+              {/* 玻璃反光 */}
+              <div style={{ position: "absolute", inset: 0, background: `linear-gradient(115deg, rgba(255,255,255,0) ${glare * 100 - 22}%, rgba(255,255,255,.10) ${glare * 100 - 8}%, rgba(255,255,255,0) ${glare * 100 + 6}%)` }} />
             </div>
-          </div>
-          {/* 侧键 */}
-          <div style={{ position: "absolute", left: -5, top: 300, width: 6, height: 110, borderRadius: 3, background: "linear-gradient(90deg,#6b7080,#2b2e37)", transform: "translateZ(-8px)" }} />
-          <div style={{ position: "absolute", right: -5, top: 360, width: 6, height: 170, borderRadius: 3, background: "linear-gradient(90deg,#2b2e37,#6b7080)", transform: "translateZ(-8px)" }} />
-          {/* 浮出的界面卡片 */}
-          {pops.map((pp, i) => {
-            if (pp.p <= 0.001) return null;
-            const r = toPhone(pp.rect), p = pp.p;
-            const dx = ((PW / 2 - (r.left + r.w / 2)) * 0.35 + (pp.dx || 0)) * p, dy = (pp.dy || -20) * p;
-            return (
-              <div key={i} style={{ position: "absolute", left: r.left, top: r.top, width: r.w, height: r.h, borderRadius: (pp.radius ?? 22) * SCREEN.dpr * K, overflow: "hidden",
-                transform: `translate3d(${dx}px,${dy}px,${(pp.z || 160) * p}px) rotateY(${-ry * 0.55 * p}deg) rotateX(${-rx * 0.55 * p}deg) scale(${1 + (pp.scale ?? 0.16) * p})`,
-                boxShadow: `0 ${50 * p}px ${110 * p}px rgba(0,0,0,${0.55 * p}), 0 0 ${70 * p}px ${pp.glow || "rgba(106,77,255,.75)"}`, opacity: Math.min(1, p * 3) }}>
-                <Img src={staticFile(`crops/${pp.img}.png`)} style={{ width: "100%", height: "100%", display: "block" }} />
-                <div style={{ position: "absolute", inset: 0, borderRadius: "inherit", boxShadow: `inset 0 0 0 ${2.5 * p}px rgba(255,255,255,.55)` }} />
-              </div>
-            );
-          })}
-        </div>
+          </div>)}
+        {/* 浮出的界面卡片：先随手机变换，再绕卡片自己的中心转回来正对镜头 */}
+        {pops.map((pp, i) => {
+          if (pp.p <= 0.001) return null;
+          const r = toPhone(pp.rect), p = pp.p;
+          const dx = ((PW / 2 - (r.left + r.w / 2)) * 0.35 + (pp.dx || 0)) * p, dy = (pp.dy || -20) * p;
+          const ox = r.left + r.w / 2 - PW / 2, oy = r.top + r.h / 2 - PH / 2;
+          return layer(`pop${i}`, { borderRadius: (pp.radius ?? 22) * SCREEN.dpr * K, overflow: "hidden", opacity: Math.min(1, p * 3),
+              boxShadow: `0 ${50 * p}px ${110 * p}px rgba(0,0,0,${0.55 * p}), 0 0 ${70 * p}px ${pp.glow || "rgba(106,77,255,.75)"}` },
+            `translate3d(${dx}px,${dy}px,${(pp.z || 160) * p}px) translate(${ox}px,${oy}px) rotateY(${-ry * 0.55 * p}deg) rotateX(${-rx * 0.55 * p}deg) scale(${1 + (pp.scale ?? 0.16) * p}) translate(${-ox}px,${-oy}px)`,
+            { left: r.left, top: r.top, w: r.w, h: r.h },
+            <>
+              <Img src={staticFile(`crops/${pp.img}.png`)} style={{ width: "100%", height: "100%", display: "block" }} />
+              <div style={{ position: "absolute", inset: 0, borderRadius: "inherit", boxShadow: `inset 0 0 0 ${2.5 * p}px rgba(255,255,255,.55)` }} />
+            </>);
+        })}
       </AbsoluteFill>
     </AbsoluteFill>
   );
