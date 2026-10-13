@@ -3,7 +3,7 @@
 import { state } from "./kuaidi100-fakes/supabase.ts";
 import { ai } from "./kuaidi100-fakes/anthropic.ts";
 import Anthropic from "./kuaidi100-fakes/anthropic.ts";
-import { cleanReply, parseInput, systemPrompt, userContent } from "../supabase/functions/qqbot-chat/lib.ts";
+import { cleanReply, parseInput, parseReply, systemPrompt, userContent } from "../supabase/functions/qqbot-chat/lib.ts";
 
 let handler: (r: Request) => Promise<Response> = async () => new Response();
 (Deno as any).serve = (h: any) => { handler = h; return {} as any; };
@@ -42,7 +42,11 @@ Deno.test("lib: input checks", () => {
 
 Deno.test("lib: system prompt keeps the AI honest and includes FAQs + style", () => {
   const s = systemPrompt({ name: "小雷", style: "温柔一点", faqs: [{ keywords: ["注册", "怎么注册"], answer: "点\n注册" }] });
-  ok(s.includes("你是 AI") && s.includes("承认自己是 AI 助手") && s.includes("不要说自己是真人"), "AI disclosure rule");
+  ok(s.includes("你是 AI") && s.includes("坦白说自己是 AI") && s.includes("不要说自己是真人"), "AI disclosure rule");
+  ok(s.includes("不要自我介绍") && s.includes("有什么问题可以问我"), "no customer-service tone");
+  ok(!s.includes("[表情:"), "no sticker rule without stickers");
+  const s2 = systemPrompt({ name: "小雷", style: "", faqs: [] }, ["开心", "无语"]);
+  ok(s2.includes("[表情:名字]") && s2.includes("开心、无语"), "sticker rule lists the names");
   ok(s.includes("小雷") && s.includes("温柔一点") && s.includes("不能违背下面的规则"), "name + style under the rules");
   ok(s.includes("关键词：注册 / 怎么注册") && s.includes("回答：点 注册"), "faq");
   ok(!systemPrompt({ name: "小雷", style: "", faqs: [] }).includes("补充要求"), "no style line when empty");
@@ -57,10 +61,24 @@ Deno.test("lib: user content and reply cleanup", () => {
   eq(cleanReply("  ", "小雷"), "", "empty");
 });
 
+Deno.test("lib: chime mode and stickers", () => {
+  const c = parseInput({ token: TOKEN, group: "123456789", mode: "chime", context: [{ who: "群友A", text: "今天好热" }, { who: "群友B", text: "热死了" }], stickers: ["开心", " 无语 ", "开心"] });
+  ok(c.ok && (c as any).v.mode === "chime" && (c as any).v.asker === "" && JSON.stringify((c as any).v.stickers) === '["开心","无语"]', JSON.stringify(c));
+  eq((parseInput({ token: TOKEN, group: "123456789", mode: "chime", context: [{ who: "群友A", text: "x" }] }) as any).code, "bad_input", "chime needs at least 2 lines");
+  eq((parseInput({ ...good(), stickers: ["a]b"] }) as any).code, "bad_input", "sticker names cannot break the tag");
+  eq((parseInput({ ...good(), stickers: Array(31).fill("x") }) as any).code, "bad_input", "too many stickers");
+  const u = userContent((c as any).v);
+  ok(u.includes("没人 @ 你") && u.includes("【不说】") && u.includes("群友B：热死了"), u);
+  eq(parseReply("【不说】", "小雷", []), { skip: true, reply: "", sticker: "" }, "skip");
+  eq(parseReply("哈哈确实 [表情:开心]", "小雷", ["开心"]), { skip: false, reply: "哈哈确实", sticker: "开心" }, "text + sticker");
+  eq(parseReply("[表情：无语]", "小雷", ["无语"]), { skip: false, reply: "", sticker: "无语" }, "sticker only, full-width colon");
+  eq(parseReply("好家伙 [表情:不存在]", "小雷", ["开心"]), { skip: false, reply: "好家伙", sticker: "" }, "unknown sticker dropped");
+});
+
 Deno.test("handler: happy path -> claim, Claude call, usage, reply", async () => {
   seed();
   const r = await call(good());
-  eq(r, { status: 200, json: { ok: true, reply: "哈哈对，点「注册」就行～" } }, "reply");
+  eq(r, { status: 200, json: { ok: true, reply: "哈哈对，点「注册」就行～", sticker: "" } }, "reply");
   eq(state.claims, [{ p_token: TOKEN, p_group: "123456789" }], "claim args");
   eq(state.usage, [{ p_group: "123456789", p_in: 900, p_out: 40 }], "usage recorded");
   const req = ai.calls[0];
@@ -78,6 +96,16 @@ Deno.test("handler: QQBOT_MODEL overrides the model", async () => {
   seed(); env.set("QQBOT_MODEL", "claude-haiku-5-5");
   await call(good());
   eq(ai.calls[0].model, "claude-haiku-5-5", "model override");
+});
+
+Deno.test("handler: chime -> AI may stay quiet; stickers come back by name", async () => {
+  seed(); ai.reply = { stop_reason: "end_turn", content: [{ type: "text", text: "【不说】" }], usage: { input_tokens: 800, output_tokens: 5 } };
+  const body = { token: TOKEN, group: "123456789", mode: "chime", context: [{ who: "群友A", text: "今天好热" }, { who: "群友B", text: "热死了" }], stickers: ["开心"] };
+  eq(await call(body), { status: 200, json: { ok: false, code: "skip" } }, "skip");
+  eq(state.usage.length, 1, "quiet turns still count usage");
+  ok(ai.calls[0].system.includes("开心") && ai.calls[0].messages[0].content.includes("没人 @ 你"), "chime prompt + sticker list");
+  seed(); ai.reply = { stop_reason: "end_turn", content: [{ type: "text", text: "热到融化 [表情:开心]" }], usage: { input_tokens: 800, output_tokens: 9 } };
+  eq((await call(body)).json, { ok: true, reply: "热到融化", sticker: "开心" }, "reply + sticker");
 });
 
 Deno.test("handler: refused by the database -> no Claude call", async () => {

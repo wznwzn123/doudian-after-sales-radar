@@ -1,10 +1,11 @@
-// QQ 群机器人的 AI 聊天：手机上的模了个块脚本在群友 @机器人、又没命中问答时调用本函数，本函数调用 Claude 生成一句回复。
+// QQ 群机器人的 AI 聊天：手机上的模了个块脚本在群友 @机器人、又没命中问答时（mention），或者开了「主动接话」时偶尔（chime）调用本函数，
+// 本函数调用 Claude 生成一句回复（可带一个表情包名字；chime 时 AI 也可以选择不说话）。
 // 部署时 verify_jwt=false（脚本不登录）。凭据是后台生成的连接码：由数据库函数 qqbot_ai_claim 校验连接码、开关、群号和每日上限，
 //   通过才调用 Claude（并先记一次）；用量（只有次数和 token 数）由 qqbot_ai_usage_add 记录。不保存群聊内容。
 // Claude API 密钥只放在 Edge Function Secrets：ANTHROPIC_API_KEY（必填）；QQBOT_MODEL（选填，默认 claude-opus-5-5）。
 import { createClient } from "npm:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.129.0";
-import { cleanReply, parseInput, systemPrompt, userContent, type Persona } from "./lib.ts";
+import { parseInput, parseReply, systemPrompt, userContent, type Persona } from "./lib.ts";
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -42,7 +43,7 @@ Deno.serve(async (req) => {
       output_config: { effort: "low" }, // 群聊闲聊用 low 就够了，省 token
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default", // 被安全分类器拒绝时由服务端换模型重试
-      system: systemPrompt(persona),
+      system: systemPrompt(persona, p.v.stickers),
       messages: [{ role: "user", content: userContent(p.v) }],
     });
   } catch (e) {
@@ -57,7 +58,8 @@ Deno.serve(async (req) => {
   if (used.error) console.error("qqbot-chat: usage", used.error.message);
   if (res.stop_reason === "refusal") return json(200, { ok: false, code: "refused" });
   const text = res.content.map((b: { type: string; text?: string }) => (b.type === "text" ? b.text || "" : "")).join("");
-  const reply = cleanReply(text, persona.name);
-  if (!reply) return json(200, { ok: false, code: "empty" });
-  return json(200, { ok: true, reply });
+  const out = parseReply(text, persona.name, p.v.stickers);
+  if (out.skip) return json(200, { ok: false, code: "skip" });
+  if (!out.reply && !out.sticker) return json(200, { ok: false, code: "empty" });
+  return json(200, { ok: true, reply: out.reply, sticker: out.sticker });
 });
