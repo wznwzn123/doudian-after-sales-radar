@@ -1341,6 +1341,13 @@ async function run(browser, htmlPath) {
     await page.evaluate("window.__confirm=false"); await page.click('button:text-is("作废连接码")'); await page.waitForTimeout(150);
     check("6.37 qqbot token: revoke asks first", (await qc("admin_qqbot_revoke_token")).length === 0);
     check("6.37 qqbot: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    check("6.37.2 shown as 测试版 1.0 (title + header), internal version kept", (await page.title()) === "售后雷达 测试版 1.0" && (await text(page, "#app .sub")).includes("测试版 1.0") && /APP_VERSION="\d+\.\d+\.\d+"/.test(fs.readFileSync(htmlPath, "utf8")));
+    await page.evaluate("window.__rpcs.admin_list_all_tasks=()=>({data:[{order_id:'O1',email:'a@x.com',status:'待处理'}],error:null})");
+    await page.evaluate("adminGo('tasks')"); await page.waitForTimeout(300);
+    const nCalls = await page.evaluate("window.__calls.filter(c=>c.name==='admin_list_all_tasks').length");
+    await page.click('#adminBody button:text-is("刷新")'); await page.waitForTimeout(300);
+    check("6.37.2 list pages: 刷新 next to the search box reloads the same page", (await page.evaluate("window.__calls.filter(c=>c.name==='admin_list_all_tasks').length")) === nCalls + 1);
+    check("6.37.2 status pills never wrap", (await page.evaluate("getComputedStyle(Object.assign(document.createElement('span'),{className:'pill'})).whiteSpace")) === "nowrap" || (await page.evaluate("(()=>{const e=document.createElement('span');e.className='pill';document.body.appendChild(e);const w=getComputedStyle(e).whiteSpace;e.remove();return w})()")) === "nowrap");
     await ctx.close();
   }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
@@ -1503,7 +1510,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.37.1") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.37.2") && st.includes("测试版 1.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
