@@ -1369,13 +1369,13 @@ async function run(browser, htmlPath) {
     await page.evaluate("window.__rpcs.admin_qqbot_ai_get=()=>({data:{ai_enabled:true,ai_name:'小雷',ai_style:'',ai_daily_limit:200,ai_group_daily_limit:50,ai_chime:true,ai_chime_rate:10,ai_chime_gap:5,ai_chime_gap_sec:300,today:{},d30:{},groups_today:[]},error:null})");
     await page.evaluate("adminGo('qqbot')"); await page.waitForTimeout(300);
     check("6.39.3 after v6_41: gap in seconds, rate up to 100", (await page.inputValue("#qbAiGapSec")) === "300" && !(await page.$("#qbAiGap")) && (await page.getAttribute("#qbAiRate", "max")) === "100" && !(await text(page, "#adminBody")).includes("v6_41"));
-    await page.fill("#qbAiRate", "100"); await page.fill("#qbAiGapSec", "5"); await page.evaluate("window.__calls.length=0"); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(100);
-    check("6.39.3 seconds below 10 stopped before the server", !(await page.evaluate("window.__calls.some(c=>c.name==='admin_qqbot_save_ai')")));
-    await page.fill("#qbAiRate", "101"); await page.fill("#qbAiGapSec", "20"); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(100);
+    await page.fill("#qbAiRate", "100"); await page.fill("#qbAiGapSec", "0"); await page.evaluate("window.__calls.length=0"); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(100);
+    check("6.39.4 0 seconds stopped before the server", !(await page.evaluate("window.__calls.some(c=>c.name==='admin_qqbot_save_ai')")));
+    await page.fill("#qbAiRate", "101"); await page.fill("#qbAiGapSec", "1"); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(100);
     check("6.39.3 rate above 100 stopped before the server", !(await page.evaluate("window.__calls.some(c=>c.name==='admin_qqbot_save_ai')")));
     await page.fill("#qbAiRate", "100"); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(300);
     const sc3 = await page.evaluate("window.__calls.filter(c=>c.name==='admin_qqbot_save_ai').pop()");
-    check("6.39.3 saved: 100% and 20 seconds (no minutes key)", sc3 && sc3.args.p.ai_chime === true && sc3.args.p.ai_chime_rate === 100 && sc3.args.p.ai_chime_gap_sec === 20 && !("ai_chime_gap" in sc3.args.p), JSON.stringify(sc3));
+    check("6.39.4 saved: 100% and 1 second (no minutes key)", sc3 && sc3.args.p.ai_chime === true && sc3.args.p.ai_chime_rate === 100 && sc3.args.p.ai_chime_gap_sec === 1 && !("ai_chime_gap" in sc3.args.p), JSON.stringify(sc3));
     await page.evaluate("window.__rpcs.admin_qqbot_ai_get=()=>({data:{ai_enabled:true,ai_name:'<img src=x onerror=window.__xss=3>',ai_style:'</textarea><img src=x onerror=window.__xss=4>',ai_daily_limit:1,ai_group_daily_limit:1,today:{},d30:{},groups_today:[]},error:null})");
     await page.evaluate("adminGo('qqbot')"); await page.waitForTimeout(300);
     check("6.38 AI card: name / style from the database are escaped", !(await page.evaluate("window.__xss")) && (await page.inputValue("#qbAiName")) === "<img src=x onerror=window.__xss=3>");
@@ -1548,7 +1548,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.39.3") && st.includes("测试版 1.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.39.4") && st.includes("测试版 1.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
