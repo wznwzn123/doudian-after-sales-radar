@@ -1,14 +1,64 @@
 // QQ 群机器人 AI 聊天的纯逻辑（不连网络，方便测试）：检查手机脚本发来的内容、拼给 Claude 的提示、整理 Claude 的回复。
 export type Line = { who: string; text: string };
-// mode：mention = 群友 @了机器人；chime = 没人 @，机器人自己决定要不要接话（6.39）。stickers = 手机脚本「表情包」文件夹里的名字
-export type ChatInput = { token: string; group: string; asker: string; message: string; context: Line[]; mode: "mention" | "chime"; stickers: string[] };
+// mode：mention = 群友 @了机器人；chime = 没人 @，机器人自己决定要不要接话（6.39）
+export type ChatInput = { token: string; group: string; asker: string; message: string; context: Line[]; mode: "mention" | "chime" };
+
+// 表情包（6.40）：Google Noto 动画表情（CC BY 4.0，会动的 GIF），放在售后雷达网站的 stickers/ 目录（见 stickers/README.md）。只有常见表情和手势。
+// 名字给 AI 挑，手机脚本按返回的网址下载一次后缓存。
+export const STICKER_BASE = "https://wznwzn123.github.io/doudian-after-sales-radar/stickers/";
+export const STICKERS: Record<string, string> = {
+  "笑哭": "tears_of_joy.gif",
+  "开心": "grinning.gif",
+  "嘿嘿": "squinting.gif",
+  "尴尬笑": "sweat_smile.gif",
+  "害羞": "blush.gif",
+  "脸红": "flushed.gif",
+  "微笑": "slight_smile.gif",
+  "思考": "thinking.gif",
+  "翻白眼": "rolling_eyes.gif",
+  "无语": "expressionless.gif",
+  "斜眼": "unamused.gif",
+  "坏笑": "smirk.gif",
+  "流汗": "downcast_sweat.gif",
+  "求求了": "pleading.gif",
+  "大哭": "sob.gif",
+  "感动": "holding_tears.gif",
+  "生气": "huffing.gif",
+  "震惊": "astonished.gif",
+  "吓死": "scream.gif",
+  "炸了": "exploding_head.gif",
+  "晕": "dizzy.gif",
+  "捂嘴笑": "hand_over_mouth.gif",
+  "嘘": "shush.gif",
+  "吐舌头": "tongue_wink.gif",
+  "发疯": "zany.gif",
+  "星星眼": "star_struck.gif",
+  "酷": "cool.gif",
+  "融化": "melting.gif",
+  "累了": "weary.gif",
+  "困": "yawning.gif",
+  "睡了": "sleeping.gif",
+  "撒花": "partying.gif",
+  "抱抱": "hugging.gif",
+  "敬礼": "salute.gif",
+  "点赞": "thumbs_up.gif",
+  "鼓掌": "clap.gif",
+  "拜托": "pray.gif",
+  "比心": "heart.gif",
+  "看戏": "eyes.gif",
+  "满分": "hundred.gif",
+  "偷看": "peek.gif",
+  "叹气": "exhale.gif",
+  "无奈": "diagonal.gif",
+  "欢呼": "raise_hands.gif",
+};
+export const STICKER_NAMES = Object.keys(STICKERS);
 export type Persona = { name: string; style: string; faqs: { keywords: string[]; answer: string }[] };
 
 export const MAX_MESSAGE = 300;
 export const MAX_CONTEXT = 8;
 export const MAX_LINE = 200;
 export const MAX_REPLY = 300;
-export const MAX_STICKERS = 30;
 export const SKIP = "【不说】";
 // 发言人在脚本里已经匿名成「群友A」…「群友Z」，机器人自己说过的话是「你」
 const WHO = /^(群友[A-Z]|你)$/;
@@ -24,13 +74,6 @@ export function parseInput(body: unknown): { ok: true; v: ChatInput } | { ok: fa
   if (!/^[0-9]{5,12}$/.test(group)) return { ok: false, code: "bad_group" };
   if (mode === "mention" && (!/^群友[A-Z]$/.test(asker) || !message)) return { ok: false, code: "bad_input" };
   if (message.length > MAX_MESSAGE) return { ok: false, code: "bad_input" };
-  const st = Array.isArray(b.stickers) ? b.stickers : [];
-  if (st.length > MAX_STICKERS) return { ok: false, code: "bad_input" };
-  const stickers: string[] = [];
-  for (const x of st) {
-    if (typeof x !== "string" || !/^[^\[\]:：\n]{1,20}$/.test(x.trim())) return { ok: false, code: "bad_input" };
-    if (!stickers.includes(x.trim())) stickers.push(x.trim());
-  }
   const raw = Array.isArray(b.context) ? b.context : [];
   if (raw.length > MAX_CONTEXT) return { ok: false, code: "bad_input" };
   const context: Line[] = [];
@@ -41,11 +84,11 @@ export function parseInput(body: unknown): { ok: true; v: ChatInput } | { ok: fa
     context.push({ who, text });
   }
   if (mode === "chime" && context.length < 2) return { ok: false, code: "bad_input" };
-  return { ok: true, v: { token, group, asker: mode === "chime" ? "" : asker, message: mode === "chime" ? "" : message, context, mode, stickers } };
+  return { ok: true, v: { token, group, asker: mode === "chime" ? "" : asker, message: mode === "chime" ? "" : message, context, mode } };
 }
 
 // 系统提示：像普通群友一样聊，但不冒充真人（用户 2026-10-13 同意：被认真问到就承认是 AI）
-export function systemPrompt(p: Persona, stickers: string[] = []): string {
+export function systemPrompt(p: Persona, stickers: string[] = STICKER_NAMES): string {
   const faqs = p.faqs.slice(0, 50).map((f) => "- 关键词：" + f.keywords.join(" / ") + "\n  回答：" + f.answer.replace(/\s+/g, " ")).join("\n");
   return [
     "你在一个 QQ 群里水群，群名片叫「" + p.name + "」。你其实是售后雷达（帮抖店商家管理售后的网页工具）运营方放在群里的 AI，平时不用提这件事。",
@@ -74,8 +117,8 @@ export function userContent(v: ChatInput): string {
   return chat + "<现在>\n" + v.asker + " @了你：" + v.message + "\n</现在>\n\n请写出你要在群里回复 " + v.asker + " 的话。";
 }
 
-// 从 AI 的输出里拆出表情包（只认脚本发来的名字），剩下的是文字；只输出【不说】就是不接话
-export function parseReply(text: string, name: string, stickers: string[]): { skip: boolean; reply: string; sticker: string } {
+// 从 AI 的输出里拆出表情包（只认 STICKERS 里的名字），剩下的是文字；只输出【不说】就是不接话
+export function parseReply(text: string, name: string, stickers: string[] = STICKER_NAMES): { skip: boolean; reply: string; sticker: string } {
   const raw = String(text || "");
   let sticker = "";
   const rest = raw.replace(/\[表情[:：]\s*([^\]\n]{1,20})\]/g, (_m, n: string) => { const k = n.trim(); if (!sticker && stickers.includes(k)) sticker = k; return ""; });
