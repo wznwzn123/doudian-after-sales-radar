@@ -73,9 +73,10 @@ Deno.test("lib: user content and reply cleanup", () => {
 Deno.test("lib: chime mode; replies are text only", () => {
   const c = parseInput({ token: TOKEN, group: "123456789", mode: "chime", context: [{ who: "群友A", text: "今天好热" }, { who: "群友B", text: "热死了" }], stickers: ["旧脚本发来的会被忽略"] });
   ok(c.ok && (c as any).v.mode === "chime" && (c as any).v.asker === "" && !("stickers" in (c as any).v), JSON.stringify(c));
-  eq((parseInput({ token: TOKEN, group: "123456789", mode: "chime", context: [{ who: "群友A", text: "x" }] }) as any).code, "bad_input", "chime needs at least 2 lines");
+  ok(parseInput({ token: TOKEN, group: "123456789", mode: "chime", context: [{ who: "群友A", text: "x" }] }).ok, "chime with 1 line is enough now");
+  eq((parseInput({ token: TOKEN, group: "123456789", mode: "chime", context: [] }) as any).code, "bad_input", "chime needs at least 1 line");
   const u = userContent((c as any).v);
-  ok(u.includes("没人 @ 你") && u.includes("【不说】") && u.includes("群友B：热死了"), u);
+  ok(u.includes("没人 @ 你") && u.includes("接一句") && u.includes("只有完全没法接") && !u.includes("大多数时候应该是") && u.includes("群友B：热死了"), u);
   eq(parseReply("【不说】", "小雷"), { skip: true, reply: "" }, "skip");
   eq(parseReply("哈哈 这个我也想要。", "小雷"), { skip: false, reply: "哈哈 这个我也想要" }, "trailing full stop dropped");
   eq(parseReply("真的吗？", "小雷"), { skip: false, reply: "真的吗？" }, "question mark kept");

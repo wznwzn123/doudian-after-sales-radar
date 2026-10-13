@@ -33,7 +33,7 @@ export function parseInput(body: unknown): { ok: true; v: ChatInput } | { ok: fa
     if (!WHO.test(who) || !text || text.length > MAX_LINE) return { ok: false, code: "bad_input" };
     context.push({ who, text });
   }
-  if (mode === "chime" && context.length < 2) return { ok: false, code: "bad_input" };
+  if (mode === "chime" && context.length < 1) return { ok: false, code: "bad_input" }; // 有一句群聊就能接（以前要 2 句）
   return { ok: true, v: { token, group, asker: mode === "chime" ? "" : asker, message: mode === "chime" ? "" : message, context, mode } };
 }
 
@@ -64,7 +64,8 @@ export function userContent(v: ChatInput): string {
   const lines = v.context.map((l) => l.who + "：" + l.text).join("\n");
   const chat = lines ? "<最近的群聊>（从旧到新，只有文字，发言人已匿名；「你」是你自己之前说的话）\n" + lines + "\n</最近的群聊>\n\n" : "";
   if (v.mode === "chime") {
-    return chat + "现在没人 @ 你，你在旁边看群聊，自己决定要不要插一句。有话想接（接梗、吐槽、附和、帮别人回答问题）就写出要发的话；觉得没必要说、话题跟你无关、或者刚说过话，就只输出 " + SKIP + "。别硬插话，大多数时候应该是 " + SKIP + "。";
+    // 用户 2026-10-14：「老不回话 把所有限制都去掉」—— 以前要求「大多数时候不说」，现在默认接话
+    return chat + "现在没人 @ 你，你也是群里的一员，顺着最新的话接一句：接梗、吐槽、附和、回答别人的问题、或者接着聊都行；有人发了图或语音，就随口接一句。只有完全没法接的时候（比如只有乱码）才只输出 " + SKIP + "。";
   }
   return chat + "<现在>\n" + v.asker + " @了你：" + v.message + "\n</现在>\n\n请写出你要在群里回复 " + v.asker + " 的话。";
 }
