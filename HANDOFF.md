@@ -16,7 +16,7 @@
 - 管理员权限必须在服务端校验，不能只在前端隐藏按钮。
 
 ## 当前线上状态
-- 已推送到 main 的最新版是 **Pro 6.36**（`APP_VERSION="6.36.0"`）。
+- 已推送到 main 的最新版是 **Pro 6.36**（`APP_VERSION="6.36.0"`）。分支上已做好 **Pro 6.37**（QQ 机器人后台，见下），等用户执行 v6_38 后再推 main。
 - **Pro 6.36 已推 main**。`supabase/v6_37_kick_reminder_reset_delete.sql` 3 段已由用户执行并只读核对（revoked_sessions 进了发布、pg_net、cron_key 64 位只有服务端能读、cron `deadline-reminder-mail` 每 5 分钟、第一次调用返回 200 `{ok:true,due:0}`、5 个新列、5 个只限服务端的函数）。`v6_36_disable_legacy_functions.sql` 也已执行（0 / 10 / 2）。4 个 Edge Function（deadline-reminder v1、phone-password-reset v1、delete-account v1、login-alert-mail v7）已部署并逐字节核对。
 - **固定规则（用户要求）：每次重大更新都要同步更新《用户须知》《用户使用协议》**，步骤见仓库根目录 `CLAUDE.md`；stage2 里的「6.35 RULE」检查会拦住没更新协议的版本。6.8：点开售后时自动向快递100 查一次（见下）。
 - **6.10 界面整理**（用户嫌按钮杂乱、界面重叠）：顶栏只留「在线 / 管理 / ☰ 更多」（夜间模式、退出账号一直在「更多」里）；首页「设备注册诊断」只在「更多」里；统计压成一张倒计时卡 + 一排 4 个数字；筛选三个下拉框一行、快捷筛选横向滑动；详情 4 个主按钮 2×2，上传按钮移进「举证材料」卡片，删除放到最底；时间线显示中文事件名（`EVENT_LABELS`）。**重叠的根因**：详情页顶部标题栏半透明（浅色 `#ffffffed`、深色 `#172033ed`），滚动时下面内容透出来，现已改为不透明。没有删除任何功能。
@@ -92,6 +92,15 @@
   - 在线名单：频道从公开的 `after-sales-presence` 改为私有的 `after-sales-online`（private: true），realtime.messages 加两条策略（只允许 presence、只允许这个 topic、登录且没被封 / 不是待审核 / 登录没被作废）；以前拿网页里的公开 key 不登录也能进频道、看到所有在线用户编号、冒充任意编号在线。名单里的编号再用 `online_verify(ids)` 核实：只留「服务端最近 5 分钟记录到活动」（device_sessions.seen_at / security_devices.last_seen，每 2 分钟复查写入）的账号，自己总算在线；加入频道时顺便调一次 my_session_status 刷新自己的活动。
   - 前端：管理员页显示「超级管理员」徽章，普通管理员看不到添加 / 移除，用户列表和账号管理里对不能操作的管理员不显示「重置密码」「强制下线」（服务端仍然校验）；设备封禁被拒时显示中文原因；管理员页的移除按钮 onclick 只放校验过的 uuid。
   - 测试：`dev/v6_34_super_admin_presence.pgtest.sql` 41/41（含「修之前第二个管理员能移除主人」的复现、realtime 策略：未登录 / 被封 / 登录已作废都进不去、别的 topic 和 broadcast 不行）；stage2 371/371；gate 0 失败（gate 的管理员 id 改成 uuid 格式）；admin-reset Deno 15。
+- **6.37 QQ 群问答机器人的后台**（用户：「接入 QQ 和群友聊天」→ 选了：机器人是**独立项目**（用户手机上的 FunBox QQ 模块脚本，另开仓库），后台查看 / 操作接到售后雷达管理后台；先做固定问答；后台要「管理问答 / 开关和群设置 / 回复记录 / 统计」；记录**只存命中的问题和时间**，不存群友 QQ 号和原话）。**还没推 main；`supabase/v6_38_qq_bot.sql` 待用户执行。**
+  - 风险已告诉用户：FunBox 挂在真人 QQ 上，不是官方机器人，自动发消息违反腾讯条款、有封号风险，建议用小号、限频。官方机器人（q.qq.com）用户暂时没有开发者账号。
+  - SQL v6_38：`qqbot_settings`（一行：开关、群号数组、冷却 5～3600 秒、只回复 @、连接码 sha256、机器人最近来取设置的时间）、`qqbot_faq`（关键词数组 1～20 个 ≤30 字、回复 ≤1000 字、启用、排序，最多 200 条）、`qqbot_hits`（只有 faq_id、group_id、时间；180 天自动删）。三张表 RLS 开、无策略、收回 anon/authenticated 权限。
+  - 机器人接口（anon + publishable key + 连接码）：`qqbot_pull(p_token)`（只给启用的问答，不含后台字段，顺便更新 last_seen_at）、`qqbot_hit(p_token, p_faq_id, p_group)`（群号必须在设置里、问答必须存在、全站 10 分钟 300 条上限）。连接码 = 两个 gen_random_uuid 去横线（64 hex），只存 sha256，明文只在生成时返回一次；只有超级管理员能生成 / 作废。
+  - 管理员函数：admin_qqbot_overview / hits / save_settings / save_faq / delete_faq / new_token / revoke_token，都查 admin_users + is_session_revoked，写 admin_operation_logs（action 以 qqbot_ 开头）。
+  - 前端：ADMIN_TABS 加 `qqbot`（「系统」组），`adminQqbot()` 一页显示运行状态（开启但 15 分钟没来取设置会提醒）、4 个统计、近 14 天每日柱状图（Asia/Shanghai 日期）、各群 30 天次数、设置表单、连接码、问答表格（编辑 / 删除，onclick 只放校验过的 uuid）、最近 200 条回复记录。没执行 SQL 时提示执行 v6_38。
+  - 协议更新到 2026-10-13（对应 6.37），LEGAL_CHANGES 3 条。
+  - 测试：pgtest `dev/v6_38_qq_bot.pgtest.sql` 56/56（跑法同 v6_37：initdb → mock → 这个文件；它自己 `\i` v6_27 和 v6_38 两遍）；stage2 424/424（新增 6.37 一组 27 项，含 XSS、未执行 SQL）；gate 0 失败（旧 6.1 复现 7 项）。
+  - 机器人脚本仓库：见本次会话的说明；FunBox 的脚本接口要等用户把「查看脚本sdk」的内容发过来才能写适配层，**不要猜接口**。
 - **v6_35 即时同步 + 索引**（用户问「还有哪些地方可以优化」，我跑了 Supabase 安全 / 性能检查后建议先做这两项，用户说「開始」）。SQL `supabase/v6_35_realtime_indexes.sql`，已由用户执行并只读核对（2 / 3 / 1）。
   - 前端 subscribeRealtime() 一直订阅 after_sales_tasks / evidence_files 的变更，但 supabase_realtime 发布里没有任何表，所以多设备即时同步从来没生效；现在把两张表加进发布（RLS 照样按订阅者检查）。前端不用改。
   - 补 3 个外键索引（tracking_records.task_id、revoked_sessions.user_id、evidence_library.store_id），admin_users 的唯一约束换成主键。
