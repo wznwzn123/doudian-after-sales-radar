@@ -1,19 +1,16 @@
-// Tests (Deno, fake Supabase client + fake Anthropic SDK + fake fetch for OpenAI) for the Edge Function qqbot-chat. No network, NOT a test against the real database, Claude or GPT.
+// Tests (Deno, fake Supabase client + fake Anthropic SDK) for the Edge Function qqbot-chat. No network, NOT a test against the real database or Claude.
 // Run: deno test --no-lock --config dev/kuaidi100-fakes/deno.json -A dev/qqbot-chat.handler.test.ts
 import { state } from "./kuaidi100-fakes/supabase.ts";
 import { ai } from "./kuaidi100-fakes/anthropic.ts";
 import Anthropic from "./kuaidi100-fakes/anthropic.ts";
 import { cleanReply, parseInput, parseReply, STICKER_BASE, STICKER_NAMES, STICKERS, systemPrompt, userContent } from "../supabase/functions/qqbot-chat/lib.ts";
 
-// fake OpenAI endpoint (only api.openai.com is intercepted)
-const gpt: any = { calls: [], reply: null };
+// GPT was removed (user, 2026-10-13: 不要走 GPT). Any request to OpenAI would be a regression.
+const outside: string[] = [];
 const realFetch = globalThis.fetch;
 (globalThis as any).fetch = async (url: any, init: any) => {
-  if (!String(url).startsWith("https://api.openai.com/")) return realFetch(url, init);
-  const body = JSON.parse(init.body); gpt.calls.push({ url: String(url), headers: init.headers, body });
-  const r = typeof gpt.reply === "function" ? gpt.reply(body) : gpt.reply;
-  if (r instanceof Error) throw r;
-  return new Response(JSON.stringify(r?.body ?? { choices: [{ message: { content: "GPT 说：哈哈确实 [表情:笑哭]" } }], usage: { prompt_tokens: 700, completion_tokens: 30 } }), { status: r?.status ?? 200 });
+  if (String(url).startsWith("https://api.openai.com/")) { outside.push(String(url)); return new Response("{}", { status: 500 }); }
+  return realFetch(url, init);
 };
 
 let handler: (r: Request) => Promise<Response> = async () => new Response();
@@ -39,7 +36,7 @@ function seed(claim: any = { ok: true, name: "小雷", style: "温柔一点", fa
   };
   ai.calls = []; ai.reply = null; ai.error = null; ai.keys = [];
   env.set("ANTHROPIC_API_KEY", "sk-ant-test"); env.delete("QQBOT_MODEL");
-  env.delete("QQBOT_PROVIDER"); env.delete("OPENAI_API_KEY"); env.delete("OPENAI_MODEL"); gpt.calls = []; gpt.reply = null;
+  env.delete("QQBOT_PROVIDER"); env.delete("OPENAI_API_KEY");
 }
 
 Deno.test("lib: input checks", () => {
@@ -121,41 +118,14 @@ Deno.test("handler: chime -> AI may stay quiet; stickers come back by name", asy
   eq((await call(body)).json, { ok: true, reply: "热到融化", sticker: "开心", sticker_url: STICKER_BASE + "grinning.gif" }, "reply + sticker + url");
 });
 
-Deno.test("handler: GPT (OpenAI) when QQBOT_PROVIDER=openai", async () => {
-  seed(); env.set("QQBOT_PROVIDER", "openai");
-  eq(await call(good()), { status: 503, json: { ok: false, code: "ai_not_configured" } }, "no OPENAI_API_KEY");
-  eq(state.claims.length + ai.calls.length + gpt.calls.length, 0, "nothing claimed / called without the key");
-  env.set("OPENAI_API_KEY", "sk-openai-test");
-  const r = await call(good());
-  eq(r, { status: 200, json: { ok: true, reply: "GPT 说：哈哈确实", sticker: "笑哭", sticker_url: STICKER_BASE + "tears_of_joy.gif" } }, "GPT reply");
-  eq(ai.calls.length, 0, "Claude not called");
-  const g = gpt.calls[0];
-  eq(g.url, "https://api.openai.com/v1/chat/completions", "endpoint");
-  eq(g.headers.Authorization, "Bearer sk-openai-test", "key header");
-  eq(g.body.model, "gpt-5.4-mini", "default GPT model");
-  eq(g.body.reasoning_effort, "low", "low effort");
-  ok(g.body.messages[0].role === "system" && g.body.messages[0].content.includes("你是 AI") && g.body.messages[1].content.includes("群友B @了你"), "same prompt as Claude");
-  ok(!JSON.stringify(g.body).includes(TOKEN), "token never sent to OpenAI");
-  eq(state.usage, [{ p_group: "123456789", p_in: 700, p_out: 30 }], "usage recorded");
-  env.set("OPENAI_MODEL", "gpt-5.5"); await call(good());
-  eq(gpt.calls[1].body.model, "gpt-5.5", "OPENAI_MODEL override");
-});
-
-Deno.test("handler: GPT errors, refusal, and models without reasoning_effort", async () => {
-  const set = () => { seed(); env.set("QQBOT_PROVIDER", "openai"); env.set("OPENAI_API_KEY", "sk-openai-test"); };
-  set(); gpt.reply = { status: 401, body: { error: { message: "Incorrect API key" } } };
-  eq(await call(good()), { status: 503, json: { ok: false, code: "ai_not_configured" } }, "401");
-  set(); gpt.reply = { status: 429, body: { error: { message: "quota" } } };
-  eq((await call(good())).json.code, "ai_busy", "429");
-  set(); gpt.reply = { status: 500, body: { error: { message: "boom" } } };
-  eq((await call(good())).json.code, "ai_error", "500");
-  set(); gpt.reply = new Error("network down");
-  eq((await call(good())).json.code, "ai_error", "network");
-  set(); gpt.reply = { body: { choices: [{ message: { content: null, refusal: "I can't help with that" } }], usage: { prompt_tokens: 5, completion_tokens: 0 } } };
-  eq((await call(good())).json, { ok: false, code: "refused" }, "refusal");
-  set(); gpt.reply = (b: any) => b.reasoning_effort ? { status: 400, body: { error: { message: "Unsupported parameter: 'reasoning_effort'" } } } : { body: { choices: [{ message: { content: "好嘞" } }], usage: { prompt_tokens: 5, completion_tokens: 2 } } };
-  eq((await call(good())).json, { ok: true, reply: "好嘞", sticker: "", sticker_url: "" }, "retried without reasoning_effort");
-  eq(gpt.calls.length, 2, "two attempts");
+Deno.test("handler: Claude only, OpenAI settings are ignored", async () => {
+  seed(); env.set("QQBOT_PROVIDER", "openai"); env.set("OPENAI_API_KEY", "sk-openai-test");
+  ai.reply = { stop_reason: "end_turn", content: [{ type: "text", text: "哈哈确实 [表情:笑哭]" }], usage: { input_tokens: 700, output_tokens: 30 } };
+  eq((await call(good())).json, { ok: true, reply: "哈哈确实", sticker: "笑哭", sticker_url: STICKER_BASE + "tears_of_joy.gif" }, "Claude reply");
+  eq(ai.calls.length, 1, "Claude called"); eq(outside.length, 0, "OpenAI never called");
+  seed(); env.set("QQBOT_PROVIDER", "openai"); env.set("OPENAI_API_KEY", "sk-openai-test"); env.delete("ANTHROPIC_API_KEY");
+  eq(await call(good()), { status: 503, json: { ok: false, code: "ai_not_configured" } }, "an OpenAI key alone does not enable AI");
+  eq(state.claims.length + ai.calls.length + outside.length, 0, "nothing claimed / called");
 });
 
 Deno.test("handler: refused by the database -> no Claude call", async () => {
