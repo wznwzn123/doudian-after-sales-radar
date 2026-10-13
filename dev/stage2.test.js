@@ -1341,6 +1341,24 @@ async function run(browser, htmlPath) {
     await page.evaluate("window.__confirm=false"); await page.click('button:text-is("作废连接码")'); await page.waitForTimeout(150);
     check("6.37 qqbot token: revoke asks first", (await qc("admin_qqbot_revoke_token")).length === 0);
     check("6.37 qqbot: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    // 6.38 AI chat card
+    await page.evaluate("window.__rpcs.admin_qqbot_ai_get=()=>({data:null,error:{message:'Could not find the function public.admin_qqbot_ai_get without parameters in the schema cache'}})");
+    await page.evaluate("adminGo('qqbot')"); await page.waitForTimeout(300);
+    check("6.38 AI card before SQL: explains to run v6_39, rest of the page still works", (await text(page, "#adminBody")).includes("v6_39") && (await text(page, "#adminBody")).includes("开关和群设置"));
+    await page.evaluate("window.__rpcs.admin_qqbot_ai_get=()=>({data:{ai_enabled:false,ai_name:'小雷',ai_style:'',ai_daily_limit:200,ai_group_daily_limit:50,today:{calls:3,input_tokens:2700,output_tokens:120},d30:{calls:40,input_tokens:36000,output_tokens:1600},groups_today:[{group_id:'123456789',calls:3}]},error:null}); window.__rpcs.admin_qqbot_save_ai=()=>({data:{ok:true},error:null})");
+    await page.evaluate("adminGo('qqbot')"); await page.waitForTimeout(300);
+    let at = await text(page, "#adminBody");
+    check("6.38 AI card: settings, usage, honesty note and API key note shown", at.includes("AI 聊天") && at.includes("今天 AI 回复") && at.includes("36,000") && at.includes("123456789 3 次") && at.includes("承认自己是 AI") && at.includes("ANTHROPIC_API_KEY") && at.includes("不保存聊天内容"), at.slice(0, 200));
+    await page.fill("#qbAiName", " "); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(100);
+    check("6.38 AI save: empty name stopped before the server", !(await page.evaluate("window.__calls.some(c=>c.name==='admin_qqbot_save_ai')")) && (await text(page, "#toast")).includes("名字"));
+    await page.fill("#qbAiName", "小雷"); await page.fill("#qbAiGLim", "2000"); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(100);
+    check("6.38 AI save: group limit out of range stopped", !(await page.evaluate("window.__calls.some(c=>c.name==='admin_qqbot_save_ai')")));
+    await page.check("#qbAiOn"); await page.fill("#qbAiGLim", "20"); await page.fill("#qbAiStyle", " 活泼一点 "); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(300);
+    const sa = await page.evaluate("window.__calls.filter(c=>c.name==='admin_qqbot_save_ai').pop()");
+    check("6.38 AI save: sends on/name/style/limits", sa && JSON.stringify(sa.args.p) === JSON.stringify({ ai_enabled: true, ai_name: "小雷", ai_style: "活泼一点", ai_daily_limit: 200, ai_group_daily_limit: 20 }), JSON.stringify(sa));
+    await page.evaluate("window.__rpcs.admin_qqbot_ai_get=()=>({data:{ai_enabled:true,ai_name:'<img src=x onerror=window.__xss=3>',ai_style:'</textarea><img src=x onerror=window.__xss=4>',ai_daily_limit:1,ai_group_daily_limit:1,today:{},d30:{},groups_today:[]},error:null})");
+    await page.evaluate("adminGo('qqbot')"); await page.waitForTimeout(300);
+    check("6.38 AI card: name / style from the database are escaped", !(await page.evaluate("window.__xss")) && (await page.inputValue("#qbAiName")) === "<img src=x onerror=window.__xss=3>");
     check("6.37.2 shown as 测试版 1.0 (title + header), internal version kept", (await page.title()) === "售后雷达 测试版 1.0" && (await text(page, "#app .sub")).includes("测试版 1.0") && /APP_VERSION="\d+\.\d+\.\d+"/.test(fs.readFileSync(htmlPath, "utf8")));
     await page.evaluate("window.__rpcs.admin_list_all_tasks=()=>({data:[{order_id:'O1',email:'a@x.com',status:'待处理'}],error:null})");
     await page.evaluate("adminGo('tasks')"); await page.waitForTimeout(300);
@@ -1510,7 +1528,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.37.2") && st.includes("测试版 1.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.38.0") && st.includes("测试版 1.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
