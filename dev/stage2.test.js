@@ -1356,6 +1356,15 @@ async function run(browser, htmlPath) {
     await page.check("#qbAiOn"); await page.fill("#qbAiGLim", "20"); await page.fill("#qbAiStyle", " 活泼一点 "); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(300);
     const sa = await page.evaluate("window.__calls.filter(c=>c.name==='admin_qqbot_save_ai').pop()");
     check("6.38 AI save: sends on/name/style/limits", sa && JSON.stringify(sa.args.p) === JSON.stringify({ ai_enabled: true, ai_name: "小雷", ai_style: "活泼一点", ai_daily_limit: 200, ai_group_daily_limit: 20 }), JSON.stringify(sa));
+    check("6.39 AI card before v6_40: chime explains what to run, saving still works", (await text(page, "#adminBody")).includes("v6_40") && !(await page.$("#qbAiChime")));
+    await page.evaluate("window.__rpcs.admin_qqbot_ai_get=()=>({data:{ai_enabled:true,ai_name:'小雷',ai_style:'',ai_daily_limit:200,ai_group_daily_limit:50,ai_chime:false,ai_chime_rate:10,ai_chime_gap:5,today:{},d30:{},groups_today:[]},error:null})");
+    await page.evaluate("adminGo('qqbot')"); await page.waitForTimeout(300);
+    check("6.39 AI card: chime switch, rate and gap shown", !!(await page.$("#qbAiChime")) && (await page.inputValue("#qbAiRate")) === "10" && (await page.inputValue("#qbAiGap")) === "5" && (await text(page, "#adminBody")).includes("表情包"));
+    await page.check("#qbAiChime"); await page.fill("#qbAiRate", "80"); await page.evaluate("window.__calls.length=0"); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(100);
+    check("6.39 chime: rate out of range stopped before the server", !(await page.evaluate("window.__calls.some(c=>c.name==='admin_qqbot_save_ai')")));
+    await page.fill("#qbAiRate", "15"); await page.fill("#qbAiGap", "3"); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(300);
+    const sc2 = await page.evaluate("window.__calls.filter(c=>c.name==='admin_qqbot_save_ai').pop()");
+    check("6.39 chime: saved with on / rate / gap", sc2 && sc2.args.p.ai_chime === true && sc2.args.p.ai_chime_rate === 15 && sc2.args.p.ai_chime_gap === 3, JSON.stringify(sc2));
     await page.evaluate("window.__rpcs.admin_qqbot_ai_get=()=>({data:{ai_enabled:true,ai_name:'<img src=x onerror=window.__xss=3>',ai_style:'</textarea><img src=x onerror=window.__xss=4>',ai_daily_limit:1,ai_group_daily_limit:1,today:{},d30:{},groups_today:[]},error:null})");
     await page.evaluate("adminGo('qqbot')"); await page.waitForTimeout(300);
     check("6.38 AI card: name / style from the database are escaped", !(await page.evaluate("window.__xss")) && (await page.inputValue("#qbAiName")) === "<img src=x onerror=window.__xss=3>");
@@ -1528,7 +1537,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.38.0") && st.includes("测试版 1.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.39.0") && st.includes("测试版 1.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
