@@ -51,7 +51,9 @@ Deno.test("lib: input checks", () => {
 
 Deno.test("lib: system prompt keeps the AI honest and includes FAQs + style", () => {
   const s = systemPrompt({ name: "小雷", style: "温柔一点", faqs: [{ keywords: ["注册", "怎么注册"], answer: "点\n注册" }] });
-  ok(s.includes("你是 AI") && s.includes("坦白说自己是 AI") && s.includes("不要说自己是真人"), "AI disclosure rule");
+  ok(s.includes("你是 AI") && s.includes("坦白说自己是 AI") && s.includes("别让人当真以为你是真人"), "AI disclosure rule");
+  ok(s.includes("可以开点小玩笑") && s.includes("正经事不能编"), "jokes ok, facts not made up (user 2026-10-14)");
+  ok(s.includes("标点少用") && s.includes("句末一般不加句号"), "light punctuation (user 2026-10-14)");
   ok(s.includes("不要自我介绍") && s.includes("有什么问题可以问我"), "no customer-service tone");
   ok(s.includes("只能发文字，不能发图片和表情包") && s.includes("颜文字") && !s.includes("[表情:名字]") && !s.includes("笑哭"), "text only, emotions in words (no stickers, user 2026-10-14)");
   ok(s.includes("小雷") && s.includes("温柔一点") && s.includes("不能违背下面的规则"), "name + style under the rules");
@@ -75,6 +77,8 @@ Deno.test("lib: chime mode; replies are text only", () => {
   const u = userContent((c as any).v);
   ok(u.includes("没人 @ 你") && u.includes("【不说】") && u.includes("群友B：热死了"), u);
   eq(parseReply("【不说】", "小雷"), { skip: true, reply: "" }, "skip");
+  eq(parseReply("哈哈 这个我也想要。", "小雷"), { skip: false, reply: "哈哈 这个我也想要" }, "trailing full stop dropped");
+  eq(parseReply("真的吗？", "小雷"), { skip: false, reply: "真的吗？" }, "question mark kept");
   eq(parseReply("哈哈 [表情:笑哭]", "小雷"), { skip: false, reply: "哈哈" }, "sticker marker removed");
   eq(parseReply("绷不住了[图片] (＾▽＾)", "小雷"), { skip: false, reply: "绷不住了 (＾▽＾)" }, "image marker removed, kaomoji kept");
   eq(parseReply("[表情：无语]", "小雷"), { skip: false, reply: "" }, "marker only -> empty");
