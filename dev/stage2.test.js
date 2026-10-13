@@ -930,7 +930,7 @@ async function run(browser, htmlPath) {
     await page.check("#lgAgree");
     await page.fill("#email", "a@x.com"); await page.fill("#password", "Abcdef1!"); await page.click("#loginBtn"); await page.waitForTimeout(1200);
     const nav = await page.$$eval("#adminApp .admnav button", (b) => b.map((x) => x.dataset.k + (x.classList.contains("on") ? "*" : "")));
-    check("6.30 console: grouped nav with all 14 sections, 总览 active, title shown", nav.length === 14 && nav[0] === "overview*" && (await text(page, "#admTitle")) === "总览" && (await text(page, "#adminApp .admnav")).includes("用户与安全"), JSON.stringify(nav));
+    check("6.30 console: grouped nav with all 15 sections (6.37 adds QQ 机器人), 总览 active, title shown", nav.length === 15 && nav[0] === "overview*" && (await text(page, "#admTitle")) === "总览" && (await text(page, "#adminApp .admnav")).includes("用户与安全"), JSON.stringify(nav));
     await page.click('#adminApp .admnav button[data-k="users"]'); await page.waitForTimeout(300);
     check("6.30 console: tap a section -> highlighted + title changes", (await text(page, "#admTitle")) === "用户" && (await page.$eval('#adminApp .admnav button[data-k="users"]', (b) => b.classList.contains("on"))));
     check("6.30 console: tables carry labels for the phone card layout", await page.evaluate("[...document.querySelectorAll('#adminApp .admtable td')].every(td=>td.dataset.label)"));
@@ -1275,6 +1275,99 @@ async function run(browser, htmlPath) {
     check("6.36 no page errors (login side)", !(page.__errs || []).length, JSON.stringify(page.__errs));
     await ctx.close();
   }
+  // ---- 6.37 QQ 机器人 admin page (server checks are in v6_38; here: what the page shows and sends)
+  {
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => { window.__rpcs = { admin_qqbot_overview: () => ({ data: null, error: { message: "Could not find the function public.admin_qqbot_overview without parameters in the schema cache" } }), admin_qqbot_hits: () => ({ data: [], error: null }) }; });
+    await page.evaluate("adminPanel('qqbot')"); await page.waitForTimeout(300);
+    check("6.37 qqbot before SQL: explains what to run", (await text(page, "#adminBody")).includes("v6_38"), await text(page, "#adminBody"));
+    const F1 = "11111111-1111-4111-8111-111111111111", F2 = "22222222-2222-4222-8222-222222222222";
+    await page.evaluate(({ F1, F2 }) => {
+      const daily = Array.from({ length: 14 }, (_, i) => ({ day: "10-" + String(i + 1).padStart(2, "0"), n: i === 13 ? 4 : i % 3 }));
+      window.__qq = { settings: { enabled: true, groups: ["123456789"], cooldown_sec: 60, require_at: false, token_set: true, token_set_at: "2026-10-13T01:00:00Z", last_seen_at: new Date(Date.now() - 3600e3).toISOString() }, is_super: false,
+        faqs: [{ id: F1, keywords: ["注册", "怎么注册"], answer: "打开网页点注册", enabled: true, sort: 0, hits_30d: 3, hits_total: 5, last_hit: "2026-10-13T02:00:00Z" },
+               { id: F2, keywords: ['"><img src=x onerror=window.__xss=1>'], answer: "<img src=x onerror=window.__xss=2>", enabled: false, sort: 1, hits_30d: 0, hits_total: 0, last_hit: null }],
+        stats: { today: 4, d7: 9, d30: 21, total: 30, daily, groups: [{ group_id: "123456789", n: 21 }] } };
+      window.__qqHits = [{ created_at: "2026-10-13T02:00:00Z", group_id: "123456789", faq_id: F1, keywords: ["注册", "怎么注册"], answer: "x" }, { created_at: "2026-10-12T02:00:00Z", group_id: "123456789", faq_id: null, keywords: null, answer: null }];
+      window.__rpcs = { admin_qqbot_overview: () => ({ data: JSON.parse(JSON.stringify(window.__qq)), error: null }), admin_qqbot_hits: () => ({ data: window.__qqHits, error: null }),
+        admin_qqbot_save_settings: () => ({ data: { ok: true }, error: null }), admin_qqbot_save_faq: () => ({ data: { ok: true, id: F1 }, error: null }), admin_qqbot_delete_faq: () => ({ data: { ok: true }, error: null }),
+        admin_qqbot_new_token: () => ({ data: { ok: true, token: "ab".repeat(32) }, error: null }), admin_qqbot_revoke_token: () => ({ data: { ok: true }, error: null }) };
+    }, { F1, F2 });
+    await page.evaluate("adminGo('qqbot')"); await page.waitForTimeout(300);
+    let t = await text(page, "#adminBody");
+    check("6.37 qqbot: tab in the admin menu (系统 group), earlier tabs kept", (await page.evaluate("ADMIN_TABS.map(t=>t[1]).join()")) === "总览,用户,管理员,售后,快递,店铺,资料库,举证,设备,账号,日志,设置,客服,审核,QQ 机器人" && (await page.evaluate("ADMIN_GROUPS.find(g=>g[0]==='系统')[1].includes('qqbot')")));
+    check("6.37 qqbot: status, stats, groups, FAQs and hit log shown", t.includes("运行中") && t.includes("今天回复") && t.includes("30") && t.includes("21") && t.includes("打开网页点注册") && t.includes("近 30 天 3 次") && t.includes("已删除的问答") && t.includes("不记录群友的 QQ 号和原话"), t.slice(0, 300));
+    check("6.37 qqbot: 14 daily bars, the tallest is full height", (await page.$$eval(".qqbar", (b) => b.length)) === 14 && (await page.$eval(".qqbar:last-child i", (i) => i.style.height)) === "88px");
+    check("6.37 qqbot: on but no contact for 15+ min -> warning", t.includes("超过 15 分钟没有收到机器人的消息"));
+    check("6.37 qqbot: FAQ text from the database is escaped (no script runs)", !(await page.evaluate("window.__xss")) && t.includes("<img src=x onerror=window.__xss=2>"));
+    const oc = await page.$$eval("#adminBody [onclick]", (a) => a.map((x) => x.getAttribute("onclick")));
+    check("6.37 qqbot: onclick only carries checked uuids / fixed code", oc.length > 0 && oc.every((s) => !/img|onerror|注册/.test(s) && (!/'[^']*'/.test(s) || /^[^']*('([0-9a-f-]{36}|qbForm|)'[^']*)*$/.test(s))), JSON.stringify(oc));
+    check("6.37 qqbot (normal admin): no token buttons, explains super admin only", !t.includes("生成新连接码") && t.includes("只有超级管理员能生成"));
+    // settings
+    const qc = (n) => page.evaluate((n) => window.__calls.filter((c) => c.name === n), n);
+    await page.fill("#qbGroups", "123456789\nabc"); await page.evaluate("adminQqbotSaveSettings()"); await page.waitForTimeout(150);
+    check("6.37 qqbot settings: bad group number stopped before the server", (await qc("admin_qqbot_save_settings")).length === 0 && (await text(page, "#toast")).includes("5～12 位数字"));
+    await page.fill("#qbGroups", " 123456789 ， 88888\n"); await page.fill("#qbCd", "30"); await page.check("#qbAt"); await page.evaluate("adminQqbotSaveSettings()"); await page.waitForTimeout(300);
+    let sc = (await qc("admin_qqbot_save_settings")).pop();
+    check("6.37 qqbot settings: saved with trimmed groups, cooldown, @-only", sc && JSON.stringify(sc.args.p) === JSON.stringify({ enabled: true, groups: ["123456789", "88888"], cooldown_sec: 30, require_at: true }), JSON.stringify(sc));
+    // FAQ add / edit / delete
+    await page.click('button:text-is("新增问答")'); await page.waitForTimeout(100);
+    await page.fill("#qbKw", " "); await page.fill("#qbAns", "x"); await page.evaluate("adminQqbotSaveFaq('')"); await page.waitForTimeout(100);
+    check("6.37 qqbot faq: no keyword -> error in the form, nothing sent", (await qc("admin_qqbot_save_faq")).length === 0 && (await text(page, "#qbErr")).includes("至少填一个关键词"));
+    await page.fill("#qbKw", "密码, 忘记密码，密码\n找回"); await page.fill("#qbAns", "  找管理员重置  "); await page.click('#qbForm button:text-is("保存")'); await page.waitForTimeout(300);
+    let fc = (await qc("admin_qqbot_save_faq")).pop();
+    check("6.37 qqbot faq: add sends split + de-duplicated keywords, trimmed answer, no id", fc && JSON.stringify(fc.args.p) === JSON.stringify({ keywords: ["密码", "忘记密码", "找回"], answer: "找管理员重置", sort: 0, enabled: true }), JSON.stringify(fc));
+    await page.evaluate("adminQqbotEdit('" + F1 + "')"); await page.waitForTimeout(100);
+    check("6.37 qqbot faq: edit form prefilled", (await page.inputValue("#qbKw")) === "注册, 怎么注册" && (await page.inputValue("#qbAns")) === "打开网页点注册");
+    await page.fill("#qbAns", "新的回复"); await page.click('#qbForm button:text-is("保存")'); await page.waitForTimeout(300);
+    fc = (await qc("admin_qqbot_save_faq")).pop();
+    check("6.37 qqbot faq: edit sends the id", fc && fc.args.p.id === F1 && fc.args.p.answer === "新的回复");
+    await page.evaluate("adminQqbotEdit(\"x');alert(1);('\")"); await page.evaluate("adminQqbotDelete('not-a-uuid')"); await page.waitForTimeout(100);
+    check("6.37 qqbot faq: non-uuid ids ignored", (await qc("admin_qqbot_delete_faq")).length === 0);
+    await page.evaluate("window.__confirm=false"); await page.evaluate("adminQqbotDelete('" + F2 + "')"); await page.waitForTimeout(100);
+    check("6.37 qqbot faq: delete asks first (cancel -> nothing sent)", (await qc("admin_qqbot_delete_faq")).length === 0);
+    await page.evaluate("window.__confirm=true"); await page.evaluate("adminQqbotDelete('" + F2 + "')"); await page.waitForTimeout(300);
+    check("6.37 qqbot faq: delete sends the id", ((await qc("admin_qqbot_delete_faq")).pop() || {}).args?.p_id === F2);
+    // token (super admin)
+    await page.evaluate("window.__qq.is_super=true"); await page.evaluate("adminQqbot()"); await page.waitForTimeout(300);
+    await page.click('button:text-is("生成新连接码（旧的作废）")'); await page.waitForTimeout(400);
+    t = await text(page, "#adminBody");
+    check("6.37 qqbot token: super admin generates -> shown once with a copy button and a warning", t.includes("ab".repeat(32)) && t.includes("只显示这一次") && t.includes("不要发到群里"), t.slice(0, 400));
+    await page.click('button:text-is("我已保存，隐藏")'); await page.waitForTimeout(100);
+    check("6.37 qqbot token: hidden after 我已保存", !(await text(page, "#adminBody")).includes("ab".repeat(32)));
+    await page.evaluate("adminQqbot()"); await page.waitForTimeout(300);
+    check("6.37 qqbot token: not shown again after reload", !(await text(page, "#adminBody")).includes("ab".repeat(32)));
+    await page.evaluate("window.__confirm=false"); await page.click('button:text-is("作废连接码")'); await page.waitForTimeout(150);
+    check("6.37 qqbot token: revoke asks first", (await qc("admin_qqbot_revoke_token")).length === 0);
+    check("6.37 qqbot: no page errors", !(page.__errs || []).length, JSON.stringify(page.__errs));
+    // 6.38 AI chat card
+    await page.evaluate("window.__rpcs.admin_qqbot_ai_get=()=>({data:null,error:{message:'Could not find the function public.admin_qqbot_ai_get without parameters in the schema cache'}})");
+    await page.evaluate("adminGo('qqbot')"); await page.waitForTimeout(300);
+    check("6.38 AI card before SQL: explains to run v6_39, rest of the page still works", (await text(page, "#adminBody")).includes("v6_39") && (await text(page, "#adminBody")).includes("开关和群设置"));
+    await page.evaluate("window.__rpcs.admin_qqbot_ai_get=()=>({data:{ai_enabled:false,ai_name:'小雷',ai_style:'',ai_daily_limit:200,ai_group_daily_limit:50,today:{calls:3,input_tokens:2700,output_tokens:120},d30:{calls:40,input_tokens:36000,output_tokens:1600},groups_today:[{group_id:'123456789',calls:3}]},error:null}); window.__rpcs.admin_qqbot_save_ai=()=>({data:{ok:true},error:null})");
+    await page.evaluate("adminGo('qqbot')"); await page.waitForTimeout(300);
+    let at = await text(page, "#adminBody");
+    check("6.38 AI card: settings, usage, honesty note and API key note shown", at.includes("AI 聊天") && at.includes("今天 AI 回复") && at.includes("36,000") && at.includes("123456789 3 次") && at.includes("承认自己是 AI") && at.includes("ANTHROPIC_API_KEY") && at.includes("不保存聊天内容"), at.slice(0, 200));
+    await page.fill("#qbAiName", " "); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(100);
+    check("6.38 AI save: empty name stopped before the server", !(await page.evaluate("window.__calls.some(c=>c.name==='admin_qqbot_save_ai')")) && (await text(page, "#toast")).includes("名字"));
+    await page.fill("#qbAiName", "小雷"); await page.fill("#qbAiGLim", "2000"); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(100);
+    check("6.38 AI save: group limit out of range stopped", !(await page.evaluate("window.__calls.some(c=>c.name==='admin_qqbot_save_ai')")));
+    await page.check("#qbAiOn"); await page.fill("#qbAiGLim", "20"); await page.fill("#qbAiStyle", " 活泼一点 "); await page.evaluate("adminQqbotSaveAi()"); await page.waitForTimeout(300);
+    const sa = await page.evaluate("window.__calls.filter(c=>c.name==='admin_qqbot_save_ai').pop()");
+    check("6.38 AI save: sends on/name/style/limits", sa && JSON.stringify(sa.args.p) === JSON.stringify({ ai_enabled: true, ai_name: "小雷", ai_style: "活泼一点", ai_daily_limit: 200, ai_group_daily_limit: 20 }), JSON.stringify(sa));
+    await page.evaluate("window.__rpcs.admin_qqbot_ai_get=()=>({data:{ai_enabled:true,ai_name:'<img src=x onerror=window.__xss=3>',ai_style:'</textarea><img src=x onerror=window.__xss=4>',ai_daily_limit:1,ai_group_daily_limit:1,today:{},d30:{},groups_today:[]},error:null})");
+    await page.evaluate("adminGo('qqbot')"); await page.waitForTimeout(300);
+    check("6.38 AI card: name / style from the database are escaped", !(await page.evaluate("window.__xss")) && (await page.inputValue("#qbAiName")) === "<img src=x onerror=window.__xss=3>");
+    check("6.37.2 shown as 测试版 1.0 (title + header), internal version kept", (await page.title()) === "售后雷达 测试版 1.0" && (await text(page, "#app .sub")).includes("测试版 1.0") && /APP_VERSION="\d+\.\d+\.\d+"/.test(fs.readFileSync(htmlPath, "utf8")));
+    await page.evaluate("window.__rpcs.admin_list_all_tasks=()=>({data:[{order_id:'O1',email:'a@x.com',status:'待处理'}],error:null})");
+    await page.evaluate("adminGo('tasks')"); await page.waitForTimeout(300);
+    const nCalls = await page.evaluate("window.__calls.filter(c=>c.name==='admin_list_all_tasks').length");
+    await page.click('#adminBody button:text-is("刷新")'); await page.waitForTimeout(300);
+    check("6.37.2 list pages: 刷新 next to the search box reloads the same page", (await page.evaluate("window.__calls.filter(c=>c.name==='admin_list_all_tasks').length")) === nCalls + 1);
+    check("6.37.2 status pills never wrap", (await page.evaluate("getComputedStyle(Object.assign(document.createElement('span'),{className:'pill'})).whiteSpace")) === "nowrap" || (await page.evaluate("(()=>{const e=document.createElement('span');e.className='pill';document.body.appendChild(e);const w=getComputedStyle(e).whiteSpace;e.remove();return w})()")) === "nowrap");
+    await ctx.close();
+  }
   // ---- 6.18 phone accounts need admin approval (server enforces with RLS; page shows a clear message)
   {
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
@@ -1311,7 +1404,7 @@ async function run(browser, htmlPath) {
     const ut = await text(page, "#adminBody");
     check("6.19 users tab: all users incl. phone users shown as 手机 xxx, admin marked", ut.includes("a@x.com") && ut.includes("手机 13700137000") && !ut.includes("8613700137000") && ut.includes("管理员") && ut.includes("全站共 2 个账号"), ut.slice(0, 300));
     check("6.19 acct(): email kept, +86 trimmed, foreign kept, empty -> —", JSON.stringify(await page.evaluate("[acct('a@x.com'),acct('8613800138000'),acct('447911123456'),acct(''),acct(null)]")) === JSON.stringify(["a@x.com", "手机 13800138000", "手机 +447911123456", "—", "—"]));
-    check("6.18 admin tabs: 审核 present, earlier tabs kept", (await page.evaluate("ADMIN_TABS.map(t=>t[1]).join()")) === "总览,用户,管理员,售后,快递,店铺,资料库,举证,设备,账号,日志,设置,客服,审核");
+    check("6.18 admin tabs: 审核 present, earlier tabs kept", (await page.evaluate("ADMIN_TABS.map(t=>t[1]).join()")) === "总览,用户,管理员,售后,快递,店铺,资料库,举证,设备,账号,日志,设置,客服,审核,QQ 机器人");
     await ctx.close();
     const r2 = await open(browser, htmlPath, { db: seed(), admin: true, pre: { __noApprovalFns: true } });
     await r2.page.waitForTimeout(300);
@@ -1435,7 +1528,7 @@ async function run(browser, htmlPath) {
   await page.evaluate("setMode('user')");
   await page.evaluate("openSettings()");
   const st = await text(page, "#modalbox");
-  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.36.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
+  check("settings: account/version/data-safety/export", st.includes("a@x.com") && st.includes("6.38.0") && st.includes("测试版 1.0") && st.includes("数据安全") && st.includes("导出 JSON 备份") && st.includes("每分钟"));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.evaluate("exportTasks()")]);
   const path = await dl.path(); const exp = JSON.parse(fs.readFileSync(path, "utf8"));
   check("export: JSON backup has tasks/stores/library + filename", exp.tasks.length === 3 && Array.isArray(exp.stores) && Array.isArray(exp.library) && /^after-sales-radar-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
