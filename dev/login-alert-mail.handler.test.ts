@@ -20,7 +20,7 @@ const DAY = 24 * 3600 * 1000;
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
 function seed() {
   state.users = { "tok-p": P, "tok-pend": PEND, "tok-e": E, "tok-ban": BAN };
-  state.authUsers = { [P]: { phone: "8615770572452", email: "" }, [PEND]: { phone: "8613800000000", email: "" }, [E]: { email: "boss@x.com", email_confirmed_at: ago(1e9) }, [BAN]: { phone: "8613900000000", email: "" } };
+  state.authUsers = { [P]: { phone: "8613512345678", email: "" }, [PEND]: { phone: "8613800000000", email: "" }, [E]: { email: "boss@x.com", email_confirmed_at: ago(1e9) }, [BAN]: { phone: "8613900000000", email: "" } };
   state.db = { login_alert_emails: [], login_alert_mails: [], admin_operation_logs: [] }; state.clients = []; state.deny = {};
   state.passwords = { [P]: "Pw#12345", [E]: "Em#12345", [PEND]: "Pd#12345" }; state.signIns = []; state.signOuts = []; state.signInError = null; state.updateError = null; state.adminCalls = []; state.adminSignOuts = []; state.adminSignOutError = null;
   state.pk = { login_alert_mails: ["user_id", "device_id"], login_alert_emails: ["user_id"] };
@@ -50,7 +50,7 @@ async function bind(tok: string, uid: string, email: string) {
 
 Deno.test("lib: masks, email check, smtp config (QQ default host, only port 465)", () => {
   eq(maskEmail("1012968575@qq.com"), "10****75@qq.com", "mask long"); eq(maskEmail("ab@x.com"), "a*@x.com", "mask short");
-  eq(maskPhone("8615770572452"), "157****2452", "phone");
+  eq(maskPhone("8613512345678"), "135****5678", "phone");
   ok(isEmail("a.b@qq.com") && !isEmail("a@b") && !isEmail("x y@qq.com") && !isEmail(""), "isEmail");
   const c: any = smtpConfig((k) => ({ SMTP_USER: "me@qq.com", SMTP_PASS: "x" } as any)[k]); eq(c.ok && c.cfg.host, "smtp.qq.com", "qq host"); eq(c.cfg.port, 465, "port");
   eq(smtpConfig((k) => ({ SMTP_USER: "me@qq.com", SMTP_PASS: "x", SMTP_PORT: "587" } as any)[k]).ok, false, "587 refused");
@@ -99,7 +99,7 @@ Deno.test("notify: new device after binding -> one alert mail to the bound email
   ];
   const n = await call({ action: "notify", device_id: "dev-new-000002" }, "tok-p"); eq(n.json.sent, true, "sent");
   eq(mailbox.sent.length, 1, "one mail"); const m = mailbox.sent[0]; eq(m.to, "me@qq.com", "to bound email"); ok(m.subject.includes("新设备登录"), "subject");
-  ok(m.text.includes("157****2452") && m.text.includes("Windows · Chrome") && m.text.includes("8.8.8.8") && m.text.includes("修改密码"), "body");
+  ok(m.text.includes("135****5678") && m.text.includes("Windows · Chrome") && m.text.includes("8.8.8.8") && m.text.includes("修改密码"), "body");
   eq((await call({ action: "notify", device_id: "dev-new-000002" }, "tok-p")).json.reason, "already_sent", "dedupe"); eq(mailbox.sent.length, 1, "still one");
   eq((await call({ action: "notify", device_id: "dev-old-000001" }, "tok-p")).json.reason, "not_new", "old device"); eq(mailbox.sent.length, 1, "no mail for old");
   eq((await call({ action: "notify", device_id: "dev-unknown-03" }, "tok-p")).json.reason, "no_device", "someone else's / unknown device");
@@ -139,15 +139,15 @@ Deno.test("decline and remove", async () => {
 Deno.test("change phone: needs the current password (checked with a temporary session that is then signed out locally)", async () => {
   seed();
   eq((await call({ action: "change_phone", phone: "12345", password: "Pw#12345" }, "tok-p")).json.code, "bad_phone", "bad phone");
-  eq((await call({ action: "change_phone", phone: "15770572452", password: "Pw#12345" }, "tok-p")).json.code, "same", "same phone");
+  eq((await call({ action: "change_phone", phone: "13512345678", password: "Pw#12345" }, "tok-p")).json.code, "same", "same phone");
   const w = await call({ action: "change_phone", phone: "13912345678", password: "wrong" }, "tok-p");
   eq(w.json.code, "wrong_password", "wrong pw"); ok(w.json.message.includes("还可以再试 4 次"), w.json.message); eq(state.adminCalls.length, 0, "not changed");
-  eq(state.signIns[0].phone, "+8615770572452", "verified with the current phone"); eq(state.signIns[0].key, "sb_publishable_test", "publishable key, not secret");
+  eq(state.signIns[0].phone, "+8613512345678", "verified with the current phone"); eq(state.signIns[0].key, "sb_publishable_test", "publishable key, not secret");
   const r = await call({ action: "change_phone", phone: "139 1234 5678", password: "Pw#12345" }, "tok-p");
   eq(r.status, 200, "ok"); eq(r.json.phone, "139****5678", "masked"); eq(state.authUsers[P].phone, "8613912345678", "phone changed");
   eq(state.adminCalls.at(-1).attrs.phone, "+8613912345678", "admin api"); eq(state.adminCalls.at(-1).attrs.phone_confirm, true, "confirmed");
   eq(state.signOuts.length, 1, "temp session signed out"); eq(state.signOuts[0].scope, "local", "only the temp session");
-  const log = state.db.admin_operation_logs.at(-1); eq(log.action, "change_phone", "logged"); eq(log.user_id, P, "by the user"); ok(log.detail.includes("157****2452") && log.detail.includes("139****5678"), log.detail);
+  const log = state.db.admin_operation_logs.at(-1); eq(log.action, "change_phone", "logged"); eq(log.user_id, P, "by the user"); ok(log.detail.includes("135****5678") && log.detail.includes("139****5678"), log.detail);
 });
 Deno.test("change phone: number used by another account -> clear message; pending/banned refused; 5 wrong passwords lock", async () => {
   seed();

@@ -14,7 +14,7 @@ const ADMIN = "11111111-1111-1111-1111-111111111111", USER = "22222222-2222-2222
 function seed() {
   state.users = { "tok-admin": ADMIN, "tok-user": USER };
   state.admins = [ADMIN];
-  state.authUsers = { [P1]: { phone: "8615770572452", email: null }, [ADMIN]: { email: "boss@x.com" } };
+  state.authUsers = { [P1]: { phone: "8613512345678", email: null }, [ADMIN]: { email: "boss@x.com" } };
   state.adminCalls = []; state.db = { admin_operation_logs: [] }; state.clients = [];
   // 6.34: v6_34 installed -> the server says whether the caller may act on the target (here: no admin can be targeted)
   state.rpcs.admin_may_target = (a: any) => ({ data: !state.admins.includes(a.p_user), error: null });
@@ -42,7 +42,7 @@ Deno.test("normal user -> 403, nothing changed (admin check on the server)", asy
 });
 Deno.test("admin resets a phone user: new strong password returned, set via admin API, logged without the password", async () => {
   seed(); const r = await call({ user_id: P1 }, "tok-admin");
-  eq(r.status, 200, "status"); eq(r.json.ok, true, "ok"); eq(r.json.account, "手机 15770572452", "label");
+  eq(r.status, 200, "status"); eq(r.json.ok, true, "ok"); eq(r.json.account, "手机 13512345678", "label");
   if (!strong(r.json.password)) throw new Error("weak password returned");
   eq(state.adminCalls.length, 1, "one update"); eq(state.adminCalls[0].id, P1, "target"); eq(state.adminCalls[0].attrs.password, r.json.password, "same password");
   const log = state.db.admin_operation_logs; eq(log.length, 1, "one log row"); eq(log[0].user_id, ADMIN, "logged admin"); eq(log[0].action, "reset_password", "action");

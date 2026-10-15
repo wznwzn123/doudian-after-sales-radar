@@ -16,7 +16,7 @@ export function maskEmail(v: unknown): string {
   return name.slice(0, keep) + "****" + name.slice(-keep) + dom;
 }
 
-// 8615770572452 -> 157****2452
+// 8613512345678 -> 135****5678
 export function maskPhone(v: unknown): string {
   const p = String(v ?? "").replace(/^\+?86(?=1\d{10}$)/, "");
   return /^\d{11}$/.test(p) ? p.slice(0, 3) + "****" + p.slice(-4) : p ? "****" + p.slice(-4) : "";
@@ -61,7 +61,7 @@ export function codeMail(code: string, purpose: "alert" | "login" = "alert"): { 
   };
 }
 
-// 中国大陆手机号 -> "+8615770572452"；不合法返回 ""（和前端 parseIdent 同一条规则：13～19 开头的 11 位）
+// 中国大陆手机号 -> "+8613512345678"；不合法返回 ""（和前端 parseIdent 同一条规则：13～19 开头的 11 位）
 export function normPhone(v: unknown): string {
   const d = String(v ?? "").replace(/[\s-]/g, "").replace(/^\+?86(?=1\d{10}$)/, "");
   return /^1[3-9]\d{9}$/.test(d) ? "+86" + d : "";

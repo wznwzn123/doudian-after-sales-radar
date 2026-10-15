@@ -532,7 +532,7 @@ async function run(browser, htmlPath) {
     await page.waitForTimeout(300);
     check("6.16 phone: login field says 邮箱或手机号", (await page.getAttribute("#email", "placeholder")) === "邮箱或手机号");
     const lt = await text(page, "#login");
-    check("6.17 login tips: email recommended, phone not, contact + studio", lt.includes("邮箱注册【推荐】") && lt.includes("点邮件里发亮的按钮") && lt.includes("1-3 秒") && lt.includes("手机号注册【不推荐】") && lt.includes("先绑定提醒邮箱才能自己找回") && lt.includes("1012968575@qq.com") && lt.includes("悠然网络科技工作室") && !lt.includes("yrnb0611"));
+    check("6.17 login tips: email recommended, phone not, contact + studio", lt.includes("邮箱注册【推荐】") && lt.includes("点邮件里发亮的按钮") && lt.includes("1-3 秒") && lt.includes("手机号注册【不推荐】") && lt.includes("先绑定提醒邮箱才能自己找回") && lt.includes("1012968575@qq.com") && lt.includes("悠然网络科技工作室") && !lt.includes("gmail"));
     const pi = await page.evaluate(`[parseIdent("138 0013 8000"),parseIdent("+86 138-0013-8000"),parseIdent("8613800138000"),parseIdent("a@x.com"),parseIdent("+447911123456"),parseIdent(""),parseIdent("12345678901"),parseIdent("10000000000"),parseIdent("1380013800"),parseIdent("abc"),parseIdent("a@b")]`);
     const mainland = "请输入正确的中国大陆手机号（13～19 开头的 11 位数字）";
     check("6.16/6.18 phone: parseIdent (mainland segments only, bad input flagged)", JSON.stringify(pi) === JSON.stringify([{ phone: "+8613800138000" }, { phone: "+8613800138000" }, { phone: "+8613800138000" }, { email: "a@x.com" }, { bad: mainland }, null, { bad: mainland }, { bad: mainland }, { bad: mainland }, { bad: "请输入正确的邮箱或手机号" }, { bad: "邮箱格式不正确" }]), JSON.stringify(pi));
@@ -588,7 +588,7 @@ async function run(browser, htmlPath) {
 
   // ---- 6.21 admin resets a password (Edge Function stubbed) + change my password
   {
-    const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [{ id: "u1", email: "a@x.com", is_admin: true }, { id: "22222222-0000-4000-8000-0000000000a1", email: "8615770572452", is_admin: false }, { id: "33333333-0000-4000-8000-000000000bad", email: "x'+alert(document.domain)+'@evil.tld", is_admin: false }] });
+    const { ctx, page } = await open(browser, htmlPath, { db: seed(), admin: true, users: [{ id: "u1", email: "a@x.com", is_admin: true }, { id: "22222222-0000-4000-8000-0000000000a1", email: "8613512345678", is_admin: false }, { id: "33333333-0000-4000-8000-000000000bad", email: "x'+alert(document.domain)+'@evil.tld", is_admin: false }] });
     await page.waitForTimeout(300);
     await page.evaluate("adminPanel('users')"); await page.waitForTimeout(300);
     const btns = await page.evaluate("[...document.querySelectorAll('#admList button')].map(b=>b.textContent)");
@@ -599,14 +599,14 @@ async function run(browser, htmlPath) {
     check("6.32 XSS: the evil email only shows up as text in the confirm box, nothing runs", (await page.evaluate("window.__confirmText")).includes("@evil.tld") && !(page.__errs || []).length);
     await page.evaluate("window.confirm=()=>window.__confirm");
     check("6.21 users tab: 重置密码 for others, not for myself", btns.length === 2 && btns[0] === "重置密码" && (await text(page, "#admList")).includes("当前账号"), JSON.stringify(btns));
-    await page.evaluate("window.__confirm=false"); await page.click('#admList tr:has-text("15770572452") button:text-is("重置密码")'); await page.waitForTimeout(150);
+    await page.evaluate("window.__confirm=false"); await page.click('#admList tr:has-text("13512345678") button:text-is("重置密码")'); await page.waitForTimeout(150);
     check("6.21 reset asks first (with identity warning) -> cancel sends nothing", !(await page.evaluate("window.__fn")));
-    await page.evaluate(() => { window.__confirm = true; window.__fnReply = (n, o) => (n === "admin-reset-password" && o.body.user_id === "22222222-0000-4000-8000-0000000000a1" ? { data: { ok: true, password: "Ab3$xyzPQR7k", account: "手机 15770572452" }, error: null } : { data: null, error: { message: "wrong call" } }); });
-    await page.click('#admList tr:has-text("15770572452") button:text-is("重置密码")'); await page.waitForTimeout(300);
+    await page.evaluate(() => { window.__confirm = true; window.__fnReply = (n, o) => (n === "admin-reset-password" && o.body.user_id === "22222222-0000-4000-8000-0000000000a1" ? { data: { ok: true, password: "Ab3$xyzPQR7k", account: "手机 13512345678" }, error: null } : { data: null, error: { message: "wrong call" } }); });
+    await page.click('#admList tr:has-text("13512345678") button:text-is("重置密码")'); await page.waitForTimeout(300);
     const fn = await page.evaluate("window.__fn.pop()");
     check("6.21 reset calls the server function with the user id only", fn.name === "admin-reset-password" && JSON.stringify(fn.opts.body) === JSON.stringify({ user_id: "22222222-0000-4000-8000-0000000000a1" }));
     const shown = await text(page, "#adminBody");
-    check("6.21 temp password shown once with instructions", (await text(page, "#tmpPw")) === "Ab3$xyzPQR7k" && shown.includes("手机 15770572452") && shown.includes("修改密码") && shown.includes("不会记录密码"));
+    check("6.21 temp password shown once with instructions", (await text(page, "#tmpPw")) === "Ab3$xyzPQR7k" && shown.includes("手机 13512345678") && shown.includes("修改密码") && shown.includes("不会记录密码"));
     await page.evaluate(() => { window.__fnReply = () => ({ data: null, error: { message: "non-2xx", context: { json: async () => ({ ok: false, code: "forbidden", message: "没有管理员权限" }) } } }); });
     await page.evaluate("adminUsers()"); await page.waitForTimeout(200); await page.evaluate("adminResetPassword('22222222-0000-4000-8000-0000000000a1')"); await page.waitForTimeout(300);
     check("6.21 server refusal shown, no password", (await text(page, "#adminBody")).includes("没有管理员权限") && !(await page.$("#tmpPw")));
@@ -1256,12 +1256,12 @@ async function run(browser, htmlPath) {
   {
     // phone account forgot password + new phone sign-up notifies the owner
     const { ctx, page } = await open(browser, htmlPath, { db: seed(), pre: { __noSession: true } });
-    await page.evaluate("lgView('login')"); await page.fill("#email", "15770572452"); await page.evaluate("forgot()"); await page.waitForTimeout(200);
-    check("6.36 phone reset: 忘记密码 with a phone number opens the reset form (prefilled)", (await text(page, "#modalbox")).includes("找回密码") && (await page.inputValue("#prPhone")) === "15770572452");
+    await page.evaluate("lgView('login')"); await page.fill("#email", "13512345678"); await page.evaluate("forgot()"); await page.waitForTimeout(200);
+    check("6.36 phone reset: 忘记密码 with a phone number opens the reset form (prefilled)", (await text(page, "#modalbox")).includes("找回密码") && (await page.inputValue("#prPhone")) === "13512345678");
     await page.evaluate(() => { window.__fnReply = (n, o) => (n === "phone-password-reset" && o.body.action === "send" ? { data: { ok: true, message: "如果这个手机号已经注册，并且绑定了提醒邮箱，验证码已经发到那个邮箱" }, error: null } : n === "phone-password-reset" && o.body.action === "reset" ? { data: { ok: true, message: "密码已重置，所有设备上的旧登录都已退出。请用新密码登录。" }, error: null } : { data: null, error: { message: "?" } }); });
     await page.click("#prSend"); await page.waitForTimeout(200);
     const sent = await page.evaluate("(window.__fn||[]).filter(f=>f.name==='phone-password-reset').pop()");
-    check("6.36 phone reset: send goes to the server with the normalized phone, neutral answer shown", sent && sent.opts.body.action === "send" && /^\+?86?15770572452$/.test(sent.opts.body.phone) && (await text(page, "#prMsg")).includes("如果这个手机号"), JSON.stringify(sent && sent.opts.body));
+    check("6.36 phone reset: send goes to the server with the normalized phone, neutral answer shown", sent && sent.opts.body.action === "send" && /^\+?86?13512345678$/.test(sent.opts.body.phone) && (await text(page, "#prMsg")).includes("如果这个手机号"), JSON.stringify(sent && sent.opts.body));
     await page.fill("#prCode", "123456"); await page.fill("#prPw1", "weak"); await page.fill("#prPw2", "weak"); await page.evaluate("phoneResetDo()"); await page.waitForTimeout(100);
     check("6.36 phone reset: weak password stopped before calling the server", (await text(page, "#prMsg")).includes("8 位") && (await page.evaluate("(window.__fn||[]).filter(f=>f.name==='phone-password-reset').length")) === 1);
     await page.fill("#prPw1", "New#Pass9"); await page.fill("#prPw2", "New#Pass9"); await page.evaluate("phoneResetDo()"); await page.waitForTimeout(300);

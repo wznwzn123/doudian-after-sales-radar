@@ -30,7 +30,7 @@ function seed() {
   console.error = () => {};
   state.users = { "tok-a": A, "tok-p": P, "tok-admin": ADMIN };
   state.admins = [ADMIN];
-  state.authUsers = { [A]: { email: "a@x.com", email_confirmed_at: "2026-10-01" }, [P]: { phone: "8615770572452", email: "" }, [ADMIN]: { email: "boss@x.com" } };
+  state.authUsers = { [A]: { email: "a@x.com", email_confirmed_at: "2026-10-01" }, [P]: { phone: "8613512345678", email: "" }, [ADMIN]: { email: "boss@x.com" } };
   state.passwords = { [A]: "Aa#12345", [P]: "Pp#12345", [ADMIN]: "Ad#12345" };
   state.db = { app_secrets: [{ name: "cron_key", value: KEY }], task_deadline_mails: [], login_alert_emails: [], admin_operation_logs: [], quota_counters: [] };
   state.pk = {}; state.deny = {}; state.adminCalls = []; state.signIns = []; state.signOuts = []; state.signInError = null; state.updateError = null;
@@ -88,32 +88,32 @@ Deno.test("phone reset: bad phone -> 400; unknown phone and phone without alert 
   seed();
   eq((await call("phone-password-reset", { action: "send", phone: "123" })).status, 400, "bad phone");
   const a = await call("phone-password-reset", { action: "send", phone: "13900000000" });
-  const b = await call("phone-password-reset", { action: "send", phone: "15770572452" });
+  const b = await call("phone-password-reset", { action: "send", phone: "13512345678" });
   eq(a.status, 200, "unknown ok"); eq(b.status, 200, "no alert email ok"); eq(a.json.message, b.json.message, "same message (no enumeration)"); eq(mailbox.sent.length, 0, "no mail");
 });
 Deno.test("phone reset: code goes to the verified alert email, only a hash is stored, 60 s resend guard", async () => {
   seed(); withAlert();
-  const r = await call("phone-password-reset", { action: "send", phone: "+86 157 7057 2452" });
+  const r = await call("phone-password-reset", { action: "send", phone: "+86 135 1234 5678" });
   eq(r.status, 200, "ok"); eq(mailbox.sent.length, 1, "one mail"); eq(mailbox.sent[0].to, "alert@qq.com", "to alert email");
   const code = mailbox.sent[0].subject.slice(-6); const row = state.db.login_alert_emails[0];
   eq(row.rst_code_hash, await hashCode(P, "reset:" + code), "hash stored"); ok(!JSON.stringify(row).includes(code), "code itself not stored");
-  await call("phone-password-reset", { action: "send", phone: "15770572452" }); eq(mailbox.sent.length, 1, "resend within 60 s ignored");
+  await call("phone-password-reset", { action: "send", phone: "13512345678" }); eq(mailbox.sent.length, 1, "resend within 60 s ignored");
 });
 Deno.test("phone reset: wrong codes -> same generic message, the 5th wrong try kills the code", async () => {
-  seed(); withAlert(); await call("phone-password-reset", { action: "send", phone: "15770572452" });
+  seed(); withAlert(); await call("phone-password-reset", { action: "send", phone: "13512345678" });
   const code = mailbox.sent[0].subject.slice(-6), wrong = code === "000000" ? "111111" : "000000";
   let last: any;
-  for (let i = 0; i < 5; i++) last = await call("phone-password-reset", { action: "reset", phone: "15770572452", code: wrong, new_password: "New#Pass9" });
+  for (let i = 0; i < 5; i++) last = await call("phone-password-reset", { action: "reset", phone: "13512345678", code: wrong, new_password: "New#Pass9" });
   eq(last.json.code, "bad_code", "generic"); eq(state.db.login_alert_emails[0].rst_code_hash, null, "code invalidated");
-  eq((await call("phone-password-reset", { action: "reset", phone: "15770572452", code, new_password: "New#Pass9" })).json.code, "bad_code", "even the right code no longer works");
+  eq((await call("phone-password-reset", { action: "reset", phone: "13512345678", code, new_password: "New#Pass9" })).json.code, "bad_code", "even the right code no longer works");
   eq(state.adminCalls.length, 0, "password never changed");
   eq((await call("phone-password-reset", { action: "reset", phone: "13900000000", code: "123456", new_password: "New#Pass9" })).json.message, last.json.message === "验证码错误次数太多，已作废，请重新获取" ? "验证码不对或已过期，请重新获取" : last.json.message, "unknown phone -> same generic message");
 });
 Deno.test("phone reset: right code -> password set, every session revoked, logged, notice mailed; weak password refused first", async () => {
-  seed(); withAlert(); await call("phone-password-reset", { action: "send", phone: "15770572452" });
+  seed(); withAlert(); await call("phone-password-reset", { action: "send", phone: "13512345678" });
   const code = mailbox.sent[0].subject.slice(-6);
-  eq((await call("phone-password-reset", { action: "reset", phone: "15770572452", code, new_password: "weak" })).json.code, "weak", "weak");
-  const r = await call("phone-password-reset", { action: "reset", phone: "15770572452", code, new_password: "New#Pass9" });
+  eq((await call("phone-password-reset", { action: "reset", phone: "13512345678", code, new_password: "weak" })).json.code, "weak", "weak");
+  const r = await call("phone-password-reset", { action: "reset", phone: "13512345678", code, new_password: "New#Pass9" });
   eq(r.status, 200, "ok"); eq(state.adminCalls.at(-1).id, P, "own account"); eq(state.adminCalls.at(-1).attrs.password, "New#Pass9", "new password");
   eq(JSON.stringify(state.revokedAll), JSON.stringify([P]), "all sessions revoked"); eq(state.db.admin_operation_logs.at(-1).action, "reset_password_self", "logged");
   ok(!JSON.stringify(state.db.admin_operation_logs).includes("New#Pass9"), "password not logged"); ok(mailbox.sent.at(-1).subject.includes("密码已修改"), "notice mail");
@@ -121,7 +121,7 @@ Deno.test("phone reset: right code -> password set, every session revoked, logge
 });
 Deno.test("phone reset: rate limits (per IP / phone / site) -> 429, nothing sent", async () => {
   seed(); withAlert(); state.quotaLimitHit = "pr_phone";
-  const r = await call("phone-password-reset", { action: "send", phone: "15770572452" });
+  const r = await call("phone-password-reset", { action: "send", phone: "13512345678" });
   eq(r.status, 429, "limited"); eq(mailbox.sent.length, 0, "no mail");
 });
 
