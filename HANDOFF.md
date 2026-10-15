@@ -1,5 +1,7 @@
 # 售后雷达 Pro — 交接说明（给下一位开发者 / Claude Code）
 
+> 先读仓库根目录的 `个人档案.md`：用户背景、沟通方式、做过的决定和待办的汇总。
+
 ## 项目
 - 仓库：`wznwzn123/doudian-after-sales-radar`，主文件 `index.html`（单文件前端，GitHub Pages 发布），线上 https://wznwzn123.github.io/doudian-after-sales-radar/
 - 后端：Supabase 项目 `doudian-after-sales-radar`（id `bdnazzywqqmliqyhhtig`）
